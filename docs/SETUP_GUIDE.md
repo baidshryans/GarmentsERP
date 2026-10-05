@@ -14,6 +14,8 @@ For the owner, accountant and merchandiser. Follow the parts in order. Each mast
 
 **Menu paths** below are written like *Masters → Styles*. Some screens are only visible if your role allows them (Part 2).
 
+**Home and the menu.** Home shows the everyday jobs as buttons grouped Buy, Make, Sell, Money and Masters, plus a "Needs your attention" list of what is waiting. The menu on the left holds the same screens grouped as Masters, Buy, Make, Sell, Stock, Money and Reports, with accountant and settings screens under More. Press Ctrl+K to find any screen by its new name or its old trade term (GRN, challan, debit note).
+
 ---
 
 ## 0. The order of setup
@@ -23,18 +25,18 @@ Later steps depend on earlier ones. Do not skip ahead.
 | # | Step | Where | Who | Time |
 | --- | --- | --- | --- | --- |
 | 1 | Setup wizard: company, tax switches, financial year, first factory | `/setup/` (first login) | Owner | 15 min |
-| 2 | More factories and locations | Admin → Factories | Administrator | 10 min |
-| 3 | Roles and users | Admin → Roles, Users | Administrator | 30 min |
-| 4 | Tax settings, HSN and GST slabs | Tax | Accountant | 20 min |
-| 5 | Inventory settings | Settings → Inventory | Owner | 5 min |
-| 6 | Chart of accounts: add bank accounts and your own ledgers | Accounts → Chart of accounts | Accountant | 30 min |
+| 2 | More factories and locations | More → Settings → Factories | Administrator | 10 min |
+| 3 | Roles and users | More → Settings → Roles, Users | Administrator | 30 min |
+| 4 | Tax settings, HSN and GST slabs | More → Settings → Tax settings | Accountant | 20 min |
+| 5 | Inventory settings | More → Settings → Inventory settings | Owner | 5 min |
+| 6 | Chart of accounts: add bank accounts and your own ledgers | More → Accountant → Chart of accounts | Accountant | 30 min |
 | 7 | Basic masters: units, sizes, colours, products, materials, processes | Masters | Merchandiser | 1–2 hours |
-| 8 | Routes | Masters → Routes | Merchandiser + Production head | 30 min |
+| 8 | Routes | Masters → Setup → Routes | Merchandiser + Production head | 30 min |
 | 9 | Parties: vendors, fabricators, customers, agents, transporters | Masters → Parties | Accountant / Purchase | 1–3 hours |
 | 10 | Styles, SKUs and BOMs | Masters → Styles | Merchandiser | per style |
-| 11 | Labour rates for each fabricator | Job work → Rates | Production head + Accountant | 1 hour |
+| 11 | Labour rates for each fabricator | Make → Labour rates | Production head + Accountant | 1 hour |
 | 12 | Price lists | Masters → Price lists | Owner / Sales | 30 min |
-| 13 | Opening balances and opening stock | Accounts → Opening, Inventory → Opening stock | Accountant + Store Keeper | 1 day |
+| 13 | Opening balances and opening stock | More → Accountant → Opening balances, Opening stock | Accountant + Store Keeper | 1 day |
 | 14 | Dry run with one real lot | Part 14 | Everyone | 1 day |
 
 You can load parties, styles, materials, opening stock and opening balances from Excel (Part 13) instead of typing them.
@@ -93,7 +95,7 @@ Everything created is editable. Re-running the seeders only adds what is missing
 
 ### 3.1 Factories and locations
 
-*Admin → Factories.* One record per physical unit. Every voucher and stock movement belongs to a factory, and users only see the factories they are assigned to.
+*More → Settings → Factories.* One record per physical unit. Every voucher and stock movement belongs to a factory, and users only see the factories they are assigned to.
 
 Each new factory gets these locations automatically. Add more with **Add location**.
 
@@ -128,7 +130,7 @@ Use more than one factory only if they need separate books, stock or users. If i
 
 ### 3.2 Roles
 
-*Admin → Roles.* A role is a permission matrix: for each screen, tick **view / create / edit / cancel / approve**. A second block hides sensitive fields (customer phone, rates, cost) from the role.
+*More → Settings → Roles.* A role is a permission matrix: for each screen, tick **view / create / edit / cancel / approve**. A second block hides sensitive fields (customer phone, rates, cost) from the role.
 
 The system supplies these. Copy and adjust rather than starting from blank.
 
@@ -152,7 +154,7 @@ Customer name and phone on made-to-order jobs are never shown to production role
 
 ### 3.3 Users
 
-*Admin → Users → New.*
+*More → Settings → Users → New.*
 
 | Field | Example |
 | --- | --- |
@@ -192,7 +194,7 @@ Fabricators and sales staff get users later, when their screens are released.
 | GST registered, from | Yes, `01-04-2026` |
 | TDS deductor, from | Yes, `01-04-2026` |
 
-**HSN and slabs** (*Masters → HSN codes*). Each HSN has dated value slabs: the GST rate depends on the per-piece value.
+**HSN and slabs** (*Masters → Setup → HSN and GST slabs*). Each HSN has dated value slabs: the GST rate depends on the per-piece value.
 
 | HSN | Description | Slab (per piece) | GST | From |
 | --- | --- | --- | --- | --- |
@@ -214,7 +216,7 @@ Add a template for any rate or section you use that is missing. Confirm every ra
 
 ## 5. Inventory settings
 
-*Settings → Inventory.*
+*More → Settings → Inventory settings.*
 
 | Setting | What it does | Suggested start |
 | --- | --- | --- |
@@ -229,7 +231,7 @@ A change applies from that day. Earlier stock keeps its value.
 
 ## 6. Chart of accounts
 
-*Accounts → Chart of accounts.* Seeded, editable. You need to **add your bank accounts and any party-specific or business-specific ledgers**.
+*More → Accountant → Chart of accounts.* Seeded, editable. You need to **add your bank accounts and any party-specific or business-specific ledgers**.
 
 **Add these ledgers**
 
@@ -623,7 +625,7 @@ Reading this: the base quantity applies to sizes M, and sizes listed in *size ov
 
 ## 11. Labour rates (what each fabricator is paid)
 
-*Job work → Rates → New.* A rate is for one **fabricator + process**, with a start date. A new rate never changes bills already made; it applies to challans issued after its date. Labour is paid **only on QC-accepted pieces**.
+*Make → Labour rates → New.* A rate is for one **fabricator + process**, with a start date. A new rate never changes bills already made; it applies to challans issued after its date. Labour is paid **only on QC-accepted pieces**.
 
 There are four rate types.
 
@@ -685,7 +687,7 @@ Load these **last**, once everything above exists, and **on the books-begin date
 
 ### 13.1 Opening balances (money)
 
-*Accounts → Opening balances.* Enter or import last closing balances as at the day before the books begin.
+*More → Accountant → Opening balances.* Enter or import last closing balances as at the day before the books begin.
 
 | Ledger | Debit | Credit | Reference | Due date |
 | --- | --- | --- | --- | --- |
@@ -703,7 +705,7 @@ Load these **last**, once everything above exists, and **on the books-begin date
 
 ### 13.2 Opening stock
 
-*Inventory → Opening stock.* Choose factory and location, then enter lines or import Excel.
+*More → Accountant → Opening stock.* Choose factory and location, then enter lines or import Excel.
 
 **Fabric — one row per roll**
 
@@ -732,7 +734,7 @@ Load these **last**, once everything above exists, and **on the books-begin date
 Notes:
 
 - `qty` is in the item's unit and `rate` is cost per unit. Fabric roll quantity is the actual weighed quantity.
-- **Print roll labels** (*Inventory → Rolls → label*) and stick them on the rolls, so scanning works from day one.
+- **Print roll labels** (*Stock → Fabric rolls → label*) and stick them on the rolls, so scanning works from day one.
 - Count and enter physical stock on the **same day**, otherwise the first movements will not match what is on the shelf.
 
 ---
@@ -769,7 +771,7 @@ Rules for the sheet:
 
 Run one small lot through the whole system. This is the same flow as BRD scenarios A1–A3 and A10.
 
-1. **Purchase fabric.** Purchase order → GRN into Main Godown with roll numbers and weights → QC → purchase invoice. Check the roll balance in *Inventory → Stock*.
+1. **Purchase fabric.** Purchase order → goods received (GRN) into Main Godown with roll numbers and weights → QC → supplier bill (purchase invoice). Check the roll balance in *Stock → Stock*.
 2. **Create a production order** for `JGR-104`, Black, 20 pieces each of M and L, and release it. Route B is copied into the lot.
 3. **Plan the route.** Check each step; assign stitching to Gurpreet Garments and embroidery to Royal Embroidery.
 4. **Issue fabric** by roll. The roll balance reduces.
@@ -828,10 +830,10 @@ If any figure looks wrong, fix the master (rate, BOM, route) and repeat. **Cance
 | A rate (labour, selling, GST) | Add a **new dated row** | Old documents keep the old rate |
 | A BOM | New version on the style | Old lots keep the old version |
 | A route | Edit the route | Existing lots keep their copy |
-| Add a factory or location | Admin → Factories | Number series are created automatically |
-| Permissions | Admin → Roles | Check with a test user |
-| Tax switches | Tax | Effective-dated |
-| Inventory rules | Settings → Inventory | Applies from that day |
+| Add a factory or location | More → Settings → Factories | Number series are created automatically |
+| Permissions | More → Settings → Roles | Check with a test user |
+| Tax switches | More → Settings → Tax settings | Effective-dated |
+| Inventory rules | More → Settings → Inventory settings | Applies from that day |
 
 Every master and transaction keeps a history of who changed what and when.
 
@@ -847,7 +849,7 @@ Part A prepared the masters. This part follows one lot from the production order
 
 | Stage | Screen | What changes |
 | --- | --- | --- |
-| 1 | Production → Production orders → New order → **Release order** | Order numbered; one **lot** per style and colour, each with its own copy of the route |
+| 1 | Make → Production orders → New order → **Release order** | Order numbered; one **lot** per style and colour, each with its own copy of the route |
 | 2 | Lot → **Issue fabric** | Rolls move from godown to cutting floor |
 | 3 | Lot → **Cutting** → Make bundles and QR tags | Fabric cost goes into the lot; pieces become **bundles** with QR tags |
 | 4 | **Move bundles** (in-house step) or **Challan** (fabricator step) | Bundle moves to the next step on the route |
@@ -855,8 +857,8 @@ Part A prepared the masters. This part follows one lot from the production order
 | 6 | Repeat 4–5 down the route | |
 | 7 | Lot → **Pack into finished goods** | Pieces become saleable stock |
 | 8 | Labour bills → **New labour bill**, then **Pay fabricator** on the posted bill | Fabricator paid for accepted pieces |
-| 9 | Sale order → Packing list → **Invoice** (or Barcode billing) | Stock leaves, customer owes money |
-| 10 | Posted invoice → **Receive payment** (or Accounts → Enter a voucher → Receipt) | Customer's bill settled |
+| 9 | Sale order → Packing list → **Invoice** (or Quick billing) | Stock leaves, customer owes money |
+| 10 | Posted invoice → **Receive payment** (or Money → Money received) | Customer's bill settled |
 
 **Rules the system enforces for you**
 
@@ -866,7 +868,7 @@ Part A prepared the masters. This part follows one lot from the production order
 - Posted documents are never edited or deleted. You cancel them (with a reason) and enter a correct one.
 - You only see and post in the factories assigned to you. Pick your factory in the top bar before posting.
 
-**Who does what** (default roles; the owner can change them in Admin → Roles)
+**Who does what** (default roles; the owner can change them in More → Settings → Roles)
 
 | Step | Role |
 | --- | --- |
@@ -885,7 +887,7 @@ Lot pages, fabric issue, cutting and QR tags are **not** menu items. Open the pr
 
 ## 20. Start a production order
 
-*Production → Production orders → New order.*
+*Make → Production orders → New order.*
 
 | Field | Example |
 | --- | --- |
@@ -997,7 +999,7 @@ Bundle statuses you will see: Cut → At stage → Received, awaiting QC → Rea
 
 ### 23.1 In-house move
 
-*Production → Move bundles.*
+*Make → Move bundles.*
 
 1. Choose the **Lot** and press **Show bundles**.
 2. **Scan** each bundle's QR (or type its number) in the scan box and press Enter. Scanning only ticks the row; everything is checked when you save.
@@ -1019,7 +1021,7 @@ What the system checks:
 
 ### 23.2 Issue to a fabricator (challan)
 
-*Production → Job work → Challans → New challan* (or the link from Move bundles).
+*Make → Sent to fabricators* (the challan list) *→ New challan* (or the link from Move bundles).
 
 1. Choose **Lot**, **Kind** (Job work, or Rework for pieces sent back) and the **Step**, then **Show bundles**.
 2. Choose the **Fabricator**, Date and **Expected back by**.
@@ -1060,7 +1062,7 @@ Press **Receive**. Scanning the bundle tags ticks the rows.
 
 ### 23.4 Quality check (QC)
 
-*Production → Job work → Receipts and QC →* open the receipt. For every bundle fill:
+*Make → Received from fabricators* (receipts and QC) *→* open the receipt. For every bundle fill:
 
 | Field | Meaning |
 | --- | --- |
@@ -1115,7 +1117,7 @@ The lot becomes **Completed** when none of its bundles is still live; packed, wr
 
 ### Tracking at any time
 
-- **Production → Dashboard:** Cut today, Stitched today, Packed today; work in progress by stage and by factory; pieces with fabricators; late lots (past the due date); oldest open lots.
+- **Make → Production dashboard:** Cut today, Stitched today, Packed today; work in progress by stage and by factory; pieces with fabricators; late lots (past the due date); oldest open lots.
 - The **Where is it?** box searches by order number, style number, lot number or order reference and lists each bundle with size, pieces, current stage, location and status.
 
 ---
@@ -1124,7 +1126,7 @@ The lot becomes **Completed** when none of its bundles is still live; packed, wr
 
 ### 25.1 Labour bill
 
-*Production → Labour → Labour bills → New labour bill.*
+*Make → Labour bills → New labour bill.*
 
 1. Choose **Fabricator** and **Factory**, then **Show what is payable**.
 2. The screen lists **accepted QC pieces not yet paid**: Challan, Lot, Bundle, Accepted, Rate, Amount. It also lists the **deductions** it found: shortage of pieces (at lot cost) and missing trims (at unit cost).
@@ -1178,7 +1180,7 @@ The same works for vendors: a posted purchase invoice has **Pay vendor**. Sectio
 
 ### 26.1 Sales settings (once)
 
-*Admin → Settings → Sales settings.*
+*More → Settings → Sales settings.*
 
 | Setting | Meaning | Suggested |
 | --- | --- | --- |
@@ -1189,7 +1191,7 @@ The same works for vendors: a posted purchase invoice has **Pay vendor**. Sectio
 
 ### 26.2 Sale order
 
-*Sales → Sale orders → New order.*
+*Sell → Sale orders → New order.*
 
 | Field | Example |
 | --- | --- |
@@ -1225,11 +1227,11 @@ Order statuses: Draft → Confirmed → Partly dispatched → Fully invoiced. Al
 - **Credit limit:** it is stored on the customer but is **not enforced**; nothing is blocked. To see what a customer already owes, choose them on a **Sales voucher** or **Journal voucher** (section 28): the outstanding amount appears beside the choice. The receivables ageing (section 29) shows it for every customer.
 - Ready-stock orders reserve nothing at order time. Stock is checked when you finalise the packing list.
 
-*Sales → Sale orders → Order book* shows open orders with their pending balance.
+*Sell → Sale orders → Order book* shows open orders with their pending balance.
 
 ### 26.3 Packing and dispatch
 
-*Sales → Packing and dispatch*, then **Pack** beside the order (or **Pack and dispatch** on the order).
+*Sell → Packing and dispatch*, then **Pack** beside the order (or **Pack and dispatch** on the order).
 
 | Field | Example |
 | --- | --- |
@@ -1249,7 +1251,7 @@ Then **Print list** and **Carton labels**. Carton codes look like `C000123-01`; 
 
 **From a packing list:** on a Packed list press **Create invoice for the packed pieces**. A draft invoice is made at the order's rates and discounts. Transporter, LR and vehicle carry over.
 
-**Counter sale by scanning:** *Sales → Barcode billing.*
+**Counter sale by scanning:** *Sell → Quick billing (barcode).*
 
 1. Choose **Customer**, **Factory**, **Goods leave from** (location) and **Date**.
 2. Scan each item's barcode in the scan box and press Enter. One scan adds one piece; a carton code adds the whole carton. "Unknown barcode" means the code is not a SKU or carton.
@@ -1288,7 +1290,7 @@ Example: Mehta Traders, 120 pieces.
 | Round off | − ₹0.20 |
 | **Invoice total** | **₹45,070.00** |
 
-**Invoice list and print.** *Sales → Sale invoices* has tabs All, Draft, Posted, Cancelled. Open an invoice → **Print** gives the tax invoice with QR, carton count and tax breakup. The invoice page links to its order, packing list and accounting voucher.
+**Invoice list and print.** *Sell → Bills* (the sale invoice list) has tabs All, Draft, Posted, Cancelled. Open an invoice → **Print** gives the tax invoice with QR, carton count and tax breakup. The invoice page links to its order, packing list and accounting voucher.
 
 **Discard draft** removes a draft. A posted invoice is never edited.
 
@@ -1298,7 +1300,7 @@ Example: Mehta Traders, 120 pieces.
 
 ### 26.5 Returns: credit note
 
-Open the posted invoice → **Credit note** (or *Sales → Credit notes*).
+Open the posted invoice → **Credit note** (or *Sell → Returns from customer*).
 
 | Field | Example |
 | --- | --- |
@@ -1315,7 +1317,7 @@ Open the posted invoice → **Credit note** (or *Sales → Credit notes*).
 
 **The quick way.** Open the posted sale invoice. It shows **Outstanding** and a **Receive payment** button. The button opens a **Receipt voucher** with the customer, the amount still open and the invoice reference already filled in. Choose **Received in** (cash or bank), check the amount, add a narration and press **Post receipt voucher**. The invoice then shows **Settled**. If the customer pays only part, enter that amount; the rest stays Outstanding.
 
-**Any time.** *Accounts → Enter a voucher → Receipt.* Needs the Accountant role and a **single factory chosen in the top bar** (the form does not ask for it). Post it in the factory the invoice belongs to.
+**Any time.** *Money → Money received.* Needs the Accountant role and a **single factory chosen in the top bar** (the form does not ask for it). Post it in the factory the invoice belongs to.
 
 | Field | Example |
 | --- | --- |
@@ -1357,7 +1359,7 @@ Your accountant must confirm which ledger fits each case.
 
 ## 28. Other money vouchers
 
-*Accounts → Enter a voucher.*
+*Money → Money paid* and *Money → Money received* are the everyday ones; Contra and Journal are under *More → Accountant*.
 
 | Voucher | Use | Example |
 | --- | --- | --- |
@@ -1366,7 +1368,7 @@ Your accountant must confirm which ledger fits each case.
 | **Contra** | Cash ↔ bank | Deposit ₹50,000 cash into HDFC |
 | **Journal** | Any balanced entry between ledgers | Adjustments, TDS and discounts |
 
-*Accounts → Sales and purchase entries* has manual **Sales**, **Purchase**, **Debit note** and **Credit note** vouchers. They are value-only: **no stock moves**. Prefer the document screens (invoices, GRN, purchase invoices) whenever goods are involved.
+*More → Accountant* also has manual **Sales**, **Purchase**, **Debit note** and **Credit note** vouchers. They are value-only: **no stock moves**. Prefer the document screens (bills, goods received, supplier bills) whenever goods are involved.
 
 **See what a party owes as you enter.** When you choose a customer or vendor on a **Sales voucher** (and the other party vouchers), or choose a ledger on a **Journal**, **Payment** or **Receipt**, a note appears beneath it, for example *Outstanding ₹1,20,000.00 Dr (owes you) in 2 open bills · advance ₹5,000.00 Cr*. Dr means they owe you, Cr means you owe them. For an ordinary ledger such as a bank account it shows the balance. This is **information only**; it never stops you from posting.
 
@@ -1378,17 +1380,17 @@ A purchase invoice posts the vendor's bill (reference = their invoice number, wi
 
 | Question | Screen |
 | --- | --- |
-| Who owes me, and how overdue? | Reports → Ageing → **Receivables ageing**. Buckets: Not due, 1–30, 31–60, 61–90, 91–180, 181–365, Over a year; plus Outstanding and Advance / on account. Each open bill is listed with its age. Click a party for its statement |
-| Whom do I owe? | Reports → Ageing → **Payables ageing** |
-| All dealings with one party | Accounts → Books → **Ledger statement**: choose the ledger and date range; opening balance, each entry, running balance; Excel export |
-| What happened today? | Accounts → Books → **Day book** (filter by factory, dates, voucher type) |
-| Is everything balanced? | Accounts → Books → **Trial balance** (debits must equal credits) |
-| Profit and position | Accounts → Books → **Profit and loss**, **Balance sheet** |
-| Find a voucher | Accounts → **All vouchers** (filter by factory, type, status, number) |
+| Who owes me, and how overdue? | Reports → **Who owes me** (receivables ageing). Buckets: Not due, 1–30, 31–60, 61–90, 91–180, 181–365, Over a year; plus Outstanding and Advance / on account. Each open bill is listed with its age. Click a party for its statement |
+| Whom do I owe? | Reports → **Whom I owe** (payables ageing) |
+| All dealings with one party | Money → **Party accounts** (ledger statement): choose the ledger and date range; opening balance, each entry, running balance; Excel export |
+| What happened today? | More → Accountant → **Day book** (filter by factory, dates, voucher type) |
+| Is everything balanced? | More → Accountant → **Trial balance** (debits must equal credits) |
+| Profit and position | Reports → **Profit and loss**, **Balance sheet** |
+| Find a voucher | Money → **All entries** (all vouchers) (filter by factory, type, status, number) |
 | Sales summary | Reports → **Sales** |
 | Finished goods stock | Reports → **Finished stock** |
 | GST filing data | Reports → GST → **GSTR-1 data**, **GSTR-3B summary**, **Tax register** |
-| Fabricators | Production → Reports → **Fabricator reports**, **Daily summary** |
+| Fabricators | Reports → **Fabricator reports**, **Daily summary** |
 
 **Daily and weekly habits**
 

@@ -133,6 +133,10 @@ Release 1 scope is PRD Section 9.1. Do not build Release 2 or 3 items unless I a
 
 Write an end-to-end test for each of BRD scenarios A1–A12 (BRD Section 11.1) as soon as the features they need exist, and keep them green.
 
+## Help Section
+
+Whenever there is any change in the project backend or frontend, check the help section of the ERP and update as needed. Hence you should also update the setup guide in the docs folder.
+
 ## Working style
 
 - Before starting a step, give me a short plan: the models, services and screens you'll build, plus any questions. Wait for my go-ahead on step 1 and on any change to the data model.

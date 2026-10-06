@@ -1044,3 +1044,13 @@ def test_editing_a_draft_production_order_saves_what_it_is_for(job, owner, owner
     with pytest.raises(BusinessRuleError, match="Only a draft order"):
         prod_orders.update_order(job.order, user=owner, purpose="mto", lines=[])
     assert ProductionOrder.objects.get(pk=job.order.pk).purpose == "stock"
+
+
+# ================================================================ the buttons that open these forms
+
+def test_list_buttons_open_the_forms_by_their_new_names(company, factory, owner_c):
+    for url_name, words, old in (("grn_list", "Goods received", "New GRN"), ("invoice_list", "New supplier bill", "New invoice"),
+                                 ("debitnote_list", "Return to supplier", "Return to vendor"),
+                                 ("challan_list", "Send to fabricator", "New challan")):
+        head = html_of(owner_c.get(reverse(url_name))).split('<div class="actions">', 1)[1].split("</div>", 1)[0]
+        assert f"</svg> {words}</a>" in head and old not in head, url_name

@@ -2,7 +2,7 @@
 {% block title %}Sent to fabricators{% endblock %}
 {% block content %}
   <div class="page-head"><h1 class="page-title">Sent to fabricators</h1>
-    <div class="actions"><a class="btn" href="{% url 'job_reports' %}">Fabricator reports</a>{% if can_create %}<a class="btn primary" href="{% url 'challan_new' %}"><svg width="16" height="16"><use href="#i-plus"/></svg> New challan</a>{% endif %}</div></div>
+    <div class="actions"><a class="btn" href="{% url 'job_reports' %}">Fabricator reports</a>{% if can_create %}<a class="btn primary" href="{% url 'challan_new' %}"><svg width="16" height="16"><use href="#i-plus"/></svg> Send to fabricator</a>{% endif %}</div></div>
   <div class="steps"><a class="step {% if not status %}current{% endif %}" href="{% url 'challan_list' %}">All</a><a class="step {% if status == 'out' %}current{% endif %}" href="?status=out">Out with fabricators</a>{% for v, l in statuses %}<a class="step {% if status == v %}current{% endif %}" href="?status={{ v }}">{{ l }}</a>{% endfor %}</div>
   <div class="island">
     {% if challans %}<div class="table-wrap"><table>

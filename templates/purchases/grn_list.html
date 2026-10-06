@@ -2,7 +2,7 @@
 {% block title %}Goods received{% endblock %}
 {% block content %}
   <div class="page-head"><h1 class="page-title">Goods received</h1>
-    <div class="actions">{% if can_create %}<a class="btn primary" href="{% url 'grn_new' %}"><svg width="16" height="16"><use href="#i-plus"/></svg> New GRN</a>{% endif %}</div></div>
+    <div class="actions">{% if can_create %}<a class="btn primary" href="{% url 'grn_new' %}"><svg width="16" height="16"><use href="#i-plus"/></svg> Goods received</a>{% endif %}</div></div>
   <div class="island">
     {% if grns %}<div class="table-wrap"><table>
       <thead><tr><th scope="col">Number</th><th scope="col">Date</th><th scope="col">Vendor</th><th scope="col">PO</th><th scope="col">Factory</th><th scope="col">Status</th><th scope="col">Next step</th><th scope="col" aria-label="Actions"></th></tr></thead>

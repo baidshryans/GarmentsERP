@@ -319,6 +319,39 @@ def move_bundles(*, bundles, to_step, user, date=None, factory=None, location=No
     return out
 
 
+@transaction.atomic
+def count_bundles(*, bundles, counts, user, reason, date=None) -> list:
+    """Take loss, rejection or shortage out of bundles where they stand, without moving them (BR-21). For pieces
+    found spoiled or missing at an in-house stage whose next stage is a fabricator's: the challan sends whatever is
+    in the bundle and has no place for the count. counts = {bundle pk: Count}. Needs a reason."""
+    date = date or timezone.localdate()
+    if not reason.strip():
+        raise BusinessRuleError("Give a reason for the pieces taken out.")
+    bundles = [Bundle.objects.select_related("lot", "location", "location__factory", "current_step", "current_step__process",
+                                             "sku").get(pk=b.pk) for b in bundles]
+    bundles = [b for b in bundles if (c := counts.get(b.pk)) and (c.loss or c.rejection or c.shortage)]
+    if not bundles:
+        raise BusinessRuleError("Tick the bundles and enter the pieces lost, rejected or short.")
+    _check_same_lot(bundles)
+    out = []
+    for b in bundles:
+        assert_factory_access(user, b.location.factory)
+        if b.status not in (Bundle.Status.CUT, Bundle.Status.READY, Bundle.Status.AT_STAGE):
+            raise BusinessRuleError(f"Bundle {b.bundle_no} is {b.get_status_display().lower()}: nothing can be taken out of it now.")
+        if b.location.loc_type == Location.Type.FABRICATOR:
+            raise BusinessRuleError(f"Bundle {b.bundle_no} is with a fabricator: count it when it is received.")
+        if b.rework_qty:
+            raise BusinessRuleError(f"Bundle {b.bundle_no} has pieces waiting for rework; finish that first.")
+        if b.status == Bundle.Status.AT_STAGE and b.current_step_id and b.current_step.process.no_loss:
+            raise BusinessRuleError(f"{b.current_step.process.name} allows no loss.")
+        c = counts[b.pk]
+        out.append(apply_move(
+            bundle=b, kind=StageMovement.Kind.WRITE_OFF, to_location=b.location, user=user, date=date, new_status=b.status,
+            loss=c.loss, rejection=c.rejection, shortage=c.shortage, reason=reason.strip()))
+    refresh_steps(bundles[0].lot)
+    return out
+
+
 def _packing_step(lot):
     steps = list(lot.steps.exclude(status=LotStep.Status.SKIPPED).order_by("-sequence"))
     for s in steps:

@@ -21,13 +21,13 @@ def gl(company, key, factory=None):
     return ledger_balance(Ledger.objects.get(company=company, system_key=key), factory=factory)
 
 
-def build(company, factory, owner, qty=100, ratios=None, with_stock=True):
+def build(company, factory, owner, qty=100, ratios=None, with_stock=True, route="Standard track pant route"):
     """Style JGR-1 (Black, S-XL), BOM 0.4 kg fabric + 1 zipper per piece, standard route, a released order and its lot."""
     black = Colour.objects.get(name="Black")
     sizes = {c: Size.objects.get(code=c) for c in ("S", "M", "L", "XL")}
     style = styles.create_style(company=company, style_no="JGR-1", product=Product.objects.get(code="JGR"), name="Jogger",
                                 colours=[black], sizes=list(sizes.values()))
-    style.default_route = RouteTemplate.objects.get(name="Standard track pant route")
+    style.default_route = RouteTemplate.objects.get(name=route)
     style.save()
     fabric = Material.objects.create(code="FAB-1", name="Fleece", kind="fabric", unit=Unit.objects.get(code="KG"))
     zipper = Material.objects.create(code="ZIP-1", name="Zipper", kind="trim", unit=Unit.objects.get(code="PCS"))

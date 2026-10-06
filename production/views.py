@@ -469,6 +469,11 @@ class MoveView(LoginRequiredMixin, ScreenPermissionMixin, View):
                                          shortage=vu.whole(p.get(f"shortage_{b.pk}"), "Shortage", 0))
                 if c.loss or c.rejection or c.shortage:
                     counts[b.pk] = c
+            if p.get("action") == "count":      # take the pieces out where the bundles stand; nothing moves
+                done = bundle_service.count_bundles(bundles=bundles, counts=counts, user=request.user, reason=p.get("reason", ""))
+                gone = sum(m.loss + m.rejection + m.shortage for m in done)
+                messages.success(request, f"{gone} piece(s) taken out of {len(done)} bundle(s). Nothing was moved.")
+                return redirect(f"{request.path}?lot={lot.pk}" + ("&back=1" if p.get("back") == "1" else ""))
             to_step = get_object_or_404(LotStep, pk=p.get("to_step"), lot=lot)
             factory = Factory.objects.filter(pk=p.get("factory")).first() if p.get("factory") else None
             moves = bundle_service.move_bundles(bundles=bundles, to_step=to_step, user=request.user, factory=factory,

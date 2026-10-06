@@ -663,3 +663,45 @@ def test_the_database_refuses_boxes_that_do_not_add_up(company, factory, owner):
     line = PackEntry.objects.get().lines.get()
     with pytest.raises(IntegrityError), transaction.atomic():
         PackEntryLine.objects.filter(pk=line.pk).update(full_boxes=5)
+
+
+# ---------------- taking loss out without moving ----------------
+
+def test_loss_can_be_taken_out_of_a_bundle_where_it_stands(company, factory, owner):
+    ns = build(company, factory, owner)
+    all_in_house(ns)
+    bundles = cut(ns)
+    go(ns, bundles, "STITCH")
+    b = bundles[1]                                                          # 25 pieces
+    Count = bundle_service.Count
+    with pytest.raises(BusinessRuleError, match="reason"):
+        bundle_service.count_bundles(bundles=[b], counts={b.pk: Count(loss=1)}, user=owner, reason=" ")
+    with pytest.raises(BusinessRuleError, match="enter the pieces"):
+        bundle_service.count_bundles(bundles=[b], counts={}, user=owner, reason="x")
+    (m,) = bundle_service.count_bundles(bundles=[b], counts={b.pk: Count(loss=1, rejection=2)}, user=owner, date=DAY,
+                                        reason="Stained at the table")
+    b.refresh_from_db()
+    assert (m.kind, m.qty_out, m.qty_in, m.loss, m.rejection) == ("write_off", 25, 22, 1, 2)       # BR-21 holds
+    assert b.qty == 22 and b.status == "at_stage" and b.current_step == step(ns, "STITCH")         # it did not move
+    assert wip_qty(ns, "Process Area") == 97 and wip_qty(ns, "Rejects") == 2
+    go(ns, bundles, "IRON")
+    with pytest.raises(BusinessRuleError, match="allows no loss"):                                  # not at a no-loss stage
+        bundle_service.count_bundles(bundles=[b], counts={b.pk: Count(loss=1)}, user=owner, reason="x")
+
+
+def test_loss_cannot_be_taken_out_of_a_bundle_that_is_with_a_fabricator(company, factory, owner):
+    from jobwork.services import challans, rates
+
+    ns = build(company, factory, owner)
+    bundles = cut(ns)
+    fab = fabricator(company)
+    rates.save_rate(party=fab, process=step(ns, "STITCH").process, rate_type="A", base_rate=D("25"), effective_from=DAY)
+    challans.create_and_issue(company=company, factory=factory, party=fab, lot=ns.lot, step=step(ns, "STITCH"),
+                              bundles=bundles[:1], date=DAY, user=owner)
+    with pytest.raises(BusinessRuleError, match="with a fabricator"):
+        bundle_service.count_bundles(bundles=bundles[:1], counts={bundles[0].pk: bundle_service.Count(shortage=1)},
+                                     user=owner, reason="x")
+    stranger = make_user("elsewhere")
+    with pytest.raises(FactoryNotAllowed):
+        bundle_service.count_bundles(bundles=bundles[1:2], counts={bundles[1].pk: bundle_service.Count(loss=1)},
+                                     user=stranger, reason="x")

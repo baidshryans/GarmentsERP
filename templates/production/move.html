@@ -26,9 +26,11 @@
     <div class="field-row" style="margin-top:12px">
       <div class="field"><label for="to_step">Move to stage</label><select id="to_step" name="to_step">{% for s in steps %}<option value="{{ s.pk }}"{% if s.pk|stringformat:"s" == to_step %} selected{% endif %}>{{ s.sequence }}. {{ s.process.name }} — {% if s.assignment == "in_house" %}in-house{% else %}fabricator{% endif %}</option>{% endfor %}</select></div>
       <div class="field"><label for="factory">At factory</label><select id="factory" name="factory"><option value="">Stage default</option>{% for f in factories %}<option value="{{ f.pk }}">{{ f.code }}</option>{% endfor %}</select></div>
-      <div class="field"><label for="reason">Reason (needed when going back)</label><input id="reason" name="reason" type="text"></div></div>
+      <div class="field"><label for="reason">Reason (needed when going back, or when only taking pieces out)</label><input id="reason" name="reason" type="text"></div></div>
     <div class="form-actions"><button class="btn primary">Move selected bundles</button>
-      <a class="btn" href="{% url 'challan_new' %}?lot={{ lot.pk }}">Issue to a fabricator instead</a></div>{% endif %}
+      <button class="btn" name="action" value="count">Only take out loss, do not move</button>
+      <a class="btn" href="{% url 'challan_new' %}?lot={{ lot.pk }}">Issue to a fabricator instead</a></div>
+    <p class="muted">If the next stage is a fabricator's, take out any pieces lost at this stage first: the challan sends whatever is in the bundle.</p>{% endif %}
   </form>
   <script src="{% static 'js/scan.js' %}?v={{ asset_v }}" defer></script>
   {% endif %}

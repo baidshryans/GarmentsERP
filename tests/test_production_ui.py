@@ -470,3 +470,18 @@ def test_a_style_can_set_its_own_pieces_per_box(company, factory, owner):
     c = login(owner)
     form = c.get(reverse("style_edit", args=[ns.style.pk])).content.decode()
     assert 'name="pieces_per_box"' in form
+
+
+def test_the_move_screen_can_take_out_loss_without_moving(company, factory, owner):
+    ns = build(company, factory, owner)
+    bundles = cut(ns)
+    c = login(user_with("sup", "Production Supervisor", factory))
+    assert b"Only take out loss, do not move" in c.get(reverse("move_bundles"), {"lot": ns.lot.pk}).content
+    data = {"lot": ns.lot.pk, "bundle": [bundles[1].pk], "to_step": step(ns, "STITCH").pk, "action": "count",
+            f"loss_{bundles[1].pk}": "2"}
+    bad = c.post(reverse("move_bundles"), data)
+    assert bad.status_code == 200 and b"Give a reason" in bad.content
+    ok = c.post(reverse("move_bundles"), {**data, "reason": "Cut wrong"}, follow=True)
+    b = Bundle.objects.get(pk=bundles[1].pk)
+    assert b"2 piece(s) taken out of 1 bundle(s). Nothing was moved." in ok.content
+    assert b.qty == 23 and b.status == "cut" and b.current_step is None

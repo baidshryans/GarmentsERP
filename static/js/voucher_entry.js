@@ -57,7 +57,8 @@
     if (billWise(row)) { return true; }           // option other than "On account", or something typed in the cells
     var kind = row.querySelector("select[name=row_ref_type]");
     if (kind && kind.value && kind.value !== "on_account") { return true; }
-    return Array.prototype.some.call(row.querySelectorAll("input.bill-cell"), function (c) { return c.value.trim() !== ""; });
+    // only the real fields: the searchable select adds its own text box, which always shows the chosen option
+    return Array.prototype.some.call(row.querySelectorAll("input.bill-cell[name]"), function (c) { return c.value.trim() !== ""; });
   }
 
   function syncCols() {                           // Money paid / received: the bill columns take no space until a row needs them

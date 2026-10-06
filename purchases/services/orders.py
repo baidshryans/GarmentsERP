@@ -24,7 +24,7 @@ class POLineSpec:
 
 def _check_vendor(vendor):
     if not vendor.is_vendor:
-        raise BusinessRuleError(f"{vendor.name} is not marked as a vendor.")
+        raise BusinessRuleError(f"{vendor.name} is not marked as a supplier.")
     if not vendor.is_active:
         raise BusinessRuleError(f"{vendor.name} is inactive.")
 

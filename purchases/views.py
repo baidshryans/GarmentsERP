@@ -5,10 +5,11 @@ from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.shortcuts import get_object_or_404, redirect, render
+from django.utils import timezone
 from django.views import View
 
 from core.exceptions import BusinessRuleError
-from core import viewutils as vu
+from core import forms_ui, viewutils as vu
 from core.models import Company, Location
 from core.scoping import ScreenPermissionMixin
 from core.services.active_factory import in_active, require_active_factory
@@ -344,7 +345,7 @@ class GrnSave(LoginRequiredMixin, ScreenPermissionMixin, View):
         except (ValueError, BusinessRuleError) as exc:
             _msgs(request, exc)
             return render(request, "purchases/grn_form.html", self._ctx(request, grn, po, rows, p))
-        messages.success(request, "GRN saved. Now record the QC result for each line.")
+        messages.success(request, "Goods received saved. Now record the QC result for each line.")
         return redirect("grn_detail", pk=grn.pk)
 
 
@@ -505,8 +506,13 @@ class InvoiceSave(LoginRequiredMixin, ScreenPermissionMixin, View):
                         row.update(qty=line.qty, rate=line.rate)
                 grn_lines.append(row)
         itc = (d.get("itc_claimable") == "on") if posted else (inv.itc_claimable if inv else True)
+        tax_mode, today = d.get("tax_mode") or PurchaseInvoice.TaxMode.NONE, timezone.localdate().isoformat()
         return {
-            "vendors": _vendors(), "vendor": vendor, "factory": factory, "inv": inv, "itc": itc,
+            "vendors": _vendors(), "vendor": vendor, "factory": factory, "inv": inv, "itc": itc, "tax_mode": tax_mode,
+            # the tax section opens once a GST choice needs its details, or TDS is chosen; the booking date is today unless changed
+            "tax_open": forms_ui.more_open({"tax_mode": tax_mode, "tds_template": d.get("tds_template")},
+                                           {"tax_mode": PurchaseInvoice.TaxMode.NONE, "tds_template": ""}),
+            "more_is_open": forms_ui.more_open({"date": d.get("date") or today, "notes": d.get("notes")}, {"date": today, "notes": ""}),
             "grn_lines": grn_lines, "d": d, "direct": direct, "mats": mats, "skus": skus, "rows": rows,
             "locations": locations, "held": list(held.values()),
             "gst_templates": TaxTemplate.objects.filter(kind="gst", is_active=True),
@@ -517,7 +523,7 @@ class InvoiceSave(LoginRequiredMixin, ScreenPermissionMixin, View):
     def _draft_or_back(self, request, pk):
         inv = self._inv(request, pk)
         if inv is not None and inv.status != "draft":
-            messages.error(request, "Only a draft invoice can be edited; cancel a posted one instead.")
+            messages.error(request, "Only a draft supplier bill can be edited; cancel a posted one instead.")
             return inv, redirect("invoice_detail", pk=inv.pk)
         return inv, None
 
@@ -587,7 +593,7 @@ class InvoiceSave(LoginRequiredMixin, ScreenPermissionMixin, View):
         except (ValueError, BusinessRuleError) as exc:
             _msgs(request, exc)
             return render(request, "purchases/invoice_form.html", self._ctx(request, p, inv, posted=True))
-        messages.success(request, "Invoice saved as a draft. Check the figures, then post it.")
+        messages.success(request, "Supplier bill saved as a draft. Check the figures, then post it.")
         return redirect("invoice_detail", pk=saved.pk)
 
 
@@ -701,6 +707,8 @@ class DebitNoteSave(LoginRequiredMixin, ScreenPermissionMixin, View):
         itc = (d.get("itc_claimable") == "on") if posted else (note.itc_claimable if note else True)
         return {
             "vendors": _vendors(), "factory": factory, "mats": mats, "skus": skus, "note": note, "itc": itc,
+            "tax_open": forms_ui.more_open({"gst_template": (d or {}).get("gst_template"), "itc_claimable": itc},
+                                           {"gst_template": "", "itc_claimable": True}),
             "locations": Location.objects.filter(factory=factory, is_active=True).exclude(loc_type="transit"),
             "rolls": RollBalance.objects.for_user(request.user).filter(qty__gt=0).select_related("roll__material", "location"),
             "gst_templates": TaxTemplate.objects.filter(kind="gst", is_active=True, is_reverse_charge=False),

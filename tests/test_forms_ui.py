@@ -85,7 +85,10 @@ def starts_blank(html, select_id):
 
 
 def flashed(html):
-    return re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", html))
+    """The words on the screen itself: the page between the menu and the footer, without markup or scripts."""
+    main = html.split("<main", 1)[1].split("</main>", 1)[0] if "<main" in html else html
+    main = re.sub(r"<script\b.*?</script>", " ", main, flags=re.S)
+    return re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", main))
 
 
 # ================================================================ the one rule
@@ -492,3 +495,165 @@ def test_the_bom_folds_only_its_version_note(ns, owner_c, trim):
                                       **{f"size_{s.pk}": [""] for s in ns.sizes.values()},
                                       "charge_desc": [""], "charge_process": [""], "charge_amount": [""]}))
     assert folded(html, "notes", is_open=True) and 'value="new zip"' in html
+
+
+# ================================================================ buying
+
+def hidden_for_choice(html, name):
+    """Is the field posted as `name` inside a block the server has hidden for the current choice?"""
+    block = re.search(rf'<div[^>]*data-show-when="[^"]*"[^>]*>(?:(?!data-show-when).)*?name="{name}"', html, re.S)
+    assert block, name
+    return bool(re.match(r'<div[^>]*[" ]hidden>', block.group(0)))
+
+
+def test_the_purchase_order_shows_supplier_date_and_lines(company, factory, owner, owner_c, vendor, trim):
+    html = html_of(owner_c.get(reverse("po_new")))
+    assert in_view(html, "vendor", "date", "item", "qty", "rate") and folded(html, "expected_date", "remarks")
+    assert '<label for="vendor">Supplier</label>' in html and '<label for="remarks">Notes</label>' in html
+    assert '<label for="expected_date">Expected by</label>' in html
+    text = flashed(html)
+    assert "Vendor" not in text and "Remarks" not in text
+    assert html.index('value="draft">Save draft') < html.index('value="submit">Save and submit')      # the safe button first
+    po = po_service.create_po(company=company, factory=factory, vendor=vendor, date=DAY, user=owner, remarks="by Friday",
+                              lines=[po_service.POLineSpec(trim, D("10"), D("2"))])
+    assert folded(html_of(owner_c.get(reverse("po_edit", args=[po.pk]))), "expected_date", "remarks", is_open=True)
+    html = html_of(owner_c.post(reverse("po_new"), {"vendor": vendor.pk, "date": "2026-06-15", "expected_date": "soon",
+                                                    "item": [f"m:{trim.pk}"], "qty": ["1"], "rate": ["1"]}))
+    assert folded(html, "expected_date", "remarks", is_open=True) and "not a valid date" in flashed(html)
+
+
+def test_a_purchase_order_saved_from_the_short_form_is_the_same_order(company, factory, owner_c, vendor, trim):
+    r = owner_c.post(reverse("po_new"), {"vendor": vendor.pk, "date": "2026-06-15", "expected_date": "", "remarks": "",
+                                         "item": [f"m:{trim.pk}"], "qty": ["12"], "rate": ["3"]})
+    po = PurchaseOrder.objects.get()
+    assert r.status_code == 302 and (po.expected_date, po.remarks, po.status) == (None, "", "draft")
+    assert po.lines.get().qty == D("12")
+
+
+def test_goods_received_shows_supplier_place_date_and_lines(company, factory, owner_c, vendor, trim, godown):
+    html = html_of(owner_c.get(reverse("grn_new")))
+    assert in_view(html, "vendor", "location", "date", "item", "rate", "qty", "rolls")
+    assert folded(html, "vendor_challan_no", "vendor_challan_date", "remarks")
+    text = flashed(html)
+    assert "Goods received (GRN)" in text and "Supplier's challan no." in text and "Notes" in text
+    assert "New GRN" not in text and "Vendor" not in text and "vendor" not in text and "Remarks" not in text
+    for label in ('<label for="vendor">Supplier</label>', '<label for="vcn">', '<label for="vcd">', '<label for="rem">Notes</label>'):
+        assert label in html
+    r = owner_c.post(reverse("grn_new"), {"vendor": vendor.pk, "location": godown.pk, "date": "2026-06-16",
+                                          "vendor_challan_no": "", "vendor_challan_date": "", "remarks": "",
+                                          "item": [f"m:{trim.pk}"], "rate": ["2"], "qty": ["40"], "po_line": [""], "rolls": [""]},
+                     follow=True)
+    grn = Grn.objects.get()
+    assert (grn.vendor_challan_no, grn.vendor_challan_date, grn.remarks) == ("", None, "")
+    assert "Goods received saved. Now record the QC result for each line." in flashed(r.content.decode())
+    grn.vendor_challan_no = "CH-9"
+    grn.save()
+    html = html_of(owner_c.get(reverse("grn_edit", args=[grn.pk])))
+    assert "Edit goods received" in flashed(html) and "Edit GRN" not in html
+    assert folded(html, "vendor_challan_no", "remarks", is_open=True)
+
+
+@pytest.fixture
+def received(company, factory, owner, vendor, trim, godown):
+    from purchases.services import grn as grns
+
+    g = grns.create_grn(company=company, factory=factory, location=godown, vendor=vendor, date=DAY, user=owner,
+                        lines=[grns.GrnLineSpec(item=trim, rate=D("10"), qty_received=D("100"))])
+    grns.finish_qc(g, user=owner)
+    return grns.post_grn(g, user=owner)
+
+
+def test_the_supplier_bill_shows_the_bill_its_lines_and_one_gst_choice(received, owner_c, vendor):
+    line = received.lines.get()
+    html = html_of(owner_c.get(reverse("invoice_new"), {"vendor": vendor.pk}))
+    assert in_view(html, "vendor_invoice_no", "vendor_invoice_date", f"use_{line.pk}", f"qty_{line.pk}", "tax_mode")
+    assert folded(html, "gst_template", "manual_cgst", "manual_sgst", "manual_igst", "itc_claimable", "tds_template",
+                  title="Tax (GST / TDS)")
+    assert folded(html, "date", "notes")
+    assert chosen(html, "tax_mode") == "none"
+    text = flashed(html)
+    for words in ("New supplier bill", "Supplier's bill no.", "Bill date", "Received goods to bill", "Received rate",
+                  "Against goods received (GRN)", "Booking date", "Notes"):
+        assert words in text, words
+    for old in ("purchase invoice", "Vendor", "vendor", "GRN lines", "GRN rate"):
+        assert old not in text, old
+    for name in ("gst_template", "manual_cgst", "itc_claimable"):       # no GST chosen: none of its details show
+        assert hidden_for_choice(html, name), name
+    assert 'data-show-when="tax_mode=template reverse_charge" data-off-when-hidden hidden' in html and "js/reveal.js" in html
+    assert re.search(r'name="itc_claimable" checked', html)             # hidden, and still posts what it always did
+
+
+def test_the_supplier_bill_shows_only_the_details_of_the_gst_choice(received, owner_c, vendor):
+    line = received.lines.get()
+    base = {"vendor": vendor.pk, "vendor_invoice_no": "", "vendor_invoice_date": "2026-06-15", "date": "2026-06-15",
+            f"use_{line.pk}": "on", f"qty_{line.pk}": "100", f"rate_{line.pk}": "10", "itc_claimable": "on"}
+    shown = {"none": (), "template": ("gst_template", "itc_claimable"), "reverse_charge": ("gst_template", "itc_claimable"),
+             "manual": ("manual_cgst", "manual_sgst", "manual_igst", "itc_claimable")}
+    for mode, visible in shown.items():
+        html = html_of(owner_c.post(reverse("invoice_new"), {**base, "tax_mode": mode}))     # no bill number: it comes back
+        assert chosen(html, "tax_mode") == mode
+        for name in ("gst_template", "manual_cgst", "manual_sgst", "manual_igst", "itc_claimable"):
+            assert hidden_for_choice(html, name) is (name not in visible), (mode, name)
+        assert folded(html, "gst_template", "tds_template", title="Tax (GST / TDS)", is_open=mode != "none"), mode
+
+
+def test_the_supplier_bill_folds_open_for_tds_a_booking_date_or_notes(received, owner_c, vendor):
+    from tax.models import TaxTemplate
+
+    line = received.lines.get()
+    base = {"vendor": vendor.pk, "vendor_invoice_no": "", "vendor_invoice_date": "2026-06-15",
+            f"use_{line.pk}": "on", f"qty_{line.pk}": "100", f"rate_{line.pk}": "10", "itc_claimable": "on", "tax_mode": "none"}
+    tds = TaxTemplate.objects.filter(kind="tds", is_active=True).first()
+    html = html_of(owner_c.post(reverse("invoice_new"), {**base, "tds_template": tds.pk}))
+    assert folded(html, "tds_template", title="Tax (GST / TDS)", is_open=True) and folded(html, "date", "notes")
+    html = html_of(owner_c.post(reverse("invoice_new"), {**base, "notes": "second copy"}))
+    assert folded(html, "date", "notes", is_open=True) and folded(html, "tds_template", title="Tax (GST / TDS)")
+    html = html_of(owner_c.post(reverse("invoice_new"), {**base, "date": "2026-06-20"}))
+    assert folded(html, "date", "notes", is_open=True)
+
+
+def test_a_supplier_bill_saved_from_the_short_form_is_the_same_bill(received, owner_c, vendor):
+    from django.utils import timezone
+    from purchases.models import PurchaseInvoice
+
+    line = received.lines.get()
+    html = html_of(owner_c.get(reverse("invoice_new"), {"vendor": vendor.pk}))
+    today = timezone.localdate().isoformat()
+    assert re.search(rf'name="date" type="date" value="{today}"', html)          # the folded booking date posts today
+    r = owner_c.post(reverse("invoice_new"), {
+        "vendor": vendor.pk, "vendor_invoice_no": "YH-1", "vendor_invoice_date": "2026-06-15", "date": "2026-06-15",
+        f"use_{line.pk}": "on", f"qty_{line.pk}": "100", f"rate_{line.pk}": "10", "tax_mode": "none", "itc_claimable": "on",
+        "manual_cgst": "", "manual_sgst": "", "manual_igst": "", "tds_template": "", "notes": ""}, follow=True)
+    inv = PurchaseInvoice.objects.get()
+    assert (inv.tax_mode, inv.gst_template, inv.itc_claimable, inv.tds_template, inv.notes) == ("none", None, True, None, "")
+    assert inv.payable == D("1000.00") and "Supplier bill saved as a draft." in flashed(r.content.decode())
+    assert "Edit draft supplier bill" in flashed(html_of(owner_c.get(reverse("invoice_edit", args=[inv.pk]))))
+
+
+def test_the_direct_supplier_bill_keeps_its_place_in_view(company, owner_c, vendor):
+    html = html_of(owner_c.get(reverse("invoice_new"), {"vendor": vendor.pk, "mode": "direct"}))
+    assert in_view(html, "vendor_invoice_no", "vendor_invoice_date", "location", "item", "qty", "rate", "tax_mode")
+    assert folded(html, "date", "notes")
+
+
+def test_the_return_to_supplier_shows_supplier_date_reason_and_lines(company, factory, owner, owner_c, vendor, trim, godown, received):
+    from purchases.services import debit_notes
+    from tax.models import TaxTemplate
+
+    html = html_of(owner_c.get(reverse("debitnote_new")))
+    assert in_view(html, "vendor", "date", "reason", "item", "location", "roll", "qty", "rate")
+    assert folded(html, "gst_template", "itc_claimable", title="Tax (GST)")
+    text = flashed(html)
+    assert "Return to supplier" in text and "Vendor" not in text and "vendor" not in text and "debit note" not in text.lower()
+    assert re.search(r'name="itc_claimable" checked', html)
+    gst = TaxTemplate.objects.filter(kind="gst", is_active=True, is_reverse_charge=False).first()
+    typed = {"vendor": vendor.pk, "date": "2026-06-16", "reason": "", "item": [f"m:{trim.pk}"], "location": [godown.pk],
+             "roll": [""], "qty": ["bad"], "rate": ["2"]}
+    assert folded(html_of(owner_c.post(reverse("debitnote_new"), {**typed, "itc_claimable": "on"})), "gst_template", title="Tax (GST)")
+    assert folded(html_of(owner_c.post(reverse("debitnote_new"), typed)), "itc_claimable", title="Tax (GST)", is_open=True)
+    html = html_of(owner_c.post(reverse("debitnote_new"), {**typed, "itc_claimable": "on", "gst_template": gst.pk}))
+    assert folded(html, "gst_template", "itc_claimable", title="Tax (GST)", is_open=True)
+    note = debit_notes.create_return_note(company=company, factory=factory, vendor=vendor, date=DAY, user=owner, reason="shade",
+                                          lines=[debit_notes.ReturnLineSpec(item=trim, qty=D("5"), rate=D("10"), location=godown)])
+    html = html_of(owner_c.get(reverse("debitnote_edit", args=[note.pk])))
+    assert folded(html, "gst_template", "itc_claimable", title="Tax (GST)") and chosen(html, "vendor") == str(vendor.pk)

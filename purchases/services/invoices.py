@@ -112,7 +112,7 @@ def save_invoice(*, company, factory, vendor, vendor_invoice_no, vendor_invoice_
     if direct and location.factory_id != factory.pk:
         raise BusinessRuleError("The receiving location belongs to a different factory.")
     if not vendor.is_vendor:
-        raise BusinessRuleError(f"{vendor.name} is not marked as a vendor.")
+        raise BusinessRuleError(f"{vendor.name} is not marked as a supplier.")
     if invoice is not None:
         invoice = PurchaseInvoice.objects.get(pk=invoice.pk)
         if invoice.status != PurchaseInvoice.Status.DRAFT:
@@ -121,15 +121,15 @@ def save_invoice(*, company, factory, vendor, vendor_invoice_no, vendor_invoice_
             raise BusinessRuleError("A direct purchase invoice cannot be changed into a GRN invoice, or the reverse.")
     vendor_invoice_no = vendor_invoice_no.strip()
     if not vendor_invoice_no:
-        raise BusinessRuleError("Enter the vendor's invoice number.")
+        raise BusinessRuleError("Enter the supplier's bill number.")
     clash = PurchaseInvoice.objects.filter(company=company, vendor=vendor, vendor_invoice_no=vendor_invoice_no).exclude(status="cancelled")
     if invoice is not None:
         clash = clash.exclude(pk=invoice.pk)
     if clash.exists():
-        raise BusinessRuleError(f"Invoice {vendor_invoice_no} from {vendor.name} has already been entered.")
+        raise BusinessRuleError(f"Bill {vendor_invoice_no} from {vendor.name} has already been entered.")
     lines = list(lines)
     if not lines:
-        raise BusinessRuleError("Add at least one item to the invoice." if direct else "Pick at least one GRN line to bill.")
+        raise BusinessRuleError("Add at least one item to the bill." if direct else "Tick at least one line of received goods to bill.")
 
     seen, prepared, subtotal = set(), [], ZERO
     for spec in lines:

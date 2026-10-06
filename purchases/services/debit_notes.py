@@ -48,7 +48,7 @@ class ReturnLineSpec:
 
 def _check_return_header(vendor, gst_template):
     if not vendor.is_vendor:
-        raise BusinessRuleError(f"{vendor.name} is not marked as a vendor.")
+        raise BusinessRuleError(f"{vendor.name} is not marked as a supplier.")
     if gst_template is not None and (gst_template.kind != "gst" or gst_template.is_reverse_charge):
         raise BusinessRuleError("Choose a normal GST template (not reverse charge) for a return.")
 

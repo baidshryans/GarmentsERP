@@ -150,7 +150,7 @@ def test_short_close_needs_a_reason(company, factory, vendor, owner, trim):
 
 def test_po_needs_a_vendor_and_valid_lines(company, factory, owner, trim):
     cust = parties.create_party(company=company, name="Dealer", mobile="9822222222", is_customer=True)
-    with pytest.raises(BusinessRuleError, match="not marked as a vendor"):
+    with pytest.raises(BusinessRuleError, match="not marked as a supplier"):
         orders.create_po(company=company, factory=factory, vendor=cust, date=DAY, user=owner,
                          lines=[orders.POLineSpec(trim, D("1"), D("1"))])
 

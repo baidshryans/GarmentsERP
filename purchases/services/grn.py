@@ -58,15 +58,15 @@ def _is_fabric(item):
 def _check_inputs(po, vendor, factory, user, lines):
     assert_factory_access(user, factory)
     if not vendor.is_vendor:
-        raise BusinessRuleError(f"{vendor.name} is not marked as a vendor.")
+        raise BusinessRuleError(f"{vendor.name} is not marked as a supplier.")
     if po is not None:
         if po.vendor_id != vendor.pk or po.factory_id != factory.pk:
-            raise BusinessRuleError("The purchase order is for a different vendor or factory.")
+            raise BusinessRuleError("The purchase order is for a different supplier or factory.")
         if po.status not in ("approved", "partly_received"):
             raise BusinessRuleError(f"Purchase order {po} is not open for receipt (status: {po.get_status_display()}).")
     lines = list(lines)
     if not lines:
-        raise BusinessRuleError("A GRN needs at least one line.")
+        raise BusinessRuleError("Enter at least one item received.")
     return lines
 
 

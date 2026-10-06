@@ -1,27 +1,30 @@
 {% extends "base.html" %}
-{% load static %}
-{% block title %}{% if inv %}Edit purchase invoice{% else %}New purchase invoice{% endif %}{% endblock %}
+{% load static forms_ui %}
+{% block title %}{% if inv %}Edit supplier bill{% else %}New supplier bill{% endif %}{% endblock %}
 {% block content %}
-  <div class="page-head"><h1 class="page-title">{% if inv %}Edit {{ inv.number|default:"draft invoice" }}{% else %}New purchase invoice{% endif %}</h1>{% if direct %}<span class="pill">Direct purchase, no GRN</span>{% endif %}</div>
-  {% if inv %}<div class="island"><div class="field-row"><div class="field"><label>Vendor</label><div class="static-value">{{ inv.vendor.name }}</div></div><div class="field"><label>Factory</label><div class="static-value">{{ factory.code }} — {{ factory.name }}</div></div></div></div>
+  <div class="page-head"><h1 class="page-title">{% if inv %}Edit {{ inv.number|default:"draft supplier bill" }}{% else %}New supplier bill{% endif %}</h1>{% if direct %}<span class="pill">Direct purchase, no goods received first</span>{% endif %}</div>
+  {% if inv %}<div class="island"><div class="field-row"><div class="field"><label>Supplier</label><div class="static-value">{{ inv.vendor.name }}</div></div><div class="field"><label>Factory</label><div class="static-value">{{ factory.code }} — {{ factory.name }}</div></div></div></div>
   {% else %}<form method="get" class="island"><div class="field-row">
-    <div class="field"><label for="vendor">Vendor</label><select id="vendor" name="vendor"><option value="">Choose…</option>{% for v in vendors %}<option value="{{ v.pk }}" {% if vendor and vendor.pk == v.pk %}selected{% endif %}>{{ v.name }}</option>{% endfor %}</select></div>
+    <div class="field"><label for="vendor">Supplier</label><select id="vendor" name="vendor"><option value="">Choose…</option>{% for v in vendors %}<option value="{{ v.pk }}" {% if vendor and vendor.pk == v.pk %}selected{% endif %}>{{ v.name }}</option>{% endfor %}</select></div>
     <div class="field"><label>Factory</label><div class="static-value">{{ factory.code }} — {{ factory.name }}</div></div>
-    <div class="field"><label for="mode">Bill</label><select id="mode" name="mode"><option value="" {% if not direct %}selected{% endif %}>Against received goods (GRN)</option><option value="direct" {% if direct %}selected{% endif %}>Direct purchase (no PO or GRN)</option></select><div class="help">A direct purchase brings the goods into stock when the invoice is posted.</div></div>
+    <div class="field"><label for="mode">Bill</label><select id="mode" name="mode"><option value="" {% if not direct %}selected{% endif %}>Against goods received (GRN)</option><option value="direct" {% if direct %}selected{% endif %}>Direct purchase (no order, nothing received first)</option></select><div class="help">A direct purchase brings the goods into stock when the bill is posted.</div></div>
     <div style="align-self:end"><button class="btn">Continue</button></div></div></form>{% endif %}
 
   {% if vendor and factory %}
   <form method="post" novalidate>
     {% csrf_token %}<input type="hidden" name="vendor" value="{{ vendor.pk }}">{% if direct %}<input type="hidden" name="mode" value="direct">{% endif %}
-    <div class="island"><h2>Vendor's bill</h2><div class="field-row">
-      <div class="field"><label for="vin">Vendor invoice no.</label><input id="vin" name="vendor_invoice_no" type="text" value="{{ d.vendor_invoice_no }}" required></div>
-      <div class="field"><label for="vid">Vendor invoice date</label><input id="vid" name="vendor_invoice_date" type="date" value="{{ d.vendor_invoice_date|default:today }}" required></div>
-      <div class="field"><label for="date">Booking date</label><input id="date" name="date" type="date" value="{{ d.date|default:today }}" required></div>
+    <div class="island"><h2>Supplier's bill</h2><div class="field-row">
+      <div class="field"><label for="vin">Supplier's bill no.</label><input id="vin" name="vendor_invoice_no" type="text" value="{{ d.vendor_invoice_no }}" required></div>
+      <div class="field"><label for="vid">Bill date</label><input id="vid" name="vendor_invoice_date" type="date" value="{{ d.vendor_invoice_date|default:today }}" required></div>
       {% if direct %}<div class="field"><label for="location">Receive into</label><select id="location" name="location">{% for l in locations %}<option value="{{ l.pk }}" {% if d.location == l.pk|stringformat:"s" %}selected{% endif %}>{{ l.name }}</option>{% endfor %}</select></div>{% endif %}
-    </div></div>
+    </div>
+    {% more "booking date, notes" open=more_is_open %}<div class="field-row">
+      <div class="field"><label for="date">Booking date</label><input id="date" name="date" type="date" value="{{ d.date|default:today }}" required><div class="help">The day it goes into the books. Today unless you change it.</div></div>
+      <div class="field"><label for="notes">Notes</label><input id="notes" name="notes" type="text" value="{{ d.notes }}"></div>
+    </div>{% endmore %}</div>
     {% if direct %}
     <div class="island"><h2>Items bought</h2>
-      <p class="muted">These goods come into stock at the chosen location when you post the invoice, accepted in full. Fabric is taken in as one roll per line; if some of it is faulty, return it with a debit note.</p>
+      <p class="muted">These goods come into stock at the chosen location when you post the bill, accepted in full. Fabric is taken in as one roll per line; if some of it is faulty, send it back with Return to supplier.</p>
       <div class="table-wrap"><table data-entry>
         <thead><tr><th scope="col" style="width:40%">Item</th><th scope="col" class="num">Quantity</th><th scope="col" class="num">Rate</th></tr></thead>
         <tbody>{% for r in rows %}<tr>
@@ -31,40 +34,39 @@
       </table></div>
     </div>
     {% else %}
-    <div class="island"><h2>GRN lines to bill</h2>
+    <div class="island"><h2>Received goods to bill</h2>
       {% if grn_lines %}<div class="table-wrap"><table>
-        <thead><tr><th scope="col"></th><th scope="col">GRN</th><th scope="col">Item</th><th scope="col" class="num">Left to bill</th><th scope="col" class="num">Billed qty</th><th scope="col" class="num">GRN rate</th><th scope="col" class="num">Bill rate</th><th scope="col" class="num">Last rate</th></tr></thead>
+        <thead><tr><th scope="col"></th><th scope="col">Goods received</th><th scope="col">Item</th><th scope="col" class="num">Left to bill</th><th scope="col" class="num">Billed qty</th><th scope="col" class="num">Received rate</th><th scope="col" class="num">Bill rate</th><th scope="col" class="num">Last rate</th></tr></thead>
         <tbody>{% for r in grn_lines %}<tr>
           <td><input type="checkbox" name="use_{{ r.gl.pk }}" {% if r.use %}checked{% endif %} aria-label="Bill this line"></td>
           <td>{{ r.gl.grn.number }}<div class="muted">{{ r.gl.grn.date|date:"d M" }}</div></td><td>{{ r.gl.item }}<div class="muted">accepted {{ r.gl.qty_accepted|floatformat:"-3" }} of {{ r.gl.qty_received|floatformat:"-3" }}</div></td>
           <td class="num">{{ r.left|floatformat:"-3" }}</td>
-          <td class="num"><input type="text" inputmode="decimal" name="qty_{{ r.gl.pk }}" value="{{ r.qty|floatformat:'-3' }}"></td>
+          <td class="num"><input type="text" inputmode="decimal" name="qty_{{ r.gl.pk }}" value="{{ r.qty|floatformat:'-3' }}" aria-label="Billed quantity"></td>
           <td class="num">{{ r.gl.rate|floatformat:"-4" }}</td>
-          <td class="num"><input type="text" inputmode="decimal" name="rate_{{ r.gl.pk }}" value="{{ r.rate|floatformat:'-4' }}"></td>
+          <td class="num"><input type="text" inputmode="decimal" name="rate_{{ r.gl.pk }}" value="{{ r.rate|floatformat:'-4' }}" aria-label="Bill rate"></td>
           <td class="num">{{ r.last|default_if_none:"—" }}</td></tr>{% endfor %}</tbody>
       </table></div>
-      <p class="muted">If the vendor billed pieces that failed QC, enter the full billed quantity: the rejected part is parked as recoverable until its debit note posts.</p>
+      <p class="muted">If the supplier billed pieces that failed QC, enter the full billed quantity: the rejected part is parked as recoverable until its return note posts.</p>
       {% for h in held %}<p class="muted">{{ h.count }} line{{ h.count|pluralize }} {{ h.count|pluralize:"is,are" }} already on draft bill {{ h.bill.vendor_invoice_no }}, so {{ h.count|pluralize:"its,their" }} quantity is left out here. Post or discard that draft first.</p>{% endfor %}
-      {% else %}{% for h in held %}<p class="muted">{{ h.count }} line{{ h.count|pluralize }} {{ h.count|pluralize:"is,are" }} already on draft bill {{ h.bill.vendor_invoice_no }}, so {{ h.count|pluralize:"its,their" }} quantity is left out here. Post or discard that draft first.</p>{% endfor %}<div class="empty"><div class="hand">Nothing left to bill</div><p>Post a GRN for this vendor and factory first, or choose "Direct purchase".</p></div>{% endif %}
+      {% else %}{% for h in held %}<p class="muted">{{ h.count }} line{{ h.count|pluralize }} {{ h.count|pluralize:"is,are" }} already on draft bill {{ h.bill.vendor_invoice_no }}, so {{ h.count|pluralize:"its,their" }} quantity is left out here. Post or discard that draft first.</p>{% endfor %}<div class="empty"><div class="hand">Nothing left to bill</div><p>Post the goods received from this supplier in this factory first, or choose "Direct purchase".</p></div>{% endif %}
     </div>
     {% endif %}
-    <div class="grid-2">
-      <div class="island"><h2>Tax</h2>
-        <p class="muted">Nothing is posted to tax ledgers unless you choose it here.</p>
-        <div class="field"><label for="tax_mode">GST</label><select id="tax_mode" name="tax_mode">{% for v, l in modes %}<option value="{{ v }}" {% if d.tax_mode == v %}selected{% endif %}>{{ l }}</option>{% endfor %}</select></div>
-        <div class="field"><label for="gst_template">GST template (for "GST template" or "Reverse charge")</label><select id="gst_template" name="gst_template"><option value="">—</option>{% for t in gst_templates %}<option value="{{ t.pk }}" {% if d.gst_template == t.pk|stringformat:"s" %}selected{% endif %}>{{ t.name }}</option>{% endfor %}</select></div>
-        <div class="field-row">
+    <div class="island"><h2>Tax</h2>
+      <p class="muted">Nothing is posted to tax ledgers unless you choose it here.</p>
+      <div class="field-row"><div class="field"><label for="tax_mode">GST</label><select id="tax_mode" name="tax_mode">{% for v, l in modes %}<option value="{{ v }}" {% if tax_mode == v %}selected{% endif %}>{{ l }}</option>{% endfor %}</select></div></div>
+      {% more "GST details, TDS" open=tax_open title="Tax (GST / TDS)" %}
+        <div class="field-row" {% show_when "tax_mode" tax_mode "template reverse_charge" "off" %}>
+          <div class="field"><label for="gst_template">GST template</label><select id="gst_template" name="gst_template"><option value="">Choose…</option>{% for t in gst_templates %}<option value="{{ t.pk }}" {% if d.gst_template == t.pk|stringformat:"s" %}selected{% endif %}>{{ t.name }}</option>{% endfor %}</select></div></div>
+        <div class="field-row" {% show_when "tax_mode" tax_mode "manual" %}>
           <div class="field"><label for="mc">CGST (by hand)</label><input id="mc" name="manual_cgst" type="text" inputmode="decimal" value="{{ d.manual_cgst }}"></div>
           <div class="field"><label for="ms">SGST (by hand)</label><input id="ms" name="manual_sgst" type="text" inputmode="decimal" value="{{ d.manual_sgst }}"></div>
           <div class="field"><label for="mi">IGST (by hand)</label><input id="mi" name="manual_igst" type="text" inputmode="decimal" value="{{ d.manual_igst }}"></div></div>
-        <div class="check"><input id="itc" type="checkbox" name="itc_claimable" {% if itc %}checked{% endif %}><label for="itc">Input credit is claimable (if not, the GST is added to item cost)</label></div>
-      </div>
-      <div class="island"><h2>TDS</h2>
-        <div class="field"><label for="tds_template">Deduct TDS</label><select id="tds_template" name="tds_template"><option value="">No TDS</option>{% for t in tds_templates %}<option value="{{ t.pk }}" {% if d.tds_template == t.pk|stringformat:"s" %}selected{% endif %}>{{ t.name }}</option>{% endfor %}</select></div>
-        <div class="field"><label for="notes">Notes</label><input id="notes" name="notes" type="text" value="{{ d.notes }}"></div>
-      </div>
+        <div class="check field" {% show_when "tax_mode" tax_mode "template reverse_charge manual" %}><input id="itc" type="checkbox" name="itc_claimable" {% if itc %}checked{% endif %}><label for="itc">Input credit is claimable (if not, the GST is added to item cost)</label></div>
+        <div class="field-row"><div class="field"><label for="tds_template">Deduct TDS</label><select id="tds_template" name="tds_template"><option value="">No TDS</option>{% for t in tds_templates %}<option value="{{ t.pk }}" {% if d.tds_template == t.pk|stringformat:"s" %}selected{% endif %}>{{ t.name }}</option>{% endfor %}</select></div></div>
+      {% endmore %}
     </div>
     {% if grn_lines or direct %}<div class="form-actions"><button class="btn primary">{% if inv %}Save changes{% else %}Save draft and review{% endif %}</button><a class="btn ghost" href="{% if inv %}{% url 'invoice_detail' inv.pk %}{% else %}{% url 'invoice_list' %}{% endif %}">Cancel</a></div>{% endif %}
   </form>
+  <script src="{% static 'js/reveal.js' %}?v={{ asset_v }}" defer></script>
   {% endif %}
 {% endblock %}

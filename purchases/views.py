@@ -364,15 +364,18 @@ class GrnDetail(LoginRequiredMixin, ScreenPermissionMixin, View):
             "can_edit": request.user.has_screen_perm("purchases.grn", "edit"),
             # recording QC, finishing it and posting are each this screen's `edit`; the POST below checks it
             "can_accept_all": request.user.has_screen_perm("purchases.grn", "edit") and grn_service.untouched(grn),
-            "can_cancel": request.user.has_screen_perm("purchases.grn", "cancel"),
+            "can_cancel": request.user.has_screen_perm("purchases.grn", "cancel")
+            or request.user.has_screen_perm("purchases.grn", "edit"),
             "qc_choices": [("accepted", "Accepted"), ("rejected", "Rejected"), ("accepted_remark", "Accepted with remark")],
         })
 
     def post(self, request, pk):
         grn = self._grn(request, pk)
         p, action, user = request.POST, request.POST.get("action"), request.user
-        # cancelling a posted GRN is its own right; everything else on this page is `edit`
-        if not user.has_screen_perm("purchases.grn", "cancel" if action == "cancel" else "edit"):
+        # everything on this page needs `edit`; cancelling a posted GRN may also be done with `cancel` alone
+        allowed = user.has_screen_perm("purchases.grn", "edit") or (
+            action == "cancel" and user.has_screen_perm("purchases.grn", "cancel"))
+        if not allowed:
             raise PermissionDenied
         try:
             rolls, lines = {}, {}

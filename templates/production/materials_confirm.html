@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block title %}{{ title }}{% endblock %}
+{% block content %}
+  <div class="page-head"><h1 class="page-title">{{ title }}</h1></div>
+  <p class="muted" style="max-width:740px">{{ lead }} The quantities come from the style's list: change them to what is really being handed over, clear a quantity to leave a material out, or add one below.</p>
+  <form method="post" action="{{ action }}" class="island" novalidate>{% csrf_token %}
+    {% for name, value in hidden %}<input type="hidden" name="{{ name }}" value="{{ value }}">{% endfor %}
+    <input type="hidden" name="materials_step" value="1">
+    {% include "production/_materials_table.html" %}
+    <div class="form-actions"><button class="btn primary">{{ button }}</button><a class="btn ghost" href="{{ cancel }}">Cancel</a></div>
+  </form>
+{% endblock %}

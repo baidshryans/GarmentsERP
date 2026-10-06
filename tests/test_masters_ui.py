@@ -73,11 +73,14 @@ def test_screens_need_permission(company, factory, accountant, client_for):
 
 def test_bom_screen_saves_size_wise_lines(company, merch, client_for):
     style = _style(company, "B1", sizes=("M", "XL"))
-    fab = Material.objects.create(code="F1", name="Fleece", kind="fabric", unit=Unit.objects.get(code="KG"))
+    fab = Material.objects.create(code="F1", name="Elastic", kind="trim", unit=Unit.objects.get(code="MTR"))
+    fleece = Material.objects.create(code="FL1", name="Fleece", kind="fabric", unit=Unit.objects.get(code="KG"))
     xl, m = Size.objects.get(code="XL"), Size.objects.get(code="M")
     c = client_for(merch)
+    form = c.get(reverse("bom_edit", args=[style.pk])).content.decode()
+    assert "Used in" in form and "Elastic" in form and "Fleece" not in form       # fabric is not offered
     r = c.post(reverse("bom_edit", args=[style.pk]), {
-        "material": [fab.pk, ""], "qty": ["0.45", ""], "wastage": ["3", ""],
+        "material": [fab.pk, ""], "process": [Process.objects.get(code="EMB").pk, ""], "qty": ["0.45", ""], "wastage": ["3", ""],
         f"size_{m.pk}": ["", ""], f"size_{xl.pk}": ["0.52", ""],
         "charge_desc": ["Printing", ""], "charge_process": [Process.objects.get(code="PRINT").pk, ""],
         "charge_amount": ["4.5", ""],
@@ -85,6 +88,12 @@ def test_bom_screen_saves_size_wise_lines(company, merch, client_for):
     assert r.status_code == 302
     v = BomVersion.objects.get(style=style)
     assert v.lines.get().size_overrides.get().qty_per_piece == D("0.52") and v.charges.get().amount_per_piece == D("4.50")
+    assert v.lines.get().process.code == "EMB"
+    assert "Embroidery" in c.get(reverse("style_detail", args=[style.pk])).content.decode()
+    refused = c.post(reverse("bom_edit", args=[style.pk]), {
+        "material": [fleece.pk], "process": [""], "qty": ["0.4"], "wastage": [""], f"size_{m.pk}": [""], f"size_{xl.pk}": [""],
+        "charge_desc": [""], "charge_process": [""], "charge_amount": [""]})
+    assert refused.status_code == 200 and b"is fabric" in refused.content
     bad = c.post(reverse("bom_edit", args=[style.pk]), {
         "material": [fab.pk], "qty": ["abc"], "wastage": [""], f"size_{m.pk}": [""], f"size_{xl.pk}": [""],
         "charge_desc": [""], "charge_process": [""], "charge_amount": [""],
@@ -96,7 +105,7 @@ def test_changing_bom_used_by_a_lot_warns_and_versions(company, merch, client_fo
     from masters.services import boms
 
     style = _style(company, "B2")
-    fab = Material.objects.create(code="F2", name="Fleece", kind="fabric", unit=Unit.objects.get(code="KG"))
+    fab = Material.objects.create(code="F2", name="Drawcord", kind="trim", unit=Unit.objects.get(code="MTR"))
     m = Size.objects.get(code="M")
 
     def payload(q):

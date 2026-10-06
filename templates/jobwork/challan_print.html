@@ -33,7 +33,7 @@
       <tbody>{% for l in lines %}<tr><td>{{ l.bundle.bundle_no }}</td><td>{{ l.bundle.sku.size.code }}</td><td style="text-align:right">{{ l.qty_issued }}</td><td style="text-align:right">{{ l.rate }}</td></tr>{% endfor %}</tbody>
       <tfoot><tr><td colspan="2"><strong>Total pieces</strong></td><td style="text-align:right"><strong>{{ total }}</strong></td><td></td></tr></tfoot>
     </table>
-    {% if trims %}<h3 style="margin-top:6mm">Trims issued</h3><table><thead><tr><th scope="col">Item</th><th scope="col">Quantity</th></tr></thead>
+    {% if trims %}<h3 style="margin-top:6mm">Materials issued</h3><table><thead><tr><th scope="col">Item</th><th scope="col">Quantity</th></tr></thead>
       <tbody>{% for t in trims %}<tr><td>{{ t.material.name }}</td><td style="text-align:right">{{ t.qty_issued|floatformat:"-3" }} {{ t.material.unit }}</td></tr>{% endfor %}</tbody></table>{% endif %}
     {% if ch.remarks %}<p>Remarks: {{ ch.remarks }}</p>{% endif %}
     <div class="sign"><div>Issued by</div><div>Received by fabricator</div></div>

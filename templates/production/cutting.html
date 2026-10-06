@@ -22,9 +22,9 @@
   {% for e in entries %}
   <div class="island"><h2>Lay {{ e.lay_no }} <span class="muted" style="font-weight:400">{{ e.date|date:"d M Y" }}</span></h2>
     <p>{% for s in e.sizes.all %}<span class="pill">{{ s.size.code }}: {{ s.pieces }}{% if s.loss %} − {{ s.loss }} lost{% endif %}</span> {% endfor %}</p>
-    <p class="muted">{% if e.expected_pieces is not None %}Fabric burnt should give about {{ e.expected_pieces }} pieces · {% endif %}cut {{ e.cut_total }}{% if e.loss_total %} · lost in cutting {{ e.loss_total }} · to bundle {{ e.good_total }}{% endif %}</p>
+    <p class="muted">{% if e.expected_pieces is not None %}By your estimate the fabric burnt should give {{ e.expected_pieces }} pieces · {% endif %}cut {{ e.cut_total }}{% if e.loss_total %} · lost in cutting {{ e.loss_total }} · to bundle {{ e.good_total }}{% endif %}</p>
     <p class="muted">{% for r in e.rolls.all %}{{ r.roll.label_code }}: used {{ r.used_qty|floatformat:"-3" }}, waste {{ r.waste_qty|floatformat:"-3" }}, remnant {{ r.remnant_qty|floatformat:"-3" }}{% if not forloop.last %}; {% endif %}{% endfor %}</p>
-    {% if e.variance_pct is not None %}<p>Against the BOM ({{ e.expected_fabric|floatformat:"-3" }} expected): <span class="pill {% if e.over_tolerance %}danger{% else %}success{% endif %}">{{ e.variance_pct }}%</span></p>{% endif %}
+    {% if e.variance_pct is not None %}<p>Pieces cut against the estimate: <span class="pill {% if e.over_tolerance %}danger{% else %}success{% endif %}">{{ e.variance_pct }}%</span></p>{% endif %}
     {% if not e.bundled and can_create %}<form method="post" class="field-row" style="align-items:end">{% csrf_token %}<input type="hidden" name="action" value="bundles"><input type="hidden" name="entry" value="{{ e.pk }}">
       <div class="field"><label for="bs{{ e.pk }}">Pieces per bundle</label><input id="bs{{ e.pk }}" name="bundle_size" type="text" inputmode="numeric" value="25"></div>
       {% for s in e.sizes.all %}<div class="field"><label for="ls{{ e.pk }}_{{ s.size_id }}">Lost in cutting, {{ s.size.code }}</label><input id="ls{{ e.pk }}_{{ s.size_id }}" name="loss_{{ s.size_id }}" type="text" inputmode="numeric" value="{{ s.loss|default:"" }}" style="width:110px"></div>{% endfor %}

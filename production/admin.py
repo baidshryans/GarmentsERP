@@ -63,3 +63,17 @@ class PackEntryAdmin(SimpleHistoryAdmin):
     list_filter = ("factory",)
     raw_id_fields = ("lot",)
     inlines = [PackEntryLineInline]
+
+
+class StepMaterialIssueLineInline(admin.TabularInline):
+    model = models.StepMaterialIssueLine
+    extra = 0
+    raw_id_fields = ("material",)
+
+
+@admin.register(models.StepMaterialIssue)
+class StepMaterialIssueAdmin(SimpleHistoryAdmin):
+    list_display = ("lot", "step", "date", "pieces", "factory")
+    list_filter = ("factory",)
+    raw_id_fields = ("lot", "step", "voucher")
+    inlines = [StepMaterialIssueLineInline]

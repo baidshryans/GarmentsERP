@@ -51,14 +51,14 @@ def test_order_cutting_and_qr_tags_through_the_screens(company, factory, owner):
     page = c.get(reverse("lot_detail", args=[lot.pk])).content.decode()
     assert lot.lot_no in page and "Standard track pant route" not in page and "Stitching" in page
 
-    r = c.post(reverse("lot_fabric", args=[lot.pk]), {"date": "2026-06-16", f"qty_{ns.roll_a.pk}": "30"})
-    assert r.status_code == 302
+    r = c.post(reverse("lot_fabric", args=[lot.pk]), {"date": "2026-06-16", f"qty_{ns.roll_a.pk}": "30", "estimated_pieces": "75"})
+    assert r.status_code == 302 and lot.fabric_issues.get().expected_pieces == 75
     r = c.post(reverse("lot_cutting", args=[lot.pk]), {
         "date": "2026-06-16", f"pieces_{ns.sizes['S'].pk}": "10", f"pieces_{ns.sizes['M'].pk}": "20", f"pieces_{ns.sizes['L'].pk}": "20",
         f"pieces_{ns.sizes['XL'].pk}": "10", f"used_{ns.roll_a.pk}": "24", f"waste_{ns.roll_a.pk}": "1", f"remnant_{ns.roll_a.pk}": "5"})
     assert r.status_code == 302
     entry = lot.cuttings.get()
-    assert entry.expected_fabric == D("24.000") and entry.variance_pct == D("4.17") and not entry.over_tolerance
+    assert entry.expected_pieces == 62 and entry.variance_pct == D("-3.23") and not entry.over_tolerance   # 25 kg burnt, 60 cut
     r = c.post(reverse("lot_cutting", args=[lot.pk]), {"action": "bundles", "entry": entry.pk, "bundle_size": "25"})
     assert r.status_code == 302 and lot.bundles.count() == 4
     tags = c.get(reverse("lot_tags", args=[lot.pk]))
@@ -85,7 +85,7 @@ def test_variance_beyond_tolerance_is_shown_to_the_cutting_master(company, facto
     ns = build(company, factory, owner)
     master = user_with("cutter", "Cutting Master", factory)
     c = login(master)
-    c.post(reverse("lot_fabric", args=[ns.lot.pk]), {f"qty_{ns.roll_a.pk}": "60"})
+    c.post(reverse("lot_fabric", args=[ns.lot.pk]), {f"qty_{ns.roll_a.pk}": "60", "estimated_pieces": "150"})
     r = c.post(reverse("lot_cutting", args=[ns.lot.pk]), {
         f"pieces_{ns.sizes['M'].pk}": "100", f"used_{ns.roll_a.pk}": "50", f"waste_{ns.roll_a.pk}": "5", f"remnant_{ns.roll_a.pk}": "5"}, follow=True)
     assert b"beyond the 5" in r.content and ns.lot.cuttings.get().over_tolerance
@@ -103,9 +103,15 @@ def test_move_screen_lists_bundles_and_moves_them_with_counts(company, factory, 
     c = login(sup)
     page = c.get(reverse("move_bundles"), {"lot": ns.lot.pk}).content.decode()
     assert bundles[0].qr_token in page and "Scan a bundle QR" in page
-    r = c.post(reverse("move_bundles"), {"lot": ns.lot.pk, "bundle": [bundles[0].pk, bundles[1].pk], "to_step": step(ns, "STITCH").pk,
-                                         f"loss_{bundles[1].pk}": "1", f"rejection_{bundles[1].pk}": "2"})
+    move = {"lot": ns.lot.pk, "bundle": [bundles[0].pk, bundles[1].pk], "to_step": step(ns, "STITCH").pk,
+            f"loss_{bundles[1].pk}": "1", f"rejection_{bundles[1].pk}": "2"}
+    ask = c.post(reverse("move_bundles"), move)                 # the style's list has a zipper a piece at stitching
+    assert ask.status_code == 200 and "Materials for Stitching" in ask.content.decode() and 'value="42"' in ask.content.decode()
+    assert Bundle.objects.get(pk=bundles[1].pk).current_step is None      # nothing has moved yet
+    r = c.post(reverse("move_bundles"), {**move, "materials_step": "1", "mat_material": [ns.zipper.pk], "mat_qty": ["40"]})
     assert r.status_code == 302
+    issue = ns.lot.material_issues.get()
+    assert issue.lines.get().qty == D("40.000") and issue.step == step(ns, "STITCH")
     b1 = Bundle.objects.get(pk=bundles[1].pk)
     assert b1.qty == 22 and b1.current_step == step(ns, "STITCH")
     bad = c.post(reverse("move_bundles"), {"lot": ns.lot.pk, "bundle": [bundles[2].pk], "to_step": step(ns, "FINISH").pk})
@@ -316,13 +322,14 @@ def test_the_dashboard_lists_orders_waiting_for_release_and_releases_them_there(
 def test_fabric_and_cutting_screens_show_expected_pieces_and_take_cutting_loss(company, factory, owner):
     ns = build(company, factory, owner)
     c = login(user_with("cutter", "Cutting Master", factory))
-    c.post(reverse("lot_fabric", args=[ns.lot.pk]), {f"qty_{ns.roll_a.pk}": "30"})
+    assert "Pieces you expect from this fabric" in c.get(reverse("lot_fabric", args=[ns.lot.pk])).content.decode()
+    c.post(reverse("lot_fabric", args=[ns.lot.pk]), {f"qty_{ns.roll_a.pk}": "30", "estimated_pieces": "75"})
     page = c.get(reverse("lot_fabric", args=[ns.lot.pk])).content.decode()
-    assert "Should give about" in page and ">75<" in page and "25 pieces short of the plan" in page    # 30 kg at 0.4 kg
+    assert "Your estimate so far" in page and ">75<" in page and "25 pieces short of the plan" in page
     c.post(reverse("lot_cutting", args=[ns.lot.pk]), {
         f"pieces_{ns.sizes['M'].pk}": "70", f"used_{ns.roll_a.pk}": "28", f"remnant_{ns.roll_a.pk}": "2"})
     entry = ns.lot.cuttings.get()
-    assert "should give about 70 pieces" in c.get(reverse("lot_cutting", args=[ns.lot.pk])).content.decode()
+    assert "should give 70 pieces" in c.get(reverse("lot_cutting", args=[ns.lot.pk])).content.decode()   # 28 kg at 2.5 a kg
     bad = c.post(reverse("lot_cutting", args=[ns.lot.pk]), {
         "action": "bundles", "entry": entry.pk, "bundle_size": "25", f"loss_{ns.sizes['M'].pk}": "71"})
     assert bad.status_code == 200 and b"cannot be more than" in bad.content and not ns.lot.bundles.exists()
@@ -331,7 +338,7 @@ def test_fabric_and_cutting_screens_show_expected_pieces_and_take_cutting_loss(c
     assert b"3 pieces lost in cutting left out" in r.content
     assert sum(b.qty for b in ns.lot.bundles.all()) == 67
     page = login(owner).get(reverse("lot_detail", args=[ns.lot.pk])).content.decode()
-    assert "Expected from fabric" in page and "Lost in cutting" in page
+    assert "Estimated from fabric" in page and "Lost in cutting" in page
 
 
 def test_the_move_screen_takes_no_loss_at_a_no_loss_stage(company, factory, owner):
@@ -342,7 +349,8 @@ def test_the_move_screen_takes_no_loss_at_a_no_loss_stage(company, factory, owne
     bundles = cut(ns)
     c = login(user_with("sup", "Production Supervisor", factory))
     for code in ("STITCH", "IRON"):
-        c.post(reverse("move_bundles"), {"lot": ns.lot.pk, "bundle": [b.pk for b in bundles], "to_step": step(ns, code).pk})
+        c.post(reverse("move_bundles"), {"lot": ns.lot.pk, "bundle": [b.pk for b in bundles], "to_step": step(ns, code).pk,
+                                         "materials_step": "1"})        # the materials step, with nothing issued
     page = c.get(reverse("move_bundles"), {"lot": ns.lot.pk}).content.decode()
     assert "No loss allowed at this stage" in page and f"loss_{bundles[0].pk}" not in page
     bad = c.post(reverse("move_bundles"), {"lot": ns.lot.pk, "bundle": [bundles[0].pk], "to_step": step(ns, "FINISH").pk,

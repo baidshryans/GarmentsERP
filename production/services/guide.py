@@ -24,7 +24,7 @@ STATE = {LotStep.Status.DONE: "done", LotStep.Status.IN_PROGRESS: "now", LotStep
 
 def _packing_step(steps):
     """The step bundles are packed from: the packing step, or the last step of a route that has none (the same
-    rule as `bundles._packing_step`, which is what the pack service checks against)."""
+    rule as `bundles.packing_step`, which is what the pack service checks against)."""
     return next((s for s in reversed(steps) if s.process.kind == "packing"), steps[-1] if steps else None)
 
 

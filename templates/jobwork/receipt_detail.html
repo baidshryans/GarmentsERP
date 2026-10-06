@@ -25,5 +25,5 @@
     {% else %}<p class="muted">Waiting for QC.</p>{% endif %}
   </div>
   {% endfor %}
-  {% if trims %}<div class="island"><h2>Trims</h2><div class="table-scroll"><table><tbody>{% for t in trims %}<tr><td>{{ t.challan_trim.material.name }}</td><td>returned {{ t.qty_returned|floatformat:"-3" }}</td><td>missing {{ t.qty_missing|floatformat:"-3" }}</td></tr>{% endfor %}</tbody></table></div></div>{% endif %}
+  {% if trims %}<div class="island"><h2>Materials</h2><div class="table-scroll"><table><tbody>{% for t in trims %}<tr><td>{{ t.challan_trim.material.name }}</td><td>returned {{ t.qty_returned|floatformat:"-3" }}</td><td>missing {{ t.qty_missing|floatformat:"-3" }}</td></tr>{% endfor %}</tbody></table></div></div>{% endif %}
 {% endblock %}

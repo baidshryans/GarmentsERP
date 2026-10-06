@@ -31,7 +31,7 @@ def test_A1_order_fabric_issue_by_roll_cutting_and_variance_against_the_bom(comp
     ns = build(company, factory, owner)
     godown = Location.objects.get(factory=factory, name="Main Godown")
     before = RollBalance.objects.get(roll=ns.roll_a, location=godown).qty
-    cutting.issue_fabric(lot=ns.lot, lines=[(ns.roll_a, D("60"))], user=owner, date=DAY)
+    cutting.issue_fabric(lot=ns.lot, lines=[(ns.roll_a, D("60"))], user=owner, date=DAY, estimated_pieces=150)
     assert RollBalance.objects.get(roll=ns.roll_a, location=godown).qty == before - D("60")  # the roll balance reduces
     entry = cutting.record_cutting(
         lot=ns.lot, user=owner, date=DAY, pieces={ns.sizes["S"]: 17, ns.sizes["M"]: 33, ns.sizes["L"]: 33, ns.sizes["XL"]: 17},
@@ -40,7 +40,8 @@ def test_A1_order_fabric_issue_by_roll_cutting_and_variance_against_the_bom(comp
     use = entry.rolls.get()
     assert (use.used_qty, use.waste_qty, use.remnant_qty) == (D("41"), D("2"), D("17"))  # consumption, waste, remnant
     assert RollBalance.objects.get(roll=ns.roll_a, location=godown).qty == before - D("43")  # remnant is back in the store
-    assert entry.expected_fabric == D("40.000") and entry.variance_pct == D("7.50")  # variance against the BOM is shown
+    # variance is shown in pieces: 43 kg burnt should give 107 by the estimate made at issue (owner's decision, Oct 2026)
+    assert entry.expected_pieces == 107 and entry.variance_pct == D("-6.54") and entry.over_tolerance
     assert costing.lot_cost(ns.lot) == D("9030.00")
 
 
@@ -134,7 +135,7 @@ def test_the_print_first_flow_from_fabric_to_boxes(company, factory, owner):
                     effective_from=date(2026, 4, 1), pay_basis="received")
 
     # fabric says how many pieces to expect; two pieces are lost in cutting; cutters are paid on the 100 cut
-    assert cutting.issue_fabric(lot=ns.lot, lines=[(ns.roll_a, D("60"))], user=owner, date=DAY).expected_pieces == 150
+    assert cutting.issue_fabric(lot=ns.lot, lines=[(ns.roll_a, D("60"))], user=owner, date=DAY, estimated_pieces=150).expected_pieces == 150
     entry = cutting.record_cutting(
         lot=ns.lot, user=owner, date=DAY, pieces={ns.sizes["S"]: 17, ns.sizes["M"]: 33, ns.sizes["L"]: 33, ns.sizes["XL"]: 17},
         rolls=[cutting.RollUseSpec(ns.roll_a, used=D("41"), waste=D("2"), remnant=D("17"))])

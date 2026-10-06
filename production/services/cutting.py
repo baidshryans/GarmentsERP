@@ -19,7 +19,6 @@ from inventory.models import FabricRoll, StockMovement
 from inventory.services import stock
 from ledger.services.posting import LineSpec, post_voucher
 from masters.models import SKU
-from masters.services import boms
 from production.models import (
     Bundle, CuttingEntry, CuttingRollUse, CuttingSize, FabricIssue, FabricIssueLine, Lot, LotCostEntry, LotStep,
 )
@@ -39,13 +38,17 @@ def _open_lot(lot, user):
 
 
 @transaction.atomic
-def issue_fabric(*, lot, lines, user, date, from_location=None) -> FabricIssue:
+def issue_fabric(*, lot, lines, user, date, from_location=None, estimated_pieces=None) -> FabricIssue:
     """Issue rolls to the cutting floor for a lot. lines = [(roll, qty)]. Blocked above a roll's balance (BR-02);
-    warns (flag on the issue) when rolls of different shade lots go into one lot."""
+    warns (flag on the issue) when rolls of different shade lots go into one lot. `estimated_pieces` is the
+    cutting master's own estimate of the pieces this fabric will give; the cutting is compared with it."""
     lot = _open_lot(lot, user)
     lines = list(lines)
     if not lines:
         raise BusinessRuleError("Choose at least one roll to issue.")
+    if estimated_pieces is not None and (isinstance(estimated_pieces, bool) or not isinstance(estimated_pieces, int)
+                                         or estimated_pieces <= 0):
+        raise BusinessRuleError("The estimated pieces must be a whole number above zero, or left empty.")
     factory = lot.factory
     source = from_location or godown_location(factory)
     cutting = cutting_location(factory)
@@ -65,8 +68,9 @@ def issue_fabric(*, lot, lines, user, date, from_location=None) -> FabricIssue:
             factory=factory, location=cutting, item=roll.material, qty=qty, roll=roll, value=-out.value,
             movement_type=T.TRANSFER_IN, date=date, user=user, source=issue, lot=lot, notes=f"Issued to lot {lot.lot_no}")
         FabricIssueLine.objects.create(issue=issue, roll=roll, qty=qty, value=-out.value)
-    issue.expected_pieces = expected_pieces(lot, sum((qty for _, qty in lines), Decimal("0")))
-    issue.save(update_fields=["expected_pieces"])
+    if estimated_pieces is not None:
+        issue.expected_pieces = estimated_pieces
+        issue.save(update_fields=["expected_pieces"])
     shades = {l.roll.lot_no for i in lot.fabric_issues.all() for l in i.lines.select_related("roll") if l.roll.lot_no}
     if len(shades) > 1:
         issue.mixed_shades = True
@@ -77,33 +81,22 @@ def issue_fabric(*, lot, lines, user, date, from_location=None) -> FabricIssue:
     return issue
 
 
-def expected_fabric(lot, pieces) -> Decimal:
-    """Fabric the BOM says these pieces need ({Size: pieces}), wastage allowance included."""
-    version = lot.bom_version
-    if version is None:
-        return Decimal("0.000")
-    total = Decimal("0")
-    for size, n in pieces.items():
-        for material, qty, wastage in boms.consumption_for(version, size):
-            if material.kind == "fabric":
-                total += qty * (1 + wastage / 100) * n
-    return total.quantize(THREE)
+def estimate_basis(lot):
+    """(pieces, fabric) of the issues that carry an estimate: what the cutting master expects, and from how much."""
+    pieces, fabric = 0, Decimal("0")
+    for issue in lot.fabric_issues.exclude(expected_pieces__isnull=True).prefetch_related("lines"):
+        pieces += issue.expected_pieces
+        fabric += sum((l.qty for l in issue.lines.all()), Decimal("0"))
+    return pieces, fabric
 
 
-def planned_mix(lot) -> dict:
-    """The pieces planned per size on the lot's order line: {Size: pieces}."""
-    return {s.size: s.qty for s in lot.order_line.sizes.select_related("size")}
-
-
-def expected_pieces(lot, fabric, mix=None):
-    """Whole pieces the BOM says `fabric` should give, cut in the size mix given ({Size: pieces}; the planned mix
-    when left out). None when the BOM has no fabric to go by."""
-    mix = {s: n for s, n in (mix or planned_mix(lot)).items() if n}
-    total = sum(mix.values())
-    need = expected_fabric(lot, mix) if total else Decimal("0")
-    if need <= 0:
+def estimated_pieces(lot, fabric=None):
+    """Whole pieces the estimate says `fabric` should give; the fabric still with the lot (issued less remnants
+    returned) when left out. None when no issue carries an estimate."""
+    pieces, basis = estimate_basis(lot)
+    if not pieces or basis <= 0:
         return None
-    return int(Decimal(fabric) * total / need)
+    return int(pieces * (fabric_with_lot(lot) if fabric is None else Decimal(fabric)) / basis)
 
 
 def fabric_with_lot(lot) -> Decimal:
@@ -133,7 +126,8 @@ class RollUseSpec:
 @transaction.atomic
 def record_cutting(*, lot, pieces, rolls, user, date, notes="", loss=None) -> CuttingEntry:
     """Record a lay. pieces = {Size: count}; rolls = [RollUseSpec]; loss = {Size: pieces cut but lost}, which can
-    also be given when the bundles are made. Returns the entry with its BOM variance."""
+    also be given when the bundles are made. Returns the entry with its variance: the pieces cut against the
+    pieces estimated for the fabric burnt."""
     lot = _open_lot(lot, user)
     pieces = {s: n for s, n in pieces.items() if n}
     if not pieces or any(n < 0 for n in pieces.values()):
@@ -196,12 +190,10 @@ def record_cutting(*, lot, pieces, rolls, user, date, notes="", loss=None) -> Cu
         costing.add_cost(lot=lot, factory=factory, kind=LotCostEntry.Kind.FABRIC, amount=total_value, date=date,
                          note=f"Lay {lay_no}", source=entry, voucher=voucher)
 
-    expected = expected_fabric(lot, pieces)
     entry.fabric_value = costing.r2(total_value)
-    entry.expected_fabric = expected
-    entry.expected_pieces = expected_pieces(lot, actual, pieces)
-    if expected > 0:
-        pct = ((actual - expected) / expected * 100).quantize(Decimal("0.01"))
+    entry.expected_pieces = estimated_pieces(lot, actual)
+    if entry.expected_pieces:
+        pct = (Decimal(cut_total - entry.expected_pieces) / entry.expected_pieces * 100).quantize(Decimal("0.01"))
         entry.variance_pct = pct
         entry.over_tolerance = abs(pct) > company.bom_tolerance_pct
     entry.save()

@@ -22,7 +22,7 @@ def gl(company, key, factory=None):
 
 
 def build(company, factory, owner, qty=100, ratios=None, with_stock=True, route="Standard track pant route"):
-    """Style JGR-1 (Black, S-XL), BOM 0.4 kg fabric + 1 zipper per piece, standard route, a released order and its lot."""
+    """Style JGR-1 (Black, S-XL), a list of 1 zipper per piece (at stitching), standard route, a released order and its lot."""
     black = Colour.objects.get(name="Black")
     sizes = {c: Size.objects.get(code=c) for c in ("S", "M", "L", "XL")}
     style = styles.create_style(company=company, style_no="JGR-1", product=Product.objects.get(code="JGR"), name="Jogger",
@@ -31,7 +31,7 @@ def build(company, factory, owner, qty=100, ratios=None, with_stock=True, route=
     style.save()
     fabric = Material.objects.create(code="FAB-1", name="Fleece", kind="fabric", unit=Unit.objects.get(code="KG"))
     zipper = Material.objects.create(code="ZIP-1", name="Zipper", kind="trim", unit=Unit.objects.get(code="PCS"))
-    boms.save_bom(style, lines=[boms.BomLineSpec(fabric, D("0.4")), boms.BomLineSpec(zipper, D("1"))], user=owner)
+    boms.save_bom(style, lines=[boms.BomLineSpec(zipper, D("1"))], user=owner)
     ns = SimpleNamespace(company=company, factory=factory, owner=owner, style=style, black=black, sizes=sizes,
                          fabric=fabric, zipper=zipper)
     if with_stock:
@@ -51,9 +51,10 @@ def build(company, factory, owner, qty=100, ratios=None, with_stock=True, route=
     return ns
 
 
-def cut(ns, bundle_size=25, burnt=("41", "2"), remnant="17", loss=None):
-    """Issue 60 kg of roll A, cut 100 pieces (17/33/33/17) and make bundles. Returns the bundles."""
-    cutting.issue_fabric(lot=ns.lot, lines=[(ns.roll_a, D("60"))], user=ns.owner, date=DAY)
+def cut(ns, bundle_size=25, burnt=("41", "2"), remnant="17", loss=None, estimate=None):
+    """Issue 60 kg of roll A (expecting `estimate` pieces from it), cut 100 pieces (17/33/33/17) and make bundles.
+    Returns the bundles."""
+    cutting.issue_fabric(lot=ns.lot, lines=[(ns.roll_a, D("60"))], user=ns.owner, date=DAY, estimated_pieces=estimate)
     entry = cutting.record_cutting(
         lot=ns.lot, user=ns.owner, date=DAY,
         pieces={ns.sizes["S"]: 17, ns.sizes["M"]: 33, ns.sizes["L"]: 33, ns.sizes["XL"]: 17},

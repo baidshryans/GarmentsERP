@@ -33,8 +33,8 @@ class Company(models.Model):
         default=False, help_text="When off, an issue above the stock on hand is blocked (BR-02, BR-09)"
     )
     bom_tolerance_pct = models.DecimalField(
-        "BOM variance tolerance %", max_digits=5, decimal_places=2, default=5,
-        help_text="Fabric used beyond this many percent over or under the BOM is flagged (BR-10)",
+        "Cutting variance tolerance %", max_digits=5, decimal_places=2, default=5,
+        help_text="Pieces cut more than this many percent over or under the estimate made when the fabric was issued are flagged (BR-10)",
     )
     po_approval_limit = models.DecimalField(
         max_digits=14, decimal_places=2, default=50000,

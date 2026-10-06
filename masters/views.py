@@ -202,7 +202,8 @@ class StyleDetail(LoginRequiredMixin, ScreenPermissionMixin, View):
         bom = boms.current_version(style)
         return render(request, "masters/style_detail.html", {
             "style": style, "sizes": sizes, "grid": grid, "bom": bom,
-            "bom_lines": bom.lines.select_related("material__unit").prefetch_related("size_overrides") if bom else [],
+            "bom_lines": [l for l in bom.lines.select_related("material__unit", "process").prefetch_related("size_overrides")
+                          if l.material.kind != "fabric"] if bom else [],   # fabric on old lists is no longer used
             "bom_charges": bom.charges.all() if bom else [],
             "versions": style.bom_versions.all(),
             "can_edit": request.user.has_screen_perm("masters.style", "edit"),
@@ -222,7 +223,10 @@ class BomEdit(LoginRequiredMixin, ScreenPermissionMixin, View):
             rows = []
             if bom:
                 for line in bom.lines.select_related("material").prefetch_related("size_overrides"):
-                    rows.append({"material": str(line.material_id), "qty": line.qty_per_piece, "wastage": line.wastage_pct,
+                    if line.material.kind == "fabric":      # fabric is no longer listed: saving drops it
+                        continue
+                    rows.append({"material": str(line.material_id), "process": str(line.process_id or ""),
+                                 "qty": line.qty_per_piece, "wastage": line.wastage_pct,
                                  "sizes": {str(o.size_id): o.qty_per_piece for o in line.size_overrides.all()}})
             rows = rows or [{}]
         if charge_rows is None:
@@ -230,8 +234,10 @@ class BomEdit(LoginRequiredMixin, ScreenPermissionMixin, View):
                            for c in (bom.charges.all() if bom else [])]
         return {
             "style": style, "sizes": sizes, "rows": rows + [{}, {}], "charge_rows": charge_rows + [{}, {}],
-            "materials": Material.objects.filter(is_active=True).select_related("unit"),
-            "processes": Process.objects.filter(is_active=True), "bom": bom, "vals": {"notes": notes},
+            "materials": Material.objects.filter(is_active=True).exclude(kind="fabric").select_related("unit"),
+            "processes": Process.objects.filter(is_active=True),
+            "use_processes": Process.objects.filter(is_active=True).exclude(kind="cutting"),
+            "bom": bom, "vals": {"notes": notes},
         }
 
     def get(self, request, pk):
@@ -243,17 +249,19 @@ class BomEdit(LoginRequiredMixin, ScreenPermissionMixin, View):
         sizes = [ss.size for ss in style.style_sizes.select_related("size")]
         post = request.POST
         mats, qtys, wastes = post.getlist("material"), post.getlist("qty"), post.getlist("wastage")
+        procs = post.getlist("process") or [""] * len(mats)
         rows, specs, charge_rows = [], [], None
         try:
             for i, mid in enumerate(mats):
                 size_vals = {str(s.pk): post.getlist(f"size_{s.pk}")[i] for s in sizes}
-                rows.append({"material": mid, "qty": qtys[i], "wastage": wastes[i], "sizes": size_vals})
+                rows.append({"material": mid, "process": procs[i], "qty": qtys[i], "wastage": wastes[i], "sizes": size_vals})
                 if not mid:
                     continue
                 specs.append(boms.BomLineSpec(
                     material=get_object_or_404(Material, pk=mid), qty_per_piece=_decimal(qtys[i], "Consumption"),
                     wastage_pct=_decimal(wastes[i], "Wastage", Decimal("0")),
                     size_qty={s: _decimal(size_vals[str(s.pk)], "Size consumption") for s in sizes if size_vals[str(s.pk)].strip()},
+                    process=Process.objects.filter(pk=procs[i]).first() if procs[i] else None,
                 ))
             charge_rows, charges = [], []  # noqa: F841
             for i, desc in enumerate(post.getlist("charge_desc")):

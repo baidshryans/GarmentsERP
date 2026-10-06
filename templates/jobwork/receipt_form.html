@@ -16,7 +16,7 @@
         <td class="num"><input type="text" inputmode="numeric" name="count_{{ cb.pk }}" value="{{ cb.qty_issued }}"></td></tr>
       {% empty %}<tr><td colspan="5" class="muted">Everything on this challan has been received.</td></tr>{% endfor %}</tbody>
     </table></div>
-    {% if trims %}<h3 style="margin-top:16px">Trims</h3><div class="table-scroll"><table><thead><tr><th scope="col">Material</th><th scope="col" class="num">Issued</th><th scope="col" class="num">Returned</th><th scope="col" class="num">Missing</th></tr></thead>
+    {% if trims %}<h3 style="margin-top:16px">Materials</h3><div class="table-scroll"><table><thead><tr><th scope="col">Material</th><th scope="col" class="num">Issued</th><th scope="col" class="num">Returned</th><th scope="col" class="num">Missing</th></tr></thead>
       <tbody>{% for t in trims %}<tr><td>{{ t.material.name }}</td><td class="num">{{ t.qty_issued|floatformat:"-3" }}</td><td class="num"><input type="text" inputmode="decimal" name="returned_{{ t.pk }}" style="width:90px"></td><td class="num"><input type="text" inputmode="decimal" name="missing_{{ t.pk }}" style="width:90px"></td></tr>{% endfor %}</tbody></table></div>{% endif %}
     {% if lines %}<div class="form-actions"><button class="btn primary">Receive</button></div>{% endif %}
   </form>

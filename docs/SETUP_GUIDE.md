@@ -53,7 +53,7 @@ Having it on one sheet makes setup a single sitting.
 - **People:** who will log in, what each does, which factory each works in.
 - **Last year's trial balance** and **party-wise outstanding** lists (receivable and payable, bill by bill).
 - **Stock count:** fabric rolls (roll number, weight or metres, lot, rate), trims, and finished goods by style, colour and size.
-- **Active style list** with colours, sizes, fabric consumption and trims.
+- **Active style list** with colours, sizes, and the accessories and packing materials each piece needs, by process.
 - **Fabricator list** with the rate each is paid for each process.
 
 ---
@@ -223,7 +223,7 @@ Add a template for any rate or section you use that is missing. Confirm every ra
 | Valuation method | **Weighted average** per item per factory, or **specific cost per fabric roll** | Weighted average. Choose specific roll only if rolls of the same fabric are bought at very different prices and you want exact cost per lot |
 | Allow negative stock | Off blocks any issue above stock on hand | **Off** |
 | PO approval limit | A PO above this value needs the owner's approval. 0 = every PO | `50000` |
-| BOM variance tolerance % | Fabric used more or less than the BOM by more than this is flagged at cutting | `5` |
+| Cutting variance tolerance % | Pieces cut more or less than your estimate by more than this are flagged at cutting (22.1, 22.2) | `5` |
 | Pieces per box | Pieces packed in one box. Packing then counts the boxes and prints a label for each (section 24). A style can have its own figure (10.1). Blank or 0 = boxes are not counted | Your usual box, for example `12` |
 
 A change applies from that day. Earlier stock keeps its value.
@@ -316,7 +316,7 @@ The raw items you buy and consume. Not finished goods.
 
 Rules:
 
-- Choose the unit you **stock and issue** in. Fabric is almost always KG (or MTR if you buy by length). Everything in the BOM uses this unit.
+- Choose the unit you **stock and issue** in. Fabric is almost always KG (or MTR if you buy by length). The style's material list (10.2) uses this unit.
 - One code per distinct item. Different GSM, width or composition is a different material.
 - The form asks for **Code**, **Name**, **Kind** and **Unit**. **Composition**, **GSM** and **Width (cm)** are under **More options** on the same form. A new material is active; the **Active** box appears when you edit one. The same holds for units, sizes, colours, products, processes, price lists and HSN codes: no Active box on a new one, and it shows on edit.
 - Fabric is tracked **per roll** in stock, so colour and roll number are captured when the goods are received (GRN), not in the material name. If you buy the same cotton fleece in black and navy, make one material and record the colour per roll, or make `FAB-001-BLK` and `FAB-001-NVY` if your consumption differs by shade. Decide this once and stay consistent.
@@ -609,34 +609,38 @@ More example styles:
 
 Discontinued styles are **archived**, not deleted, and stay searchable with full history.
 
-### 10.2 BOM (bill of materials)
+### 10.2 BOM (materials by process)
 
-*Style → BOM.* How much of each raw material **one piece** needs. The BOM is **versioned**: a change creates a new version and the old one is kept, so an old lot still costs against the BOM it used.
+*Style → BOM.* The **accessories and packing materials one piece needs, and the process that uses each**. The input of a process is the pieces coming from the step before (tracked as bundles, so you never list them) plus these materials. The list is **optional**: an order can be released for a style that has none, and you then enter materials by hand when you send or move bundles.
+
+**Fabric is not on the list.** You do not give fabric per piece in kg or metres. When you issue fabric to cutting you enter the pieces you expect from it, and after cutting the system compares the pieces actually cut with that estimate (22.1, 22.2). The material box does not offer fabric, and fabric lines on lists made before October 2026 are ignored and dropped the next time the list is saved.
+
+The BOM is **versioned**: a change creates a new version and the old one is kept, so an old lot keeps the list it started with.
 
 Each line has:
 
 | Field | Meaning |
 | --- | --- |
-| Material | From the material master |
+| Material | From the material master (trims, accessories, packing material) |
+| Used in | The process that uses it: Stitching, Embroidery, Thread cutting and finishing, Packing and so on. Left as "By kind of material" it means Stitching for a trim and Packing for a packing material. Cutting cannot be chosen |
 | Quantity per piece | In the material's unit |
-| Wastage % | Allowance for cutting loss, added on top |
+| Wastage % | Allowance added on top |
 | Size overrides | Different quantity for a size that uses more or less |
 
 You can also add **per-piece charges** (not materials): a fixed amount per piece for a process, for example embroidery or washing, which the cost includes. A **Version note** (why this changed) is under **More options** at the bottom.
 
 **BOM example — style JGR-104, version 1**
 
-| Material | Unit | Qty / piece | Wastage % | Size override |
-| --- | --- | --- | --- | --- |
-| Cotton fleece 280 GSM | KG | 0.4200 | 4 | S 0.3800, L 0.4500, XL 0.4800, XXL 0.5200 |
-| Rib 1x1 | KG | 0.0400 | 3 | |
-| Drawcord flat 12 mm | MTR | 1.2000 | 2 | |
-| Elastic 1.5 inch | MTR | 0.7500 | 2 | |
-| Eyelet metal 8 mm | PCS | 2.0000 | 0 | |
-| Brand main label woven | PCS | 1.0000 | 0 | |
-| Care label | PCS | 1.0000 | 0 | |
-| Sewing thread 40/2 | CONE | 0.0100 | 5 | |
-| Polybag 10x14 | PCS | 1.0000 | 0 | |
+| Material | Used in | Unit | Qty / piece | Wastage % | Size override |
+| --- | --- | --- | --- | --- | --- |
+| Drawcord flat 12 mm | Stitching | MTR | 1.2000 | 2 | |
+| Elastic 1.5 inch | Stitching | MTR | 0.7500 | 2 | XXL 0.8500 |
+| Eyelet metal 8 mm | Stitching | PCS | 2.0000 | 0 | |
+| Brand main label woven | Stitching | PCS | 1.0000 | 0 | |
+| Sewing thread 40/2 | Stitching | CONE | 0.0100 | 5 | |
+| Embroidery thread | Embroidery | CONE | 0.0050 | 5 | |
+| Care label | Thread cutting and finishing | PCS | 1.0000 | 0 | |
+| Polybag 10x14 | Packing | PCS | 1.0000 | 0 | |
 
 Charges per piece (informational costing):
 
@@ -644,11 +648,15 @@ Charges per piece (informational costing):
 | --- | --- | --- |
 | Logo embroidery | Embroidery | 8.00 |
 
-Reading this: the base quantity applies to sizes M, and sizes listed in *size overrides* use their own figure. Fabric required for a lot is `qty per piece × pieces cut × (1 + wastage)`, and the cutting screen compares what was actually used with this and flags anything beyond your tolerance (Part 5).
+**How the list is used.** It only fills the screen in; what leaves the store is what you confirm.
 
-**To work out fabric per piece**, cut and weigh one finished garment per size, add the wastage you normally lose in the lay, and round to 4 decimals. A close estimate is fine; the system shows actual versus BOM after your first few lots, and you refine.
+- **A fabricator's step:** the challan lists the materials of that step's process for the bundles on it, and you can change them while it is a draft (23.2).
+- **An in-house step:** when you move bundles into the step you are shown its materials to check before the move is saved (23.1).
+- **Packing:** packing materials are asked for when you pack into finished goods (section 24), not when bundles reach the packing step.
+- A bundle coming back to a step it has already been through (rework) is filled in as zero, so nothing is issued twice unless you type it.
+- If a material is used in a process that a lot's route does not have, nothing fills it in. The lot page says so under **Not on this route**; add it by hand where it is really used, or choose the right process on the list.
+- When two steps of a route are the same kind (two stitching processes), choose the process on each line. A line left as "By kind of material" is filled in at every step of that kind.
 
-**Cost check.** With fabric at ₹190/kg: `0.42 × 190 = ₹79.80` plus rib and trims. This is why accurate rates in opening stock and goods received matter.
 
 ---
 
@@ -813,8 +821,8 @@ Run one small lot through the whole system. This is the same flow as BRD scenari
 1. **Purchase fabric.** *Buy → Purchase orders → New purchase order*, then **Save and submit**. From there follow the violet Next button on each page: **Receive goods** (into Main Godown, with roll numbers and weights) → **Check quality** → **Post goods received** → **Enter supplier bill** → **Post supplier bill** → **Pay …** (section 19 lists every step). Check the roll balance in *Stock → Stock*.
 2. **Create a production order** for `JGR-104`, Black, 20 pieces each of M and L, and release it. Route B is copied into the lot.
 3. **Plan the route.** On the lot page open **Route and rates** and check each step; assign stitching to Gurpreet Garments and embroidery to Royal Embroidery.
-4. **Issue fabric** by roll (the lot's Next button). The roll balance reduces.
-5. **Cut.** Enter pieces per size, fabric used and waste. Compare with the BOM variance shown. Make bundles, then print the tags.
+4. **Issue fabric** by roll (the lot's Next button), with the pieces you expect from it. The roll balance reduces.
+5. **Cut.** Enter pieces per size, fabric used and waste. Compare the pieces cut with the estimate you gave when issuing the fabric. Make bundles, then print the tags.
 6. **Issue a challan** to the embroiderer with the bundles; print it. On route B embroidery is a mandatory step, so it is the Next button (Send to … for Embroidery). On a route where embroidery is optional, such as the seeded route A, it is not the Next button: it appears as the smaller link "Send to … for Embroidery (optional)" under **Also waiting**.
 7. **Receive** the work back (Next: Receive from …; enter a small shortage to see how it is handled), then **QC** (Next: Check received pieces): accept most, reject one.
 8. **Move** accepted bundles through the next steps to Packing. Try moving one bundle backwards to see that a reason is required.
@@ -1013,7 +1021,7 @@ Press **Save draft**. A draft can be edited; nothing else has happened yet. In t
 
 **Release order** (needs edit permission):
 
-- The system reads the style's **current BOM** and **default route**. If a style has no BOM or no default route, release stops with a message. Fix the style (section 10) and release again.
+- The system reads the style's **current BOM** and **default route**. If a style has no default route, release stops with a message. Fix the style (section 10) and release again. A style with **no BOM** is released all the same, with a note that no accessories will be filled in for it: you enter them by hand when bundles go to a process (10.2).
 - The order gets its number, and **one lot per line** is created (Black and Navy are two lots).
 - Each lot gets **its own copy of the route**, with each step's in-house or fabricator setting, default party and rate.
 
@@ -1051,11 +1059,12 @@ A step that is In progress or Done cannot be changed. Issuing a challan to a fab
 Lot page → Next button **Issue fabric** (or **Fabric issue** in the Corrections row). The page lists rolls in the factory godown with a balance: Roll, Fabric, Lot/shade, GSM, In store.
 
 1. Enter the **Issue qty** against each roll you are sending to the cutting floor (in KG).
-2. Press **Issue to cutting floor**.
+2. Enter **Pieces you expect from this fabric**: your own estimate for the fabric on this issue, for example 150 pieces from 60 kg. It is optional; leave it empty and no comparison is made.
+3. Press **Issue to cutting floor**.
 
 Rules: quantity must be above zero and cannot exceed the roll's balance; only fabric can be issued; at least one roll. If you mix rolls from different shade lots you get a warning and the issue is flagged "Mixed shade lots". The lot status moves from Planned to Cutting. After you save you go straight on to cutting.
 
-**How many pieces will this fabric give?** Once fabric is issued the page shows **Planned pieces**, **Fabric with the lot** and **Should give about N pieces**, worked out from the BOM's fabric per piece (wastage and size-wise figures included) in the planned size mix. If that is fewer than planned it says how many pieces short, so you can issue more before cutting. Each issue in "Issued so far" shows its own "≈ N pieces". The estimate needs a lot, so it first appears here, not when the fabric is bought.
+**Your estimate.** The page shows **Planned pieces**, **Fabric with the lot** and, once an issue carries an estimate, **Your estimate so far**. If the estimate is fewer than planned it says how many pieces short, so you can issue more before cutting. Each issue in "Issued so far" shows its own "estimated N pieces". Estimates of several issues add up. Fabric you send back as a remnant is taken out of the estimate in proportion, so you are judged only on the fabric you kept. The system never works the pieces out from kg per piece: the figure is yours.
 
 ### 22.2 Record the cutting
 
@@ -1074,9 +1083,8 @@ Press **Record cutting**.
 
 - Used and waste become the lot's fabric cost. Remnant goes back to the godown.
 - You cannot use more than the roll holds on the cutting floor.
-- **Variance against the BOM.** The screen shows "Against the BOM (X expected): N%". If you go beyond the tolerance set in Inventory settings (default 5%) you get a warning. It does not block you.
-
-- **Pieces expected.** Under each lay: "Fabric burnt should give about N pieces · cut N", so you can compare what the fabric should have given with what was cut.
+- **Pieces cut against your estimate.** Under each lay: "By your estimate the fabric burnt should give N pieces · cut N" and "Pieces cut against the estimate: N%". Example: you expected 150 pieces from 60 kg, the lay burnt 43 kg (used plus waste), so it should give 107; you cut 100, which is −6.54%. Beyond the tolerance set in Inventory settings (default 5%), over or under, you get a warning. It does not block you. With no estimate on the fabric issue there is no comparison.
+- The lot page shows **Planned**, **Estimated from fabric** and **Cut** side by side.
 - If the cutting step has a **rate** and is in-house, that rate times the pieces cut is added to the lot's cost as in-house labour.
 
 Each lay is numbered 1, 2, … You can record several lays for one lot.
@@ -1115,6 +1123,7 @@ Bundle statuses you will see: Cut → At stage → Received, awaiting QC → Rea
 4. Pick **Move to stage** (shown as "5. Ironing and pressing — in-house"). When you came from the lot's Next button, the stage it named is already chosen. The **Next stage** column on each row names where that bundle goes next: the next mandatory step after where the bundle actually is, the same step the lot's Next button names. A bundle sitting at Stitching shows the step after Stitching, and optional steps are passed over. Only when no mandatory step is left does it show the next optional step. Two cases cannot be moved from this screen, and the column says so: **With fabricator** for a bundle that is out on a challan (receive it first, 23.3), and the stage name followed by **(by challan)** when the next stage is done by a fabricator (issue a challan, 23.2).
 5. **At factory**: leave as "Stage default", or choose another factory to send the goods there (inter-factory move).
 6. Press **Move selected bundles**.
+7. **Materials for the stage.** If the style's list has materials for this stage (10.2), a second page shows them with the quantity worked out for the pieces you are moving. Change a quantity to what is really handed over, clear it to leave a material out, or add another material in the empty rows, then press **Move to …**. The materials leave the factory's Main Godown and go into the lot's cost in the same save as the move; if stock is short the move is refused and nothing is saved (unless negative stock is allowed in Inventory settings). **Cancel** takes you back with nothing moved. To issue materials that are not on the list, tick **Issue materials from the store with this move** before pressing Move. A stage with nothing on the list, and no tick, moves straight away as before. The lot page lists what was issued under **Materials used in-house**.
 
 What the system checks:
 
@@ -1137,11 +1146,11 @@ What the system checks:
 1. Choose the **Lot** and the **Step**, then **Show bundles**. The form is for normal job work, so it does not ask the kind. **Kind** (Job work, or Rework for pieces sent back) is under **More options**, and the lot's **Send back for rework** link opens the form with Rework already chosen. For Rework the step starts on the one the first waiting bundle came back from.
 2. Choose the **Fabricator**, Date and **Expected by**. The fabricator starts on "Choose…" unless the step already has one; without one the form is refused with "Choose the fabricator." and your ticks are kept. **Notes** are under More options.
 3. Scan or tick the bundles to send. Only eligible bundles not already on an open challan are listed. For Kind = Rework, only the bundles waiting for rework **at the chosen step** are listed.
-4. Press **Save and issue** to save the challan and hand the bundles over in one step. It opens the issued challan, ready to **Print**. If issuing fails, nothing is saved and the form comes back with your bundles still ticked. Or press **Save** to keep a Draft you can review first and issue later. Save and issue shows only if your role may issue challans.
+4. Press **Save and issue** to save the challan and hand the bundles over in one step. It opens the issued challan, ready to **Print**. If issuing fails, nothing is saved and the form comes back with your bundles still ticked. Or press **Save** to keep a Draft, where you can change the materials going with the bundles, and issue later. Save and issue sends the materials exactly as the list fills them in. Save and issue shows only if your role may issue challans.
 
 **Rework goes back on its own step.** A bundle sent back by QC waits at the step of the challan it came back on, and a rework challan can only be made for that step. If you pick another step the system refuses with "Bundle … is waiting for rework at …, not …". The lot's **Send back for rework** link opens the form on the right step.
 
-The challan fills in the **rate** from the fabricator's labour rate (section 11), falling back to the step's rate. If neither exists you see "There is no labour rate for X on PROCESS. Add one under Labour rates, or set a rate on the step". For stitching it also lists the **trims** the BOM needs for these pieces, including wastage. A challan covers one lot.
+The challan fills in the **rate** from the fabricator's labour rate (section 11), falling back to the step's rate. If neither exists you see "There is no labour rate for X on PROCESS. Add one under Labour rates, or set a rate on the step". It also lists the **materials** the style's list has for this step's process (10.2) for these pieces, including wastage: accessories for stitching, embroidery thread for embroidery, and so on. A bundle going back to a step it has been through adds nothing. A challan covers one lot.
 
 If the same lot is already open with another fabricator you get a warning and must tick "Yes, issue this lot to another fabricator too".
 
@@ -1163,8 +1172,9 @@ What is furthest behind comes first; anything else pending is listed as smaller 
 
 On the challan page:
 
-- **Issue challan.** The challan is numbered, bundles move to the fabricator's location, trims leave the godown, and the step is assigned to that fabricator. (**Save and issue** on the new-challan form does this for you.)
-- **Print** the challan to send with the goods. It carries a QR and lists the bundles and trims.
+- **Materials going with the bundles** (draft only). The table is filled in from the style's list. Change a quantity to what is really being sent, clear it to leave the material out, or add a material in the empty rows. **Save materials** keeps the draft; **Issue challan** issues with what is on the screen. A style with no list starts empty, and you can still add materials here.
+- **Issue challan.** The challan is numbered, bundles move to the fabricator's location, the materials leave the godown into the lot's cost, and the step is assigned to that fabricator. (**Save and issue** on the new-challan form does this for you.)
+- **Print** the challan to send with the goods. It carries a QR and lists the bundles and the materials issued.
 - **Discard draft** if you made it by mistake.
 
 Challan statuses: Draft → Issued → Partly received → Fully received → Billed. (Cancelled if a draft is discarded.)
@@ -1237,8 +1247,9 @@ When bundles reach the packing step, open the lot page and press the Next button
 1. Tick the bundles ("These bundles have reached packing").
 2. Choose **Receive into** (default: the factory's Dispatch location).
 3. Press **Pack**.
+4. **Packing materials.** If the style's list has packing materials (10.2), a second page shows them for the pieces being packed, for example 102 polybags for 100 pieces at 2% wastage. Change, clear or add as on a move (23.1), then press **Pack**. They leave the Main Godown into the lot's cost first, so the finished pieces carry their cost. To use packing materials that are not on the list, tick **Issue packing materials that are not on the style's list** before pressing Pack.
 
-The pieces become **finished goods stock** at that location, valued at the lot's cost per piece (fabric + trims + labour). Each bundle becomes **Packed**. The message reads "N pieces packed into finished goods."
+The pieces become **finished goods stock** at that location, valued at the lot's cost per piece (fabric + accessories and packing + labour). Each bundle becomes **Packed**. The message reads "N pieces packed into finished goods."
 
 **Boxes.** When **Pieces per box** is set (on the style, or the company's in Inventory settings), boxing and packing are one step:
 
@@ -1563,7 +1574,9 @@ A supplier bill posts what you owe the supplier (reference = their bill number, 
 
 | Message or problem | What it means | What to do |
 | --- | --- | --- |
-| "no BOM yet; define it before releasing" | The style has no BOM | Add the BOM (section 10), release again |
+| "no material list on the style" after releasing | The style has no BOM. The order is released anyway | Nothing is filled in for it: add materials by hand on the challan, the move or at packing, or add the BOM (10.2) for the next order |
+| "is fabric and is not listed here" | You tried to put fabric on a style's BOM | Leave fabric off; enter the pieces you expect when you issue it to cutting (22.1) |
+| "Not on this route" on the lot page | The style's list uses a material in a process the lot's route does not have | Add the material by hand where it is used, or correct "Used in" on the list (10.2) |
 | "no default route" | The style has no default route | Set it on the style |
 | "is done by a fabricator: issue a job work challan instead" | You tried to move into a fabricator step | Use Send to fabricator |
 | "Moving back to an earlier stage needs a reason" | The target is at or before the bundle's completed step | Type the reason, or pick the right step |

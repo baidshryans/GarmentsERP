@@ -7,7 +7,7 @@
       {% if can_open_order %}<a class="btn ghost" href="{% url 'order_detail' lot.order_line.order.pk %}">{{ lot.order_line.order.number }}</a>{% endif %}</div></div>
   {% include "production/_lot_guide.html" %}
   <div class="island"><div class="field-row">
-      <div><div class="label muted">Planned</div><span class="stat">{{ planned }}</span></div>{% if expected_from_fabric is not None %}<div><div class="label muted">Expected from fabric</div><span class="stat">{{ expected_from_fabric }}</span></div>{% endif %}<div><div class="label muted">Cut</div><span class="stat">{{ cut_pieces }}</span></div>{% if cutting_loss %}<div><div class="label muted">Lost in cutting</div><span class="stat">{{ cutting_loss }}</span></div>{% endif %}
+      <div><div class="label muted">Planned</div><span class="stat">{{ planned }}</span></div>{% if expected_from_fabric is not None %}<div><div class="label muted">Estimated from fabric</div><span class="stat">{{ expected_from_fabric }}</span></div>{% endif %}<div><div class="label muted">Cut</div><span class="stat">{{ cut_pieces }}</span></div>{% if cutting_loss %}<div><div class="label muted">Lost in cutting</div><span class="stat">{{ cutting_loss }}</span></div>{% endif %}
       <div><div class="label muted">In progress</div><span class="stat">{{ live_pieces }}</span></div></div>
       <p class="muted">Factory {{ lot.factory.code }} · BOM version {{ lot.bom_version.version_no|default:"—" }}</p></div>
   <div class="island"><h2>Bundles</h2>
@@ -22,6 +22,7 @@
       {% for b in pack_ready %}<div class="check"><input id="pk{{ b.pk }}" type="checkbox" name="bundle" value="{{ b.pk }}" checked><label for="pk{{ b.pk }}">{{ b.bundle_no }} · {{ b.sku.size.code }} · {{ b.qty }} pieces</label></div>{% endfor %}
       {% if box_plan %}<p class="muted">Packed together they fill: {% for l in box_plan %}{{ l.sku.size.code }} {{ l.full_boxes }} box{{ l.full_boxes|pluralize:"es" }} of {{ l.per_box }}{% if l.short_box_qty %} + a short box of {{ l.short_box_qty }}{% endif %}{% if not forloop.last %} · {% endif %}{% endfor %}</p>{% endif %}
       <div class="field" style="max-width:300px;margin-top:8px"><label for="loc">Receive into</label><select id="loc" name="location">{% for l in dispatch_locations %}<option value="{{ l.pk }}" {% if l.loc_type == "dispatch" %}selected{% endif %}>{{ l.name }}</option>{% endfor %}</select></div>
+      <div class="check"><input id="pack_materials" type="checkbox" name="with_materials"><label for="pack_materials">Issue packing materials that are not on the style's list</label></div>
       <button class="btn primary">Pack</button></form>{% endif %}
     {% if packs %}<h3 style="margin-top:16px">Packed into boxes</h3><div class="table-scroll"><table>
       <thead><tr><th scope="col">Date</th><th scope="col">Boxes</th><th scope="col" class="num">Pieces</th><th scope="col"></th></tr></thead>
@@ -31,9 +32,14 @@
         <td>{% if can_tags %}<a class="btn" href="{% url 'box_labels' p.pk %}">Print box labels</a>{% endif %}</td></tr>{% endfor %}</tbody></table></div>{% endif %}
     {% else %}<div class="empty"><div class="hand">No bundles yet</div><p>Issue fabric, record the cutting, then make bundles.</p></div>{% endif %}
   </div>
+  {% if unused_lines %}<div class="island"><p><span class="pill warning">Not on this route</span> {% for l in unused_lines %}{{ l.material.name }} ({{ l.process.name|default:"by kind" }}){% if not forloop.last %}, {% endif %}{% endfor %}: the style's list uses {{ unused_lines|length|pluralize:"this material,these materials" }} in a process this lot's route does not have, so nothing is filled in for {{ unused_lines|length|pluralize:"it,them" }}. Add {{ unused_lines|length|pluralize:"it,them" }} by hand where needed.</p></div>{% endif %}
+  {% if material_issues %}<div class="island"><details class="fold"><summary>Materials used in-house</summary><div class="table-scroll"><table>
+    <thead><tr><th scope="col">Date</th><th scope="col">Process</th><th scope="col" class="num">Pieces</th><th scope="col">Materials</th></tr></thead>
+    <tbody>{% for i in material_issues %}<tr><td>{{ i.date|date:"d M Y" }}</td><td>{{ i.step.process.name }}</td><td class="num">{{ i.pieces }}</td>
+      <td>{% for l in i.lines.all %}{{ l.material.name }} {{ l.qty|floatformat:"-3" }} {{ l.material.unit }}{% if not forloop.last %}, {% endif %}{% endfor %}</td></tr>{% endfor %}</tbody></table></div></details></div>{% endif %}
   {% if breakdown %}<div class="island"><details class="fold"><summary>Lot cost</summary>
       <div class="table-scroll"><table><tbody>
-        <tr><td>Fabric</td><td class="num">{{ breakdown.fabric }}</td></tr><tr><td>Trims</td><td class="num">{{ breakdown.trim }}</td></tr>
+        <tr><td>Fabric</td><td class="num">{{ breakdown.fabric }}</td></tr><tr><td>Accessories and packing</td><td class="num">{{ breakdown.trim }}</td></tr>
         <tr><td>In-house labour</td><td class="num">{{ breakdown.labour }}</td></tr><tr><td>Job work</td><td class="num">{{ breakdown.jobwork }}</td></tr>
         {% if breakdown.write_off != 0 %}<tr><td>Written off</td><td class="num">{{ breakdown.write_off }}</td></tr>{% endif %}
         {% if breakdown.relief != 0 %}<tr><td>Moved to finished goods</td><td class="num">{{ breakdown.relief }}</td></tr>{% endif %}</tbody>

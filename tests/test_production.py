@@ -62,9 +62,25 @@ def test_order_lines_must_use_the_styles_colours_and_sizes(company, factory, own
 
 def test_once_a_lot_is_cut_from_a_bom_changing_it_makes_a_new_version(company, factory, owner):
     ns = build(company, factory, owner)
-    v, created = boms.save_bom(ns.style, lines=[boms.BomLineSpec(ns.fabric, D("0.45"))], user=owner)
+    v, created = boms.save_bom(ns.style, lines=[boms.BomLineSpec(ns.zipper, D("2"))], user=owner)
     assert created and v.version_no == 2
-    assert ns.lot.bom_version.version_no == 1 and ns.lot.bom_version.lines.count() == 2  # the lot keeps v1
+    assert ns.lot.bom_version.version_no == 1 and ns.lot.bom_version.lines.get().qty_per_piece == D("1")  # the lot keeps v1
+
+
+def test_an_order_is_released_for_a_style_with_no_material_list(company, factory, owner):
+    """The list is optional: the lot simply has none, and nothing is filled in for it."""
+    from masters.services import styles
+
+    ns = build(company, factory, owner)
+    bare = styles.create_style(company=company, style_no="JGR-2", product=ns.style.product, name="Plain jogger",
+                               colours=[ns.black], sizes=list(ns.sizes.values()))
+    bare.default_route = ns.style.default_route
+    bare.save()
+    order = orders.release_order(orders.create_order(
+        company=company, factory=factory, date=DAY, user=owner,
+        lines=[orders.OrderLineSpec(bare, ns.black, 10, {ns.sizes["M"]: 1})]), user=owner)
+    lot = order.lines.get().lot
+    assert order.status == "released" and lot.bom_version is None and lot.steps.exists()
 
 
 def test_production_order_never_stores_the_customer(company, factory, owner):
@@ -166,26 +182,27 @@ def test_cutting_books_consumed_fabric_as_lot_cost_and_returns_the_remnant(compa
     assert not costing.check_wip_reconciles(company)
 
 
-def test_cutting_shows_variance_against_the_bom_and_flags_beyond_tolerance(company, factory, owner):
+def test_cutting_shows_pieces_cut_against_the_estimate_and_flags_beyond_tolerance(company, factory, owner):
     ns = build(company, factory, owner)
-    cut(ns, burnt=("41", "2"), remnant="17")
+    cut(ns, burnt=("41", "2"), remnant="17", estimate=150)      # 150 pieces from 60 kg; 43 kg burnt should give 107
     e = ns.entry
-    assert e.expected_fabric == D("40.000") and e.variance_pct == D("7.50") and e.over_tolerance
+    assert e.expected_pieces == 107 and e.variance_pct == D("-6.54") and e.over_tolerance   # 100 cut
+    assert e.expected_fabric is None                            # no longer compared in kg
 
 
 def test_variance_inside_the_tolerance_is_not_flagged_and_the_tolerance_is_a_setting(company, factory, owner):
     ns = build(company, factory, owner)
-    cut(ns, burnt=("40", "1"), remnant="19")  # 41 against 40 expected: 2.5%
-    assert ns.entry.variance_pct == D("2.50") and not ns.entry.over_tolerance
+    cut(ns, burnt=("40", "1"), remnant="19", estimate=150)  # 41 kg burnt should give 102: 100 cut is 1.96% under
+    assert ns.entry.expected_pieces == 102 and ns.entry.variance_pct == D("-1.96") and not ns.entry.over_tolerance
     company.bom_tolerance_pct = D("1")
     company.save()
     other = orders.release_order(orders.create_order(
         company=company, factory=factory, date=DAY, user=owner,
         lines=[orders.OrderLineSpec(ns.style, ns.black, 10, {ns.sizes["M"]: 1})]), user=owner).lines.get().lot
-    cutting.issue_fabric(lot=other, lines=[(ns.roll_b, D("5"))], user=owner, date=DAY)
-    e = cutting.record_cutting(lot=other, user=owner, date=DAY, pieces={ns.sizes["M"]: 10},
-                               rolls=[cutting.RollUseSpec(ns.roll_b, used=D("4.1"), waste=D("0.0"), remnant=D("0.9"))])
-    assert e.expected_fabric == D("4.000") and e.variance_pct == D("2.50") and e.over_tolerance  # now beyond a 1% tolerance
+    cutting.issue_fabric(lot=other, lines=[(ns.roll_b, D("5"))], user=owner, date=DAY, estimated_pieces=255)
+    e = cutting.record_cutting(lot=other, user=owner, date=DAY, pieces={ns.sizes["M"]: 200},
+                               rolls=[cutting.RollUseSpec(ns.roll_b, used=D("4"), waste=D("0.0"), remnant=D("1"))])
+    assert e.expected_pieces == 204 and e.variance_pct == D("-1.96") and e.over_tolerance  # now beyond a 1% tolerance
 
 
 def test_cutting_validates_its_input(company, factory, owner):
@@ -538,33 +555,32 @@ def test_a_reworked_bundle_goes_back_to_the_normal_rate_once_it_moves_on(company
 
 def test_fabric_issued_says_how_many_pieces_it_should_give(company, factory, owner):
     ns = build(company, factory, owner)
-    issue = cutting.issue_fabric(lot=ns.lot, lines=[(ns.roll_a, D("60"))], user=owner, date=DAY)
-    assert issue.expected_pieces == 150                      # 60 kg at 0.4 kg a piece
-    assert cutting.fabric_with_lot(ns.lot) == D("60") and cutting.expected_pieces(ns.lot, D("60")) == 150
+    issue = cutting.issue_fabric(lot=ns.lot, lines=[(ns.roll_a, D("60"))], user=owner, date=DAY, estimated_pieces=150)
+    assert issue.expected_pieces == 150                      # the cutting master's own figure for these 60 kg
+    assert cutting.fabric_with_lot(ns.lot) == D("60") and cutting.estimated_pieces(ns.lot) == 150
     entry = cutting.record_cutting(
         lot=ns.lot, user=owner, date=DAY, pieces={ns.sizes["M"]: 50, ns.sizes["L"]: 50},
         rolls=[cutting.RollUseSpec(ns.roll_a, used=D("41"), waste=D("2"), remnant=D("17"))])
-    assert entry.expected_pieces == 107                      # 43 kg burnt at 0.4 kg a piece
+    assert entry.expected_pieces == 107                      # 43 kg burnt at 2.5 pieces a kg
     assert cutting.fabric_with_lot(ns.lot) == D("43")        # the remnant went back to the store
+    assert cutting.estimated_pieces(ns.lot) == 107           # so the lot is judged on the fabric it kept
 
 
-def test_the_estimate_follows_size_wise_consumption_and_wastage(company, factory, owner):
-    ns = build(company, factory, owner, with_stock=False)
-    boms.save_bom(ns.style, user=owner, lines=[
-        boms.BomLineSpec(ns.fabric, D("0.4"), wastage_pct=D("25"), size_qty={ns.sizes["XL"]: D("0.8")})])
-    ns.lot.bom_version = ns.style.bom_versions.get(is_current=True)
-    ns.lot.save()
-    # planned 17 S, 33 M, 33 L, 17 XL: (83 x 0.4 + 17 x 0.8) x 1.25 = 58.5 kg for 100 pieces
-    assert cutting.expected_pieces(ns.lot, D("58.5")) == 100 and cutting.expected_pieces(ns.lot, D("29.25")) == 50
-    assert cutting.expected_pieces(ns.lot, D("40"), {ns.sizes["XL"]: 1}) == 40      # all XL: 1 kg a piece
+def test_estimates_of_several_issues_add_up_and_a_bad_estimate_is_refused(company, factory, owner):
+    ns = build(company, factory, owner)
+    cutting.issue_fabric(lot=ns.lot, lines=[(ns.roll_a, D("40"))], user=owner, date=DAY, estimated_pieces=100)
+    cutting.issue_fabric(lot=ns.lot, lines=[(ns.roll_b, D("20"))], user=owner, date=DAY, estimated_pieces=40)
+    assert cutting.estimated_pieces(ns.lot) == 140 and cutting.estimated_pieces(ns.lot, D("30")) == 70
+    for bad in (0, -5, D("12.5"), True):
+        with pytest.raises(BusinessRuleError, match="whole number above zero"):
+            cutting.issue_fabric(lot=ns.lot, lines=[(ns.roll_a, D("1"))], user=owner, date=DAY, estimated_pieces=bad)
 
 
-def test_a_lot_with_no_fabric_on_its_bom_has_no_estimate(company, factory, owner):
-    ns = build(company, factory, owner, with_stock=False)
-    boms.save_bom(ns.style, user=owner, lines=[boms.BomLineSpec(ns.zipper, D("1"))])
-    ns.lot.bom_version = ns.style.bom_versions.get(is_current=True)
-    ns.lot.save()
-    assert cutting.expected_pieces(ns.lot, D("60")) is None
+def test_fabric_issued_with_no_estimate_is_cut_with_no_comparison(company, factory, owner):
+    ns = build(company, factory, owner)
+    cut(ns)
+    assert ns.lot.fabric_issues.get().expected_pieces is None and cutting.estimated_pieces(ns.lot) is None
+    assert ns.entry.expected_pieces is None and ns.entry.variance_pct is None and not ns.entry.over_tolerance
 
 
 def test_pieces_lost_in_cutting_are_left_out_of_the_bundles(company, factory, owner):

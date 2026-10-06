@@ -4,11 +4,11 @@
   <div class="page-head"><h1 class="page-title">Issue fabric to cutting</h1><span class="muted">{{ lot.lot_no }} · {{ lot.style.style_no }} {{ lot.colour }}</span>
     <div class="actions">{% if perms_lot %}<a class="btn" href="{% url 'lot_detail' lot.pk %}">Back to lot</a>{% endif %}</div></div>
   <p class="muted" style="max-width:740px">Choose the rolls and how much of each goes to the cutting floor. You cannot issue more than a roll holds, and you are warned if rolls of different shade lots end up in one lot.</p>
-  {% if expected_pieces is not None %}<div class="island"><div class="field-row">
+  <div class="island"><div class="field-row">
       <div><div class="label muted">Planned pieces</div><span class="stat">{{ planned }}</span></div>
       <div><div class="label muted">Fabric with the lot</div><span class="stat">{{ with_lot|floatformat:"-3" }}</span></div>
-      <div><div class="label muted">Should give about</div><span class="stat">{{ expected_pieces }}</span> <span class="muted">pieces</span></div></div>
-      <p class="muted">By the BOM, 100 of fabric gives about {{ per_unit }} pieces in the planned sizes.{% if short_by %} <span class="pill warning">{{ short_by }} pieces short of the plan</span>{% endif %}</p></div>{% endif %}
+      {% if expected_pieces is not None %}<div><div class="label muted">Your estimate so far</div><span class="stat">{{ expected_pieces }}</span> <span class="muted">pieces</span></div>{% endif %}</div>
+      {% if short_by %}<p class="muted"><span class="pill warning">{{ short_by }} pieces short of the plan</span></p>{% endif %}</div>
   {% if can_create %}
   <form method="post" class="island" novalidate>{% csrf_token %}
     <div class="field" style="max-width:220px"><label for="date">Date</label><input id="date" name="date" type="date" value="{{ vals.date|default:today }}"></div>
@@ -16,8 +16,11 @@
       <thead><tr><th scope="col">Roll</th><th scope="col">Fabric</th><th scope="col">Lot / shade</th><th scope="col" class="num">GSM</th><th scope="col" class="num">In store</th><th scope="col" class="num" style="width:140px">Issue</th></tr></thead>
       <tbody>{% for rb in rolls %}<tr><td><strong>{{ rb.roll.label_code }}</strong> <span class="muted">{{ rb.roll.vendor_roll_no }}</span></td><td>{{ rb.roll.material.name }}</td><td>{{ rb.roll.lot_no|default:"—" }}</td><td class="num">{{ rb.roll.gsm|default:"" }}</td>
         <td class="num">{{ rb.qty|floatformat:"-3" }}</td><td class="num"><input type="text" inputmode="decimal" name="qty_{{ rb.roll_id }}"></td></tr>{% endfor %}</tbody>
-    </table></div><div class="form-actions"><button class="btn primary">Issue to cutting floor</button></div>
+    </table></div>
+    <div class="field" style="max-width:320px;margin-top:12px"><label for="estimated_pieces">Pieces you expect from this fabric</label><input id="estimated_pieces" name="estimated_pieces" type="text" inputmode="numeric" value="{{ vals.estimated_pieces|default:'' }}">
+      <div class="help">Your own estimate. After cutting, the pieces cut are compared with it. Leave empty for no comparison.</div></div>
+    <div class="form-actions"><button class="btn primary">Issue to cutting floor</button></div>
     {% else %}<div class="empty"><div class="hand">No fabric rolls in the store</div></div>{% endif %}
   </form>{% endif %}
-  {% if issues %}<div class="island"><h2>Issued so far</h2>{% for i in issues %}<p>{{ i.date|date:"d M Y" }}: {% for l in i.lines.all %}{{ l.roll.label_code }} {{ l.qty|floatformat:"-3" }}{% if not forloop.last %}, {% endif %}{% endfor %}{% if i.expected_pieces is not None %} <span class="muted">≈ {{ i.expected_pieces }} pieces</span>{% endif %}{% if i.mixed_shades %} <span class="pill warning">Mixed shade lots</span>{% endif %}</p>{% endfor %}</div>{% endif %}
+  {% if issues %}<div class="island"><h2>Issued so far</h2>{% for i in issues %}<p>{{ i.date|date:"d M Y" }}: {% for l in i.lines.all %}{{ l.roll.label_code }} {{ l.qty|floatformat:"-3" }}{% if not forloop.last %}, {% endif %}{% endfor %}{% if i.expected_pieces is not None %} <span class="muted">estimated {{ i.expected_pieces }} pieces</span>{% endif %}{% if i.mixed_shades %} <span class="pill warning">Mixed shade lots</span>{% endif %}</p>{% endfor %}</div>{% endif %}
 {% endblock %}

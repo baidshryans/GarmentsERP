@@ -144,24 +144,36 @@ def zip_trim(db):
     return Material.objects.create(code="ZIP-1", name="Zipper 5in", kind="trim", unit=Unit.objects.get(code="PCS"))
 
 
-def test_first_bom_is_version_1_and_edits_in_place_until_used(style, fabric, zip_trim):
-    v1, new = boms.save_bom(style, lines=[boms.BomLineSpec(fabric, D("0.4500"))])
+@pytest.fixture
+def elastic(db):
+    return Material.objects.create(code="ELA-1", name="Elastic 1.5in", kind="trim", unit=Unit.objects.get(code="MTR"))
+
+
+@pytest.fixture
+def polybag(db):
+    return Material.objects.create(code="PB-1", name="Polybag", kind="packing", unit=Unit.objects.get(code="PCS"))
+
+
+def test_first_bom_is_version_1_and_edits_in_place_until_used(style, elastic, zip_trim):
+    v1, new = boms.save_bom(style, lines=[boms.BomLineSpec(elastic, D("0.4500"))])
     assert v1.version_no == 1 and not new
-    v1b, new = boms.save_bom(style, lines=[boms.BomLineSpec(fabric, D("0.4800")), boms.BomLineSpec(zip_trim, D("1"))])
+    v1b, new = boms.save_bom(style, lines=[boms.BomLineSpec(elastic, D("0.4800")), boms.BomLineSpec(zip_trim, D("1"))])
     assert v1b.pk == v1.pk and not new and v1.lines.count() == 2
 
 
-def test_changing_a_used_bom_creates_new_version_and_old_lots_keep_the_old(style, fabric, zip_trim, monkeypatch):
+def test_changing_a_used_bom_creates_new_version_and_old_lots_keep_the_old(style, elastic, zip_trim, monkeypatch):
+    fabric = elastic
     v1, _ = boms.save_bom(style, lines=[boms.BomLineSpec(fabric, D("0.45"))])
     monkeypatch.setattr(boms, "_USAGE_CHECKS", [lambda v: v.pk == v1.pk])  # a lot now uses v1
-    v2, new = boms.save_bom(style, lines=[boms.BomLineSpec(fabric, D("0.50"))], notes="Heavier fabric")
+    v2, new = boms.save_bom(style, lines=[boms.BomLineSpec(fabric, D("0.50"))], notes="Wider elastic")
     assert new and v2.version_no == 2 and v2.is_current
     v1.refresh_from_db()
     assert not v1.is_current and v1.lines.get().qty_per_piece == D("0.45")  # unchanged for old lots
     assert BomVersion.objects.filter(style=style, is_current=True).count() == 1
 
 
-def test_size_wise_consumption(style, fabric):
+def test_size_wise_consumption(style, elastic):
+    fabric = elastic
     xxl, s = Size.objects.get(code="XXL"), Size.objects.get(code="S")
     v, _ = boms.save_bom(style, lines=[boms.BomLineSpec(fabric, D("0.45"), D("3"), {xxl: D("0.55")})],
                          charges=[boms.BomChargeSpec("Embroidery", D("6.50"), Process.objects.get(code="EMB"))])
@@ -170,7 +182,29 @@ def test_size_wise_consumption(style, fabric):
     assert v.charges.get().amount_per_piece == D("6.50")
 
 
-def test_bom_rules(style, fabric):
+def test_fabric_is_not_on_the_list_and_a_material_is_used_in_one_process(style, fabric, zip_trim, elastic, polybag):
+    """Fabric is estimated in pieces when it is issued to cutting, so the list refuses it. Each material belongs to
+    a process: the one named, else stitching for trims and packing for packing material."""
+    with pytest.raises(BusinessRuleError, match="is fabric"):
+        boms.save_bom(style, lines=[boms.BomLineSpec(fabric, D("0.45"))])
+    cut_p, stitch, emb, pack = (Process.objects.get(code=c) for c in ("CUT", "STITCH", "EMB", "PACK"))
+    with pytest.raises(BusinessRuleError, match="after cutting"):
+        boms.save_bom(style, lines=[boms.BomLineSpec(zip_trim, D("1"), process=cut_p)])
+    s, xxl = Size.objects.get(code="S"), Size.objects.get(code="XXL")
+    v, _ = boms.save_bom(style, lines=[
+        boms.BomLineSpec(zip_trim, D("1")), boms.BomLineSpec(polybag, D("1"), wastage_pct=D("2")),
+        boms.BomLineSpec(elastic, D("0.7"), size_qty={xxl: D("0.9")}, process=emb)])
+    assert boms.needs(v, stitch, {s: 10, xxl: 5}) == {zip_trim: D("15.000")}
+    assert boms.needs(v, emb, {s: 10, xxl: 5}) == {elastic: D("11.500")}          # 10 x 0.7 + 5 x 0.9
+    assert boms.needs(v, pack, {s: 100}) == {polybag: D("102.000")}                # wastage included
+    assert boms.needs(None, stitch, {s: 10}) == {}                                 # a style with no list
+    assert [l.material for l in boms.unused_lines(v, [stitch, pack])] == [elastic]  # a route with no embroidery
+    only_charges, _ = boms.save_bom(style, lines=[], charges=[boms.BomChargeSpec("Washing", D("4"))])
+    assert only_charges.lines.count() == 0
+
+
+def test_bom_rules(style, elastic):
+    fabric = elastic
     with pytest.raises(BusinessRuleError):
         boms.save_bom(style, lines=[])
     with pytest.raises(BusinessRuleError):

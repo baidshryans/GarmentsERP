@@ -32,13 +32,13 @@
       <div class="actions">{% if can_bom %}<a class="btn" href="{% url 'bom_edit' style.pk %}">{% if bom %}Edit BOM{% else %}Define BOM{% endif %}</a>{% endif %}</div></div>
     {% if bom %}
       <div class="table-scroll"><table>
-        <thead><tr><th scope="col">Material</th><th scope="col" class="num">Per piece</th><th scope="col">Unit</th><th scope="col" class="num">Wastage %</th><th scope="col">Size-specific</th></tr></thead>
-        <tbody>{% for l in bom_lines %}<tr><td>{{ l.material.name }}</td><td class="num">{{ l.qty_per_piece }}</td><td>{{ l.material.unit }}</td><td class="num">{{ l.wastage_pct }}</td>
+        <thead><tr><th scope="col">Material</th><th scope="col">Used in</th><th scope="col" class="num">Per piece</th><th scope="col">Unit</th><th scope="col" class="num">Wastage %</th><th scope="col">Size-specific</th></tr></thead>
+        <tbody>{% for l in bom_lines %}<tr><td>{{ l.material.name }}</td><td>{% if l.process %}{{ l.process.name }}{% elif l.material.kind == "packing" %}Packing{% else %}Stitching{% endif %}</td><td class="num">{{ l.qty_per_piece }}</td><td>{{ l.material.unit }}</td><td class="num">{{ l.wastage_pct }}</td>
           <td class="muted">{% for o in l.size_overrides.all %}{{ o.size.code }}: {{ o.qty_per_piece }}{% if not forloop.last %}, {% endif %}{% endfor %}</td></tr>{% endfor %}</tbody>
-        {% if bom_charges %}<tfoot>{% for c in bom_charges %}<tr><td>{{ c.description }}</td><td class="num">{{ c.amount_per_piece }}</td><td colspan="3" class="muted">fixed charge per piece</td></tr>{% endfor %}</tfoot>{% endif %}
+        {% if bom_charges %}<tfoot>{% for c in bom_charges %}<tr><td>{{ c.description }}</td><td>{{ c.process.name|default:"" }}</td><td class="num">{{ c.amount_per_piece }}</td><td colspan="3" class="muted">fixed charge per piece</td></tr>{% endfor %}</tfoot>{% endif %}
       </table></div>
       {% if versions|length > 1 %}<p class="muted" style="margin-top:12px">Earlier versions kept for old lots: {% for v in versions %}{% if not v.is_current %}v{{ v.version_no }} ({{ v.created_at|date:"d M Y" }}) {% endif %}{% endfor %}</p>{% endif %}
-    {% else %}<div class="empty"><div class="hand">No BOM yet</div></div>{% endif %}
+    {% else %}<div class="empty"><div class="hand">No BOM yet</div><p>Optional. List the accessories and packing materials a piece needs, by process, and they are filled in when bundles go to that process.</p></div>{% endif %}
   </div>
 
   <div class="island">

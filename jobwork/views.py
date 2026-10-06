@@ -18,6 +18,7 @@ from masters.models import Party, Process, Size
 from production.labels import qr_svg, scan_text
 from production.models import Bundle, Lot, LotStep
 from production.services import bundles as bundle_service
+from production.views import material_choices, material_rows, posted_materials
 from tax.models import TaxTemplate
 
 from . import selectors
@@ -165,6 +166,8 @@ class ChallanDetail(LoginRequiredMixin, ScreenPermissionMixin, View):
         guide = guide_service.challan_guide(ch, request.user)
         return render(request, "jobwork/challan_detail.html", {
             "ch": ch, "lines": ch.bundles.select_related("bundle__sku__size", "bundle__sku__colour"), "trims": ch.trims.select_related("material"),
+            "rows": material_rows({t.material: t.qty_issued for t in ch.trims.select_related("material__unit")}),
+            "materials": material_choices(),
             "receipts": ch.receipts.all(), "can_edit": request.user.has_screen_perm("jobwork.challan", "edit"),
             "can_receive": any(a["kind"] == "receive" for a in [guide["primary"], *guide["others"]] if a),
             "total_pieces": sum(l.qty_issued for l in ch.bundles.all()),
@@ -177,6 +180,11 @@ class ChallanDetail(LoginRequiredMixin, ScreenPermissionMixin, View):
         if not request.user.has_screen_perm("jobwork.challan", "edit"):
             raise PermissionDenied
         try:
+            if request.POST.get("action") in ("materials", "issue") and ch.status == JobWorkChallan.Status.DRAFT \
+                    and "mat_material" in request.POST:
+                challans.set_materials(ch, lines=posted_materials(request.POST), user=request.user)   # as on the screen
+                if request.POST.get("action") == "materials":
+                    messages.success(request, "Materials saved. Issue the challan when it is right.")
             if request.POST.get("action") == "issue":
                 ch = challans.issue_challan(ch, user=request.user)
                 messages.success(request, f"{ch.number} issued. The bundles are now with {ch.party.name}.")
@@ -184,8 +192,8 @@ class ChallanDetail(LoginRequiredMixin, ScreenPermissionMixin, View):
                 challans.cancel_draft(ch, user=request.user)
                 messages.success(request, "Draft discarded.")
                 return redirect("challan_list")
-        except BusinessRuleError as exc:
-            messages.error(request, str(exc))
+        except (ValueError, BusinessRuleError) as exc:
+            vu.report(request, exc)
         return redirect("challan_detail", pk=pk)
 
 

@@ -27,7 +27,7 @@
       {% empty %}<tr><td colspan="5" class="muted">{% if kind == "rework" %}No bundles are waiting for rework at this step.{% else %}No bundles can be issued to this step right now.{% endif %}</td></tr>{% endfor %}</tbody>
     </table></div>
     {% if need_confirm %}<div class="check" style="margin-top:12px"><input id="cs" type="checkbox" name="confirm_second" autofocus><label for="cs"><strong>Yes, issue this lot to another fabricator too</strong></label></div>{% endif %}
-    {% if bundles %}<p class="muted">The challan fills in the rate and, for stitching, the trims the BOM needs. {% if can_issue %}Save keeps a draft you can review before issuing. Save and issue hands the bundles over now.{% else %}You can review it before issuing.{% endif %}</p>
+    {% if bundles %}<p class="muted">The challan fills in the rate and the materials the style's list has for this step. {% if can_issue %}Save keeps a draft where you can change the materials before issuing. Save and issue hands the bundles over now with the materials as listed.{% else %}You can review it before issuing.{% endif %}</p>
     <div class="form-actions">{% if can_issue %}<button class="btn" name="then" value="draft">Save</button><button class="btn primary" name="then" value="issue">Save and issue</button>{% else %}<button class="btn primary">Save</button>{% endif %}<a class="btn ghost" href="{% url 'challan_list' %}">Cancel</a></div>{% endif %}
   </form>
   <script src="{% static 'js/scan.js' %}?v={{ asset_v }}" defer></script>

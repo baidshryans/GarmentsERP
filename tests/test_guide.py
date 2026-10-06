@@ -568,9 +568,12 @@ def test_a_move_started_from_the_lot_returns_to_it_and_one_from_the_menu_stays_p
     page = c.get(url, {"lot": ns.lot.pk, "back": "1"}).content.decode()
     assert '<input type="hidden" name="back" value="1">' in page
     assert 'name="back"' not in c.get(url, {"lot": ns.lot.pk}).content.decode()
-    r = c.post(url, {"lot": ns.lot.pk, "bundle": [ns.bundles[0].pk], "to_step": st.pk, "back": "1"})
+    # the style's list has a zipper a piece at stitching, so the materials are shown first; that step keeps `back`
+    ask = c.post(url, {"lot": ns.lot.pk, "bundle": [ns.bundles[0].pk], "to_step": st.pk, "back": "1"})
+    assert ask.status_code == 200 and '<input type="hidden" name="back" value="1">' in ask.content.decode()
+    r = c.post(url, {"lot": ns.lot.pk, "bundle": [ns.bundles[0].pk], "to_step": st.pk, "back": "1", "materials_step": "1"})
     assert r.status_code == 302 and r["Location"] == reverse("lot_detail", args=[ns.lot.pk])
-    r = c.post(url, {"lot": ns.lot.pk, "bundle": [ns.bundles[1].pk], "to_step": st.pk})
+    r = c.post(url, {"lot": ns.lot.pk, "bundle": [ns.bundles[1].pk], "to_step": st.pk, "materials_step": "1"})
     assert r.status_code == 302 and r["Location"] == f"{url}?lot={ns.lot.pk}"
     assert {Bundle.objects.get(pk=b.pk).current_step_id for b in ns.bundles[:2]} == {st.pk}
     # a move that fails shows the form again and still remembers where it came from
@@ -735,7 +738,9 @@ def test_the_move_link_opens_with_its_stage_chosen_and_the_form_works_as_it_stan
     plain = plain[plain.index('id="to_step"'):]
     assert " selected" not in plain[:plain.index("</select>")]
     # ticking the bundles and pressing the button, with the stage left as offered, moves them and returns to the lot
-    r = c.post(reverse("move_bundles"), {"lot": ns.lot.pk, "back": "1", "to_step": st.pk, "bundle": [b.pk for b in ns.bundles]})
+    # (stitching has materials on the style's list, so they are confirmed on the way: here with none issued)
+    r = c.post(reverse("move_bundles"), {"lot": ns.lot.pk, "back": "1", "to_step": st.pk, "bundle": [b.pk for b in ns.bundles],
+                                         "materials_step": "1"})
     assert r.status_code == 302 and r["Location"] == reverse("lot_detail", args=[ns.lot.pk])
     assert set(Bundle.objects.filter(lot=ns.lot).values_list("current_step_id", flat=True)) == {st.pk}
     # a refused move shows the form again with the stage the user had picked still chosen

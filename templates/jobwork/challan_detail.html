@@ -16,9 +16,14 @@
   <div class="island"><div class="table-scroll"><table>
     <thead><tr><th scope="col">Bundle</th><th scope="col">Size</th><th scope="col" class="num">Issued</th><th scope="col" class="num">Rate</th><th scope="col" class="num">Received</th><th scope="col" class="num">Short</th><th scope="col" class="num">Accepted</th><th scope="col" class="num">Rejected</th></tr></thead>
     <tbody>{% for l in lines %}<tr><td>{{ l.bundle.bundle_no }}</td><td>{{ l.bundle.sku.size.code }}</td><td class="num">{{ l.qty_issued }}</td><td class="num">{{ l.rate }}</td><td class="num">{{ l.qty_received }}</td><td class="num">{{ l.qty_shortage }}</td><td class="num">{{ l.qty_accepted }}</td><td class="num">{{ l.qty_rejected }}</td></tr>{% endfor %}</tbody></table></div></div>
-  {% if trims %}<div class="island"><h2>Trims issued</h2><div class="table-scroll"><table><thead><tr><th scope="col">Material</th><th scope="col" class="num">Issued</th><th scope="col" class="num">Returned</th><th scope="col" class="num">Missing</th></tr></thead>
+  {% if trims and ch.status != "draft" %}<div class="island"><h2>Materials issued</h2><div class="table-scroll"><table><thead><tr><th scope="col">Material</th><th scope="col" class="num">Issued</th><th scope="col" class="num">Returned</th><th scope="col" class="num">Missing</th></tr></thead>
     <tbody>{% for t in trims %}<tr><td>{{ t.material.name }}</td><td class="num">{{ t.qty_issued|floatformat:"-3" }}</td><td class="num">{{ t.qty_returned|floatformat:"-3" }}</td><td class="num">{{ t.qty_missing|floatformat:"-3" }}</td></tr>{% endfor %}</tbody></table></div></div>{% endif %}
   {% if receipts %}<div class="island"><h2>Receipts</h2>{% for r in receipts %}<p><a href="{% url 'receipt_detail' r.pk %}">{{ r.number|default:"Waiting for approval" }}</a> · {{ r.date|date:"d M Y" }} · {{ r.get_status_display }}</p>{% endfor %}</div>{% endif %}
-  {% if ch.status == "draft" and can_edit %}<form method="post" class="island" id="do-next">{% csrf_token %}<button class="btn primary" name="action" value="issue">Issue challan</button> <button class="btn danger" name="action" value="discard">Discard draft</button>
-    <p class="muted">Issuing moves the bundles to {{ ch.party.name }} and takes the trims out of stock into the lot's cost.</p></form>{% endif %}
+  {% if ch.status == "draft" and can_edit %}<form method="post" class="island" id="do-next">{% csrf_token %}
+    <h2>Materials going with the bundles</h2>
+    <p class="muted">Filled in from the style's list for {{ ch.step.process.name }}. Change a quantity to what is really being sent, clear it to leave the material out, or add one.</p>
+    {% include "production/_materials_table.html" %}
+    <div class="form-actions"><button class="btn primary" name="action" value="issue">Issue challan</button> <button class="btn" name="action" value="materials">Save materials</button> <button class="btn danger" name="action" value="discard">Discard draft</button></div>
+    <p class="muted">Issuing moves the bundles to {{ ch.party.name }} and takes these materials out of stock into the lot's cost.</p></form>
+  {% elif ch.status == "draft" and trims %}<div class="island"><h2>Materials going with the bundles</h2><p>{% for t in trims %}{{ t.material.name }} {{ t.qty_issued|floatformat:"-3" }}{% if not forloop.last %}, {% endif %}{% endfor %}</p></div>{% endif %}
 {% endblock %}

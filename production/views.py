@@ -5,6 +5,7 @@ from decimal import Decimal
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.core.exceptions import PermissionDenied
+from django.db import transaction
 from django.db.models import Count, Q, Sum
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
@@ -18,12 +19,13 @@ from core.scoping import ScreenPermissionMixin
 from core.services.active_factory import in_active, require_active_factory
 from core.services.factories import cutting_location, godown_location
 from inventory.models import RollBalance
-from masters.models import Colour, Party, Process, Size, Style
+from masters.models import Colour, Material, Party, Process, Size, Style
 
 from . import labels
 from .models import Bundle, CuttingEntry, Lot, LotStep, PackEntry, ProductionOrder, StageMovement
 from .services import bundles as bundle_service
 from .services import boxes, costing, cutting, guide, orders, routes
+from .services import materials as material_service
 
 
 def _factories(user):
@@ -36,6 +38,47 @@ def _need_factory(request, to):
         messages.error(request, "Choose a single factory in the top bar before entering a document.")
         return redirect(to)
     return None
+
+
+class _DryRun(Exception):
+    """Raised inside a transaction to undo a trial run of a service."""
+
+
+def posted_materials(p) -> list:
+    """[(material, quantity)] typed on a materials table. A row with no material, or an empty or zero quantity,
+    is left out: that is how a line is removed."""
+    lines = []
+    for mid, qty in zip(p.getlist("mat_material"), p.getlist("mat_qty")):
+        if not mid or not qty.strip():
+            continue
+        qty = vu.dec(qty, "Quantity")
+        if qty:
+            lines.append((get_object_or_404(Material, pk=mid), qty))
+    return lines
+
+
+def material_rows(needs, p=None, blank=3) -> list:
+    """Rows of a materials table: what was typed when the form comes back, else what the list says is needed."""
+    if p is not None and "mat_material" in p:
+        by_id = {str(m.pk): m for m in Material.objects.filter(pk__in=[x for x in p.getlist("mat_material") if x])}
+        rows = [{"material": by_id[mid], "qty": qty} for mid, qty in zip(p.getlist("mat_material"), p.getlist("mat_qty")) if mid in by_id]
+    else:
+        rows = [{"material": m, "qty": q} for m, q in sorted(needs.items(), key=lambda kv: kv[0].name)]
+    return rows + [{} for _ in range(blank)]
+
+
+def material_choices():
+    return Material.objects.filter(is_active=True).exclude(kind="fabric").select_related("unit")
+
+
+def _confirm_materials(request, *, title, lead, action, needs, cancel, button):
+    """The step between choosing bundles and saving: the materials going with them, to check and change."""
+    p = request.POST
+    hidden = [(k, v) for k in p for v in p.getlist(k)
+              if k not in ("csrfmiddlewaretoken", "mat_material", "mat_qty", "materials_step", "with_materials")]
+    return render(request, "production/materials_confirm.html", {
+        "title": title, "lead": lead, "action": action, "hidden": hidden, "cancel": cancel, "button": button,
+        "rows": material_rows(needs, p), "materials": material_choices()})
 
 
 # ================================================================ orders (E7.1)
@@ -164,6 +207,9 @@ class OrderDetail(LoginRequiredMixin, ScreenPermissionMixin, View):
                     raise PermissionDenied
                 order = orders.release_order(order, user=user)
                 messages.success(request, f"{order.number} released. Lots and routes are ready.")
+                bare = sorted({l.style.style_no for l in order.lines.select_related("style") if l.bom_version_id is None})
+                if bare:
+                    messages.info(request, f"{', '.join(bare)}: no material list on the style, so no accessories will be filled in when bundles go to a process. You can still add them by hand.")
                 lots = [l.lot for l in order.lines.all() if hasattr(l, "lot")]
                 if len(lots) == 1 and user.has_screen_perm("production.lot", "view"):
                     return redirect("lot_detail", pk=lots[0].pk)
@@ -200,7 +246,7 @@ class LotDetail(LoginRequiredMixin, ScreenPermissionMixin, View):
             "lot": lot, "guide": guide.lot_guide(lot, request.user),
             "steps": steps, "bundles": bundles, "cuttings": cuts, "planned": planned,
             "cut_pieces": sum(b.original_qty for b in bundles if not b.split_from_id), "live_pieces": sum(b.qty for b in live),
-            "expected_from_fabric": cutting.expected_pieces(lot, cutting.fabric_with_lot(lot)) if lot.fabric_issues.exists() else None,
+            "expected_from_fabric": cutting.estimated_pieces(lot),
             "cutting_loss": sum(cs.loss for c in cuts for cs in c.sizes.all()),
             "breakdown": breakdown if can_cost else None, "total_cost": costing.lot_cost(lot) if can_cost else None,
             "expected_charges": expected_charges, "can_cost": can_cost,
@@ -216,6 +262,8 @@ class LotDetail(LoginRequiredMixin, ScreenPermissionMixin, View):
             "pack_ready": pack_ready,
             "box_plan": boxes.plan_for_bundles([b for b in pack_ready if not b.rework_qty], lot.company),   # if all of them are packed
             "packs": lot.pack_entries.prefetch_related("lines__sku__size"),
+            "material_issues": lot.material_issues.select_related("step__process").prefetch_related("lines__material__unit"),
+            "unused_lines": material_service.unused_lines(lot),
             "dispatch_locations": Location.objects.filter(factory=lot.factory, is_active=True).exclude(loc_type__in=("transit", "rejects", "fabricator")),
         })
 
@@ -260,16 +308,32 @@ class PackBundles(LoginRequiredMixin, ScreenPermissionMixin, View):
 
     def post(self, request, pk):
         lot = get_object_or_404(Lot.objects.for_user(request.user), pk=pk)
-        ids = request.POST.getlist("bundle")
+        p = request.POST
+        ids = p.getlist("bundle")
+        confirmed = p.get("materials_step") == "1"
         try:
-            bundles = list(Bundle.objects.filter(pk__in=ids, lot=lot))
-            location = Location.objects.filter(pk=request.POST.get("location"), factory=lot.factory).first() if request.POST.get("location") else None
-            done = bundle_service.pack_bundles(bundles=bundles, user=request.user, location=location)
+            bundles = list(Bundle.objects.filter(pk__in=ids, lot=lot).select_related("sku__size"))
+            location = Location.objects.filter(pk=p.get("location"), factory=lot.factory).first() if p.get("location") else None
+            if not confirmed:
+                needs = material_service.needs_at_packing(lot, bundle_service.packing_step(lot), bundles)
+                if needs or p.get("with_materials") == "on":
+                    try:                                    # a trial run, so a bundle that cannot be packed says so now
+                        with transaction.atomic():
+                            bundle_service.pack_bundles(bundles=bundles, user=request.user, location=location)
+                            raise _DryRun
+                    except _DryRun:
+                        pass
+                    return _confirm_materials(
+                        request, title="Packing materials", action=request.path, needs=needs, button="Pack",
+                        lead=f"{sum(b.qty for b in bundles)} pieces of {lot.lot_no} are being packed. These packing materials leave the store and go into the lot's cost.",
+                        cancel=redirect("lot_detail", pk=pk).url)
+            done = bundle_service.pack_bundles(bundles=bundles, user=request.user, location=location,
+                                               materials=posted_materials(p) if confirmed else None)
             in_boxes = boxes.describe(boxes.plan_for_bundles(done, lot.company))
             messages.success(request, f"{sum(b.qty for b in done)} pieces packed into finished goods"
                              + (f": {in_boxes}. Print the box labels from this page." if in_boxes else "."))
-        except BusinessRuleError as exc:
-            messages.error(request, str(exc))
+        except (ValueError, BusinessRuleError) as exc:
+            vu.report(request, exc)
         return redirect("lot_detail", pk=pk)
 
 
@@ -299,12 +363,11 @@ class FabricIssueView(LoginRequiredMixin, ScreenPermissionMixin, View):
         godown = godown_location(lot.factory)
         rolls = RollBalance.objects.for_user(request.user).filter(location=godown, qty__gt=0).select_related("roll__material")
         with_lot = cutting.fabric_with_lot(lot)
-        expected = cutting.expected_pieces(lot, with_lot)
+        expected = cutting.estimated_pieces(lot)
         planned = sum(s.qty for s in lot.order_line.sizes.all())
         return {"lot": lot, "rolls": rolls, "vals": vals or {}, "issues": lot.fabric_issues.prefetch_related("lines__roll")[:10],
                 "with_lot": with_lot, "expected_pieces": expected, "planned": planned,
                 "short_by": max(0, planned - expected) if expected is not None and with_lot > 0 else 0,
-                "per_unit": cutting.expected_pieces(lot, Decimal("100")),     # pieces from 100 of fabric, for the hint
                 "can_create": request.user.has_screen_perm("production.cutting", "create"),
                 "perms_lot": request.user.has_screen_perm("production.lot", "view")}
 
@@ -323,7 +386,9 @@ class FabricIssueView(LoginRequiredMixin, ScreenPermissionMixin, View):
             for key, value in request.POST.items():
                 if key.startswith("qty_") and value.strip():
                     lines.append((get_object_or_404(FabricRoll, pk=key[4:]), vu.dec(value, "Quantity")))
-            issue = cutting.issue_fabric(lot=lot, lines=lines, user=request.user, date=vu.day(request.POST.get("date"), default=timezone.localdate()))
+            estimate = request.POST.get("estimated_pieces", "").strip()
+            issue = cutting.issue_fabric(lot=lot, lines=lines, user=request.user, date=vu.day(request.POST.get("date"), default=timezone.localdate()),
+                                         estimated_pieces=vu.whole(estimate, "Estimated pieces") if estimate else None)
         except (ValueError, BusinessRuleError) as exc:
             vu.report(request, exc)
             return render(request, "production/fabric_issue.html", self._ctx(request, lot, request.POST))
@@ -389,9 +454,9 @@ class CuttingView(LoginRequiredMixin, ScreenPermissionMixin, View):
             vu.report(request, exc)
             return render(request, "production/cutting.html", self._ctx(request, lot, p))
         if entry.over_tolerance:
-            messages.warning(request, f"Fabric used is {entry.variance_pct}% against the BOM ({entry.expected_fabric} expected): beyond the {lot.company.bom_tolerance_pct}% tolerance (BR-10).")
+            messages.warning(request, f"Pieces cut are {entry.variance_pct}% against the estimate ({entry.expected_pieces} expected from the fabric burnt): beyond the {lot.company.bom_tolerance_pct}% tolerance (BR-10).")
         else:
-            messages.success(request, f"Lay {entry.lay_no} recorded." + (f" Variance against BOM: {entry.variance_pct}%." if entry.variance_pct is not None else ""))
+            messages.success(request, f"Lay {entry.lay_no} recorded." + (f" Against the estimate of {entry.expected_pieces} pieces: {entry.variance_pct}%." if entry.variance_pct is not None else ""))
         return redirect("lot_cutting", pk=pk)
 
 
@@ -455,14 +520,22 @@ class MoveView(LoginRequiredMixin, ScreenPermissionMixin, View):
     def get(self, request):
         return render(request, "production/move.html", self._ctx(request, self._lot(request)))
 
+    def _confirm(self, request, lot, to_step, bundles, needs):
+        back = "&back=1" if request.POST.get("back") == "1" else ""
+        return _confirm_materials(
+            request, title=f"Materials for {to_step.process.name}", action=request.path, needs=needs,
+            button=f"Move to {to_step.process.name}", cancel=f"{request.path}?lot={lot.pk}{back}",
+            lead=f"{len(bundles)} bundle(s) of {lot.lot_no} are going to {to_step.process.name}. These materials leave the store and go into the lot's cost.")
+
     def post(self, request):
         lot = self._lot(request)
         if not request.user.has_screen_perm("production.move", "create"):
             raise PermissionDenied
         p = request.POST
+        confirmed, to_step, bundles = p.get("materials_step") == "1", None, []
         try:
             ids = p.getlist("bundle")
-            bundles = list(Bundle.objects.filter(pk__in=ids, lot=lot))
+            bundles = list(Bundle.objects.filter(pk__in=ids, lot=lot).select_related("sku__size", "split_from"))
             counts = {}
             for b in bundles:
                 c = bundle_service.Count(loss=vu.whole(p.get(f"loss_{b.pk}"), "Loss", 0), rejection=vu.whole(p.get(f"rejection_{b.pk}"), "Rejection", 0),
@@ -474,12 +547,24 @@ class MoveView(LoginRequiredMixin, ScreenPermissionMixin, View):
                 gone = sum(m.loss + m.rejection + m.shortage for m in done)
                 messages.success(request, f"{gone} piece(s) taken out of {len(done)} bundle(s). Nothing was moved.")
                 return redirect(f"{request.path}?lot={lot.pk}" + ("&back=1" if p.get("back") == "1" else ""))
-            to_step = get_object_or_404(LotStep, pk=p.get("to_step"), lot=lot)
+            to_step = get_object_or_404(LotStep.objects.select_related("process"), pk=p.get("to_step"), lot=lot)
             factory = Factory.objects.filter(pk=p.get("factory")).first() if p.get("factory") else None
-            moves = bundle_service.move_bundles(bundles=bundles, to_step=to_step, user=request.user, factory=factory,
-                                                counts=counts, reason=p.get("reason", ""))
+            move = dict(bundles=bundles, to_step=to_step, user=request.user, factory=factory, counts=counts, reason=p.get("reason", ""))
+            if not confirmed:
+                needs = material_service.needs_on_entry(lot, to_step, bundles)
+                if needs or p.get("with_materials") == "on":
+                    try:                                    # a trial run, so a move that cannot be made says so now
+                        with transaction.atomic():
+                            bundle_service.move_bundles(**move)
+                            raise _DryRun
+                    except _DryRun:
+                        pass
+                    return self._confirm(request, lot, to_step, bundles, needs)
+            moves = bundle_service.move_bundles(**move, materials=posted_materials(p) if confirmed else None)
         except (ValueError, BusinessRuleError) as exc:
             vu.report(request, exc)
+            if confirmed and to_step is not None:
+                return self._confirm(request, lot, to_step, bundles, {})
             return render(request, "production/move.html", self._ctx(request, lot, p))
         messages.success(request, f"{len(moves)} bundle(s) moved to {to_step.process.name}.")
         if p.get("back") == "1" and request.user.has_screen_perm("production.lot", "view"):

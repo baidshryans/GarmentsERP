@@ -177,7 +177,7 @@ class FabricIssue(FactoryScopedModel):
     to_location = models.ForeignKey("core.Location", on_delete=models.PROTECT, related_name="+")
     date = models.DateField()
     mixed_shades = models.BooleanField(default=False, help_text="Rolls of different shade lots went into one lot")
-    expected_pieces = models.PositiveIntegerField(null=True, blank=True, help_text="Pieces the BOM says this fabric should give")
+    expected_pieces = models.PositiveIntegerField(null=True, blank=True, help_text="Pieces the cutting master expects from this fabric")
     created_by = models.ForeignKey("core.User", on_delete=models.PROTECT, null=True, related_name="+")
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -204,9 +204,10 @@ class CuttingEntry(FactoryScopedModel):
     notes = models.CharField(max_length=255, blank=True)
     fabric_value = models.DecimalField(max_digits=16, decimal_places=2, default=ZERO)
     expected_fabric = models.DecimalField(max_digits=14, decimal_places=3, null=True, blank=True,
-                                          help_text="What the BOM says these pieces should use")
-    expected_pieces = models.PositiveIntegerField(null=True, blank=True, help_text="Pieces the BOM says the fabric burnt should give")
-    variance_pct = models.DecimalField(max_digits=7, decimal_places=2, null=True, blank=True)
+                                          help_text="No longer filled: the cutting is compared in pieces")
+    expected_pieces = models.PositiveIntegerField(null=True, blank=True, help_text="Pieces estimated for the fabric this lay burnt")
+    variance_pct = models.DecimalField(max_digits=7, decimal_places=2, null=True, blank=True,
+                                       help_text="Pieces cut against the estimate, in percent")
     over_tolerance = models.BooleanField(default=False)
     bundled = models.BooleanField(default=False, help_text="Bundles and QR tags have been made from this lay")
     created_by = models.ForeignKey("core.User", on_delete=models.PROTECT, null=True, related_name="+")
@@ -378,6 +379,41 @@ class PackEntryLine(models.Model):
     @property
     def boxes(self):
         return self.full_boxes + (1 if self.short_box_qty else 0)
+
+
+class StepMaterialIssue(FactoryScopedModel):
+    """Accessories or packing materials used by an in-house step: issued from the store when bundles enter the
+    step (or are packed), into the lot's cost. A fabricator's step gets its materials on the challan instead."""
+
+    company = models.ForeignKey("core.Company", on_delete=models.PROTECT, related_name="+")
+    lot = models.ForeignKey(Lot, on_delete=models.PROTECT, related_name="material_issues")
+    step = models.ForeignKey(LotStep, on_delete=models.PROTECT, related_name="material_issues")
+    date = models.DateField()
+    pieces = models.PositiveIntegerField(default=0, help_text="Pieces in the bundles these materials were issued for")
+    voucher = models.ForeignKey("ledger.Voucher", on_delete=models.PROTECT, null=True, blank=True, related_name="+")
+    created_by = models.ForeignKey("core.User", on_delete=models.PROTECT, null=True, related_name="+")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    history = HistoricalRecords()
+
+    class Meta:
+        ordering = ["-id"]
+
+    def __str__(self):
+        return f"{self.lot} materials for {self.step.process}"
+
+
+class StepMaterialIssueLine(models.Model):
+    issue = models.ForeignKey(StepMaterialIssue, on_delete=models.CASCADE, related_name="lines")
+    material = models.ForeignKey("masters.Material", on_delete=models.PROTECT, related_name="+")
+    qty = models.DecimalField(max_digits=14, decimal_places=3)
+    value = models.DecimalField(max_digits=16, decimal_places=2, default=ZERO, help_text="Cost when issued")
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=["issue", "material"], name="uniq_step_issue_material"),
+            models.CheckConstraint(condition=Q(qty__gt=0), name="step_issue_qty_positive"),
+        ]
 
 
 class LotCostEntry(models.Model):

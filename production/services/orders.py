@@ -119,11 +119,10 @@ def release_order(order, *, user) -> ProductionOrder:
         raise BusinessRuleError("This order has already been released.")
     lines = list(order.lines.select_related("style", "colour", "bom_version", "route"))
     for line in lines:
-        # re-read the latest BOM and route: they may have changed since the draft was saved (E7.1)
+        # re-read the latest BOM and route: they may have changed since the draft was saved (E7.1). The BOM is
+        # optional: without one nothing is filled in when bundles go to a process
         line.bom_version = boms.current_version(line.style)
         line.route = line.style.default_route
-        if line.bom_version is None:
-            raise BusinessRuleError(f"{line.style.style_no} has no BOM yet; define it before releasing the order.")
         if line.route is None or not line.route.steps.exists():
             raise BusinessRuleError(f"{line.style.style_no} has no default route; choose one on the style.")
         line.save(update_fields=["bom_version", "route"])

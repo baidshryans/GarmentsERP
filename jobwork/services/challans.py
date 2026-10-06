@@ -1,8 +1,8 @@
 """Job work challans (E8.1, JOB-01 to JOB-04, BR-04, BR-05).
 
-A challan sends bundles (and the trims the BOM needs) to a fabricator for one step of a lot. Issuing it moves the
-bundles to the fabricator's location, takes the trims out of stock into the lot's cost, and opens the fabricator's
-material ledger. Rework goes out on its own challan with a rework rate.
+A challan sends bundles to a fabricator for one step of a lot, with the accessories that step's process uses: filled
+in from the style's list and editable while the challan is a draft. Issuing it moves the bundles to the fabricator's
+location, takes the materials out of stock into the lot's cost, and opens the fabricator's material ledger. Rework goes out on its own challan with a rework rate.
 """
 from dataclasses import dataclass
 from decimal import Decimal
@@ -19,10 +19,10 @@ from inventory.services import stock
 from jobwork.models import ChallanBundle, ChallanTrim, JobWorkChallan, PayBasis
 from jobwork.services import rates
 from ledger.services.posting import LineSpec, post_voucher
-from masters.services import boms
 from production.models import Bundle, LotCostEntry, LotRouteChange, LotStep
 from production.services import bundles as bundle_service
 from production.services import costing
+from production.services import materials as material_service
 
 T = StockMovement.Type
 ZERO = Decimal("0.00")
@@ -37,19 +37,6 @@ def open_challans(lot, exclude_party=None):
     if exclude_party is not None:
         qs = qs.exclude(party=exclude_party)
     return qs
-
-
-def _trim_needs(lot, bundles):
-    """Trims the BOM needs for these bundles: {Material: quantity}. Only trims, not fabric."""
-    version = lot.bom_version
-    needs = {}
-    if version is None:
-        return needs
-    for b in bundles:
-        for material, qty, wastage in boms.consumption_for(version, b.sku.size):
-            if material.kind == "trim":
-                needs[material] = needs.get(material, Decimal("0")) + qty * (1 + wastage / 100) * b.qty
-    return {m: q.quantize(Decimal("0.001")) for m, q in needs.items()}
 
 
 def first_pass_line(bundle, step):
@@ -77,7 +64,7 @@ def create_challan(*, company, factory, party, lot, step, bundles, date, user, e
         raise BusinessRuleError("That step belongs to a different lot (BR-04: a challan is for one lot).")
     if step.status == LotStep.Status.SKIPPED:
         raise BusinessRuleError(f"{step.process.name} was skipped on this lot.")
-    bundles = [Bundle.objects.select_related("lot", "sku", "sku__size", "location", "location__factory", "current_step").get(pk=b.pk)
+    bundles = [Bundle.objects.select_related("lot", "sku", "sku__size", "location", "location__factory", "current_step", "split_from").get(pk=b.pk)
                for b in bundles]
     if not bundles:
         raise BusinessRuleError("Scan or choose at least one bundle.")
@@ -130,10 +117,23 @@ def create_challan(*, company, factory, party, lot, step, bundles, date, user, e
         remarks=remarks, second_fabricator_ack=bool(others.exists()), created_by=user)
     for b, qty, price in lines:
         ChallanBundle.objects.create(challan=challan, bundle=b, qty_issued=qty, rate=price)
-    if kind == JobWorkChallan.Kind.ISSUE and step.process.kind == "stitching":
-        for material, qty in _trim_needs(lot, bundles).items():
-            if qty > 0:
-                ChallanTrim.objects.create(challan=challan, material=material, qty_issued=qty)
+    if kind == JobWorkChallan.Kind.ISSUE:
+        for material, qty in material_service.needs_on_entry(lot, step, bundles).items():
+            ChallanTrim.objects.create(challan=challan, material=material, qty_issued=qty)
+    return challan
+
+
+@transaction.atomic
+def set_materials(challan, *, lines, user) -> JobWorkChallan:
+    """Replace the materials going with a draft challan. lines = [(material, quantity)]; an empty list sends none."""
+    challan = JobWorkChallan.objects.get(pk=challan.pk)
+    assert_factory_access(user, challan.factory)
+    if challan.status != JobWorkChallan.Status.DRAFT:
+        raise BusinessRuleError("The materials can be changed only while the challan is a draft.")
+    lines = material_service.clean_lines(lines)
+    challan.trims.all().delete()
+    for material, qty in lines:
+        ChallanTrim.objects.create(challan=challan, material=material, qty_issued=qty)
     return challan
 
 
@@ -186,7 +186,7 @@ def issue_challan(challan, *, user) -> JobWorkChallan:
         for t in trims:
             m = stock.post_movement(
                 factory=factory, location=godown, item=t.material, qty=-t.qty_issued, movement_type=T.ISSUE, date=date,
-                user=user, source=challan, lot=lot, notes=f"Trims to {party.name} for lot {lot.lot_no}")
+                user=user, source=challan, lot=lot, notes=f"Materials to {party.name} for lot {lot.lot_no}")
             t.value = -m.value
             t.save(update_fields=["value"])
             moves.append(m)
@@ -195,11 +195,11 @@ def issue_challan(challan, *, user) -> JobWorkChallan:
             company = challan.company
             voucher = post_voucher(
                 company=company, factory=factory, voucher_type="stock_journal", date=date, user=user, source=challan,
-                narration=f"Trims issued to {party.name} on challan, lot {lot.lot_no}",
+                narration=f"Materials issued to {party.name} on challan, lot {lot.lot_no}",
                 lines=[LineSpec(ledger=costing.ledger_for(company, "stock_wip"), debit=total),
                        LineSpec(ledger=costing.ledger_for(company, "stock_raw_material"), credit=total)])
             costing.add_cost(lot=lot, factory=factory, kind=LotCostEntry.Kind.TRIM, amount=total, date=date,
-                             note=f"Trims to {party.name}", source=challan, voucher=voucher)
+                             note=f"Materials to {party.name}", source=challan, voucher=voucher)
     challan.number = next_document_number(factory=factory, doc_type="challan", on_date=date)
     challan.status, challan.issued_at, challan.voucher = JobWorkChallan.Status.ISSUED, timezone.now(), voucher
     challan.save()

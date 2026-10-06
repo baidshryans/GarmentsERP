@@ -269,7 +269,9 @@ class CodeCounter(models.Model):
 # ---------------------------------------------------------------- BOM
 
 class BomVersion(models.Model):
-    """A style's bill of materials. Saving a change to a version that lots already use creates a new one."""
+    """A style's list of accessories and packing materials, each used in one process. Fabric is not on it: the
+    pieces a fabric should give are estimated when it is issued to cutting. Saving a change to a version that lots
+    already use creates a new one."""
 
     style = models.ForeignKey(Style, on_delete=models.CASCADE, related_name="bom_versions")
     version_no = models.PositiveSmallIntegerField()
@@ -294,6 +296,9 @@ class BomVersion(models.Model):
 class BomLine(models.Model):
     version = models.ForeignKey(BomVersion, on_delete=models.CASCADE, related_name="lines")
     material = models.ForeignKey(Material, on_delete=models.PROTECT, related_name="+")
+    process = models.ForeignKey(
+        Process, on_delete=models.PROTECT, null=True, blank=True, related_name="+", verbose_name="Used in",
+        help_text="The process that uses this material. Blank = stitching for trims, packing for packing material.")
     qty_per_piece = models.DecimalField(max_digits=12, decimal_places=4, help_text="In the material's unit")
     wastage_pct = models.DecimalField(max_digits=5, decimal_places=2, default=ZERO)
 

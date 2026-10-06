@@ -153,7 +153,8 @@ class ChallanBundle(models.Model):
 
 
 class ChallanTrim(models.Model):
-    """Trims issued with a challan, per the BOM. The cost goes into the lot when the challan is issued."""
+    """Accessories issued with a challan: filled in from the style's list for the step's process, and editable while
+    the challan is a draft. The cost goes into the lot when the challan is issued."""
 
     challan = models.ForeignKey(JobWorkChallan, on_delete=models.CASCADE, related_name="trims")
     material = models.ForeignKey("masters.Material", on_delete=models.PROTECT, related_name="+")

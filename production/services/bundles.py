@@ -22,6 +22,7 @@ from inventory.services import stock
 from ledger.services.posting import LineSpec, post_voucher
 from production.models import Bundle, Lot, LotCostEntry, LotStep, PackEntry, PackEntryLine, StageMovement
 from production.services import boxes, costing, orders
+from production.services import materials as material_service
 
 T = StockMovement.Type
 ZERO = Decimal("0.00")
@@ -255,10 +256,12 @@ def _check_same_lot(bundles):
 
 
 @transaction.atomic
-def move_bundles(*, bundles, to_step, user, date=None, factory=None, location=None, counts=None, reason="") -> list:
+def move_bundles(*, bundles, to_step, user, date=None, factory=None, location=None, counts=None, reason="",
+                 materials=None) -> list:
     """Move bundles to an in-house stage (E7.6). Choosing an earlier stage is rework and needs a reason (BR-22).
     A stage at another factory moves the lot's WIP there with its cost (E7.9). Subcontracted stages go through a
-    job work challan instead."""
+    job work challan instead. materials = [(material, quantity)] the stage uses for these bundles: issued from the
+    store of the factory the stage is in, into the lot's cost, in the same transaction."""
     date = date or timezone.localdate()
     bundles = [Bundle.objects.select_related("lot", "lot__factory", "lot__company", "location", "location__factory",
                                              "current_step", "current_step__process", "sku").get(pk=b.pk) for b in bundles]
@@ -315,6 +318,8 @@ def move_bundles(*, bundles, to_step, user, date=None, factory=None, location=No
             bundle=b, kind=kind, to_location=dest_location, user=user, date=date, new_status=Bundle.Status.AT_STAGE,
             to_step=to_step, completed_seq=completed, loss=c.loss, rejection=c.rejection, shortage=c.shortage,
             reason=reason, is_rework=backwards))
+    material_service.issue_to_step(lot=lot, step=to_step, factory=dest_factory, lines=materials, user=user, date=date,
+                                   pieces=sum(m.qty_in for m in out))
     refresh_steps(lot)
     return out
 
@@ -352,7 +357,7 @@ def count_bundles(*, bundles, counts, user, reason, date=None) -> list:
     return out
 
 
-def _packing_step(lot):
+def packing_step(lot):
     steps = list(lot.steps.exclude(status=LotStep.Status.SKIPPED).order_by("-sequence"))
     for s in steps:
         if s.process.kind == "packing":
@@ -361,9 +366,11 @@ def _packing_step(lot):
 
 
 @transaction.atomic
-def pack_bundles(*, bundles, user, date=None, location=None) -> list:
+def pack_bundles(*, bundles, user, date=None, location=None, materials=None) -> list:
     """Pack bundles and receive them into finished goods at lot cost (Dr Finished Goods, Cr WIP). When pieces per
-    box are set, the boxes the pieces fill are recorded with the pack (a PackEntry), for the box labels."""
+    box are set, the boxes the pieces fill are recorded with the pack (a PackEntry), for the box labels.
+    materials = [(material, quantity)] of packing material used: issued into the lot's cost first, so the finished
+    pieces carry it."""
     date = date or timezone.localdate()
     bundles = [Bundle.objects.select_related("lot", "lot__factory", "lot__company", "location", "location__factory",
                                              "current_step", "sku", "sku__style", "sku__colour", "sku__size").get(pk=b.pk)
@@ -372,7 +379,7 @@ def pack_bundles(*, bundles, user, date=None, location=None) -> list:
         raise BusinessRuleError("Choose at least one bundle to pack.")
     _check_same_lot(bundles)
     lot = bundles[0].lot
-    pack_step = _packing_step(lot)
+    pack_step = packing_step(lot)
     factories = {b.location.factory_id for b in bundles}
     if len(factories) != 1:
         raise BusinessRuleError("Pack bundles that are in one factory.")
@@ -398,6 +405,8 @@ def pack_bundles(*, bundles, user, date=None, location=None) -> list:
                               note=f"Packing, {sum(b.qty for b in bundles)} pieces", source=lot)
 
     packed = sum(b.qty for b in bundles)
+    material_service.issue_to_step(lot=lot, step=pack_step, factory=factory, lines=materials, user=user, date=date,
+                                   pieces=packed)
     here = costing.live_pieces(lot, factory)
     cost = costing.lot_cost(lot, factory)
     relief = cost if packed >= here else costing.r2(cost * packed / here)

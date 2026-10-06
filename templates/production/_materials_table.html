@@ -1,0 +1,9 @@
+<div class="table-scroll"><table data-entry>
+  <thead><tr><th scope="col">Material</th><th scope="col" class="num" style="width:160px">Quantity</th><th scope="col">Unit</th></tr></thead>
+  <tbody>{% for r in rows %}<tr>
+    {% if r.material %}<td>{{ r.material.name }}<input type="hidden" name="mat_material" value="{{ r.material.pk }}"></td>
+    <td class="num"><input type="text" inputmode="decimal" name="mat_qty" aria-label="Quantity of {{ r.material.name }}" value="{{ r.qty|floatformat:"-3" }}"></td><td>{{ r.material.unit }}</td>
+    {% else %}<td><select name="mat_material" aria-label="Add a material"><option value="">Add a material…</option>{% for m in materials %}<option value="{{ m.pk }}">{{ m.name }} ({{ m.unit }})</option>{% endfor %}</select></td>
+    <td class="num"><input type="text" inputmode="decimal" name="mat_qty" aria-label="Quantity"></td><td></td>{% endif %}
+  </tr>{% endfor %}</tbody>
+</table></div>

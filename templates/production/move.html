@@ -27,6 +27,8 @@
       <div class="field"><label for="to_step">Move to stage</label><select id="to_step" name="to_step">{% for s in steps %}<option value="{{ s.pk }}"{% if s.pk|stringformat:"s" == to_step %} selected{% endif %}>{{ s.sequence }}. {{ s.process.name }} — {% if s.assignment == "in_house" %}in-house{% else %}fabricator{% endif %}</option>{% endfor %}</select></div>
       <div class="field"><label for="factory">At factory</label><select id="factory" name="factory"><option value="">Stage default</option>{% for f in factories %}<option value="{{ f.pk }}">{{ f.code }}</option>{% endfor %}</select></div>
       <div class="field"><label for="reason">Reason (needed when going back, or when only taking pieces out)</label><input id="reason" name="reason" type="text"></div></div>
+    <div class="check"><input id="with_materials" type="checkbox" name="with_materials"><label for="with_materials">Issue materials from the store with this move</label></div>
+    <p class="muted">When the style's list has materials for the stage, you are shown them to check before the move is saved. Tick this to issue materials that are not on the list.</p>
     <div class="form-actions"><button class="btn primary">Move selected bundles</button>
       <button class="btn" name="action" value="count">Only take out loss, do not move</button>
       <a class="btn" href="{% url 'challan_new' %}?lot={{ lot.pk }}">Issue to a fabricator instead</a></div>

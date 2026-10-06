@@ -9,7 +9,7 @@ from core.models import Location
 from jobwork.models import JobWorkChallan, Receipt, ReceiptLine
 from jobwork.services import guide as jobwork_guide
 from jobwork.services.guide import checker as _checker
-from production.models import Bundle, LotStep
+from production.models import Bundle, LotStep, StageMovement
 from production.services import bundles as bundle_service
 
 B = Bundle.Status
@@ -38,6 +38,14 @@ def pack_ready(bundle, steps):
            (bundle.status == B.READY and bundle.completed_seq >= ps.sequence)
 
 
+def _reached(bundle):
+    """How far along the route a bundle is: the step it sits at, or the last one it finished."""
+    if bundle.status in (B.PACKED, B.DISPATCHED):
+        return 10_000
+    at_step = bundle.current_step.sequence if bundle.current_step_id and bundle.status in AT_A_STAGE else 0
+    return max(bundle.completed_seq, at_step)
+
+
 def _journey(lot, steps, bundles, cuts, issued):
     cut_pieces = sum(b.original_qty for b in bundles)
     bundled = bool(cuts) and all(c.bundled for c in cuts)
@@ -52,18 +60,33 @@ def _journey(lot, steps, bundles, cuts, issued):
         {"label": "Cut", "detail": "", "state": "done" if bundled else ("now" if issued or cuts else "todo"),
          "pieces": cut_pieces or None, "optional": False},
     ]
+    # An optional step stays on the strip while bundles could still go to it. Once they are past it, it is shown
+    # only if bundles really went there: never "in progress" with nobody at it, and gone if nobody used it.
+    moved_to = StageMovement.objects.filter(bundle__lot=lot, to_step__isnull=False).values_list("to_step_id", flat=True)
+    used = set(moved_to) if bundles else set()
+    reached = [_reached(b) for b in bundles if b.status != B.SCRAPPED]
     for s in steps:
         if s.process.kind == "cutting":
             continue
+        state = STATE[s.status]
+        if not s.is_mandatory:
+            if at.get(s.pk):
+                state = "now"
+            elif s.pk in used:
+                state = "done"
+            elif not bundles or any(seq < s.sequence for seq in reached):
+                state = "todo"
+            else:
+                continue
         outside = s.assignment == LotStep.Assignment.SUBCONTRACT and s.party_id
         stages.append({"label": s.process.name, "detail": s.party.name if outside else "",
-                       "state": STATE[s.status], "pieces": at.get(s.pk) or None, "optional": not s.is_mandatory})
+                       "state": state, "pieces": at.get(s.pk) or None, "optional": not s.is_mandatory})
     packed = sum(b.qty for b in bundles if b.status in (B.PACKED, B.DISPATCHED))
     done = lot.status == lot.Status.COMPLETED
     stages.append({"label": "Finished goods", "detail": "", "state": "done" if done else ("now" if packed else "todo"),
                    "pieces": packed or None, "optional": False})
-    # several stages can be in progress at once (an optional step that some bundles jumped over counts as in progress
-    # too); one is marked as where the lot is: the earliest with pieces sitting at it, else the earliest in progress
+    # several stages can be in progress at once; one is marked as where the lot is: the earliest with pieces
+    # sitting at it, else the earliest in progress
     now = [s for s in stages if s["state"] == "now"] if lot.status != lot.Status.CLOSED else []
     first_now = next((s for s in now if s["pieces"]), now[0] if now else None)
     for s in stages:

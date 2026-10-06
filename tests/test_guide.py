@@ -869,3 +869,48 @@ def test_the_move_screen_says_when_the_next_stage_is_not_a_move(ns):
     for b, why in ((ns.bundles[0], "with a fabricator"), (ns.bundles[3], "issue a job work challan")):
         with pytest.raises(BusinessRuleError, match=why):
             bundle_service.move_bundles(bundles=[b], to_step=step(ns, "IRON" if b is ns.bundles[0] else "STITCH"), user=ns.owner, date=DAY)
+
+
+# ---------------- the journey strip and optional steps: shown while reachable, then only if really used ----------------
+
+OPTIONAL = ["Embroidery", "Printing", "Washing"]
+
+
+def optional_stages(ns):
+    return {s["label"]: (s["state"], s["pieces"]) for s in lot_guide(ns.lot, ns.owner)["journey"] if s["optional"]}
+
+
+def test_optional_steps_nobody_used_leave_the_strip_once_every_bundle_is_past_them(ns):
+    stitched(ns)
+    assert optional_stages(ns) == {name: ("todo", None) for name in OPTIONAL}      # still ahead of every bundle
+    go(ns, ns.bundles[HALF], "IRON")
+    assert optional_stages(ns) == {name: ("todo", None) for name in OPTIONAL}      # the other half could still go
+    go(ns, ns.bundles[3:], "IRON")
+    assert optional_stages(ns) == {}
+    g = lot_guide(ns.lot, ns.owner)
+    assert stage(g, "Ironing and pressing")["current"] and stage(g, "Ironing and pressing")["pieces"] == 100
+
+
+def test_an_optional_step_some_bundles_used_shows_those_pieces_then_done(ns):
+    stitched(ns)
+    emb = step(ns, "EMB")
+    rates.save_rate(party=ns.fab, process=emb.process, rate_type="A", base_rate=D("10"), rework_rate=D("2"),
+                    effective_from=date(2026, 4, 1))
+    ch = challans.issue_challan(challans.create_challan(
+        company=ns.company, factory=ns.factory, party=ns.fab, lot=ns.lot, step=emb, bundles=ns.bundles[HALF], date=DAY,
+        user=ns.owner), user=ns.owner)
+    go(ns, ns.bundles[3:], "IRON")
+    # 50 pieces are out for embroidery; they have not reached printing or washing, so those may still be used
+    assert optional_stages(ns) == {"Embroidery": ("now", 50), "Printing": ("todo", None), "Washing": ("todo", None)}
+    r = receive(ns, ch)
+    for line in r.lines.all():
+        receipts.record_qc(receipt_line=line, accepted=line.qty_received, user=ns.owner)
+    go(ns, ns.bundles[HALF], "IRON")
+    assert optional_stages(ns) == {"Embroidery": ("done", None)}                    # used, finished; the unused two are gone
+
+
+def test_no_stage_reads_in_progress_with_nobody_at_it_after_a_jump(ns):
+    stitched(ns)
+    go(ns, ns.bundles[HALF], "IRON")
+    g = lot_guide(ns.lot, ns.owner)
+    assert [s["label"] for s in g["journey"] if s["optional"] and s["state"] == "now"] == []

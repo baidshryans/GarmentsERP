@@ -5,6 +5,7 @@ from decimal import Decimal
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.core.exceptions import PermissionDenied
+from django.db.models import Q
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
@@ -54,7 +55,10 @@ def _need_factory(request, to):
     return None
 
 
-def _customers():
+def _customers(keep=None):
+    """Customers to choose from. An order being edited keeps its own customer even if that customer is now inactive."""
+    if keep is not None:
+        return Party.objects.filter(Q(is_customer=True, is_active=True) | Q(pk=keep))
     return Party.objects.filter(is_customer=True, is_active=True)
 
 
@@ -205,7 +209,8 @@ class OrderSave(LoginRequiredMixin, ScreenPermissionMixin, View):
             vals = {"customer": str(order.customer_id), "date": order.date.isoformat(),
                     "due_date": order.due_date.isoformat() if order.due_date else "", "order_type": order.order_type,
                     "remarks": order.remarks}
-        return {"order": order, "factory": order.factory if order else request.factory, "customers": _customers(), "grids": grids,
+        return {"order": order, "factory": order.factory if order else request.factory,
+                "customers": _customers(order.customer_id if order else None), "grids": grids,
                 # confirming is the order page's `edit` action: a new order can be saved and confirmed by a role that has it
                 "can_confirm": order is None and _can(request, "sales.order", "edit"),
                 "styles": Style.objects.filter(is_archived=False), "vals": vals or {}, "types": SaleOrder.Type.choices,
@@ -240,7 +245,7 @@ class OrderSave(LoginRequiredMixin, ScreenPermissionMixin, View):
                         sku=sku, qty=_dec(qty, f"Quantity of {sku}"),
                         rate=_dec(rate, "Rate") if rate.strip() else None,
                         discount_pct=_dec(disc, "Discount") if disc.strip() else None))
-            customer = vu.chosen(_customers(), p.get("customer"), "customer")
+            customer = vu.chosen(_customers(order.customer_id if order else None), p.get("customer"), "customer")
             due = _day(p.get("due_date"), "Due date", default=None) if p.get("due_date") else None
             if order is None:
                 order = (orders.create_and_confirm if confirm_now else orders.create_order)(

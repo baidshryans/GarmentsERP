@@ -93,6 +93,7 @@ class OrderSave(LoginRequiredMixin, ScreenPermissionMixin, View):
         return {"order": order, "rows": rows + [{}, {}], "d": d or {}, "factory": order.factory if order else request.factory,
                 "styles": Style.objects.filter(is_archived=False).prefetch_related("style_sizes__size"),
                 "colours": Colour.objects.filter(is_active=True), "vals": vals,
+                "purpose_fixed": order is not None and orders.raised_for_sale_order(order),
                 "more_is_open": forms_ui.more_open(vals, {"purpose": "stock", "order_reference": "", "remarks": ""})}
 
     def get(self, request, pk=None):

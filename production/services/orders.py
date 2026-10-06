@@ -79,6 +79,14 @@ def create_order(*, company, factory, date, lines, user, due_date=None, purpose=
     return order
 
 
+def raised_for_sale_order(order) -> bool:
+    """Was this production order raised by confirming a made-to-order sale order? The sale order points at it; the
+    model is looked up by name, so production does not import sales."""
+    from django.apps import apps
+
+    return apps.get_model("sales", "SaleOrder").objects.filter(production_order_id=order.pk).exists()
+
+
 @transaction.atomic
 def update_order(order, *, lines, user, date=None, due_date=None, purpose=None, order_reference=None, remarks=None) -> ProductionOrder:
     order = ProductionOrder.objects.get(pk=order.pk)
@@ -88,6 +96,8 @@ def update_order(order, *, lines, user, date=None, due_date=None, purpose=None, 
     if purpose is not None:              # "For": a label on the order; nothing is worked out from it, so a draft may change it
         if purpose not in ProductionOrder.Purpose.values:
             raise BusinessRuleError("Choose whether the order is for stock or made to order.")
+        if purpose != order.purpose and raised_for_sale_order(order):
+            raise BusinessRuleError("This order was raised for a made-to-order sale order; it stays Made to order.")
         order.purpose = purpose
     order.date = date or order.date
     order.due_date = due_date if due_date is not None else order.due_date

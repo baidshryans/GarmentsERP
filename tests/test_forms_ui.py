@@ -1055,3 +1055,101 @@ def test_list_buttons_open_the_forms_by_their_new_names(company, factory, owner_
                                  ("challan_list", "Send to fabricator", "New challan")):
         head = html_of(owner_c.get(reverse(url_name))).split('<div class="actions">', 1)[1].split("</div>", 1)[0]
         assert f"</svg> {words}</a>" in head and old not in head, url_name
+
+
+# ================================================================ review fixes: own party on edit, safe fold check
+
+def test_free_text_counts_as_a_value_and_numbers_compare_as_numbers():
+    assert forms_ui.more_open({"lr_no": "0"}, ["lr_no"]) is True                    # "0" typed in a text field is a value
+    assert forms_ui.more_open({"remarks": "000"}, {"remarks": ""}) is True
+    assert forms_ui.more_open({"discount": "0"}, {"discount": 0}) is False          # a numeric field: 0 is blank
+    assert forms_ui.more_open({"discount": ""}, {"discount": 0}) is False
+    assert forms_ui.more_open({"discount": D("0.00")}, {"discount": None}) is False  # a number from a model
+    assert forms_ui.more_open({"vendor_challan_no": "1e1000000"}, ["vendor_challan_no"]) is True
+    assert forms_ui.more_open({"discount": "1e1000000"}, {"discount": 0}) is True
+    assert forms_ui.more_open({"discount": "NaN"}, {"discount": 0}) is True
+    assert forms_ui.more_form(forms.Form())["open"] is False
+
+
+def test_a_challan_number_that_looks_like_a_huge_number_does_not_break_the_edit_page(company, factory, owner, owner_c, vendor,
+                                                                                    trim, godown):
+    from purchases.services import grn as grns
+
+    g = grns.create_grn(company=company, factory=factory, location=godown, vendor=vendor, date=DAY, user=owner,
+                        vendor_challan_no="1e1000000", lines=[grns.GrnLineSpec(item=trim, rate=D("2"), qty_received=D("40"))])
+    html = html_of(owner_c.get(reverse("grn_edit", args=[g.pk])))
+    assert folded(html, "vendor_challan_no", is_open=True) and 'value="1e1000000"' in html
+
+
+def test_a_draft_keeps_its_own_supplier_on_edit_when_the_supplier_is_now_inactive(company, factory, owner, owner_c, vendor,
+                                                                                  second_vendor, trim, godown):
+    from purchases.services import debit_notes, grn as grns
+
+    g = grns.create_grn(company=company, factory=factory, location=godown, vendor=vendor, date=DAY, user=owner,
+                        lines=[grns.GrnLineSpec(item=trim, rate=D("2"), qty_received=D("40"))])
+    po = po_service.create_po(company=company, factory=factory, vendor=vendor, date=DAY, user=owner,
+                              lines=[po_service.POLineSpec(trim, D("10"), D("2"))])
+    grns.post_grn(grns.finish_qc(grns.create_grn(
+        company=company, factory=factory, location=godown, vendor=vendor, date=DAY, user=owner,
+        lines=[grns.GrnLineSpec(item=trim, rate=D("2"), qty_received=D("50"))]), user=owner), user=owner)
+    note = debit_notes.create_return_note(company=company, factory=factory, vendor=vendor, date=DAY, user=owner, reason="shade",
+                                          lines=[debit_notes.ReturnLineSpec(item=trim, qty=D("5"), rate=D("2"), location=godown)])
+    vendor.is_active = False
+    vendor.save()
+    for url_name, pk in (("grn_edit", g.pk), ("po_edit", po.pk), ("debitnote_edit", note.pk)):
+        html = html_of(owner_c.get(reverse(url_name, args=[pk])))
+        assert chosen(html, "vendor") == str(vendor.pk) and "Yarn House (inactive)</option>" in html, url_name
+    assert "Yarn House" not in html_of(owner_c.get(reverse("grn_new")))                 # a new document does not offer it
+    r = owner_c.post(reverse("grn_edit", args=[g.pk]), _grn_form(g, trim, qty=["45"]))
+    g.refresh_from_db()
+    assert r.status_code == 302 and g.vendor == vendor and g.lines.get().qty_received == D("45")
+    r = owner_c.post(reverse("debitnote_edit", args=[note.pk]), {
+        "vendor": vendor.pk, "date": DAY.isoformat(), "reason": "shade", "itc_claimable": "on", "item": [f"m:{trim.pk}"],
+        "location": [godown.pk], "roll": [""], "qty": ["6"], "rate": ["2"]})
+    note.refresh_from_db()
+    assert r.status_code == 302 and note.vendor == vendor and note.lines.get().qty == D("6")
+
+
+def test_a_draft_sale_order_keeps_its_own_customer_on_edit_when_the_customer_is_now_inactive(ns, owner, owner_c):
+    from sales.services import orders as so_service
+
+    sku = ns.sku("Black", "M")
+    order = so_service.create_order(company=ns.company, factory=ns.factory, customer=ns.local, date=DAY, user=owner,
+                                    lines=[so_service.OrderLineSpec(sku, D("1"), D("500"))])
+    ns.local.is_active = False
+    ns.local.save()
+    url = reverse("saleorder_edit", args=[order.pk])
+    html = html_of(owner_c.get(url))
+    assert chosen(html, "customer") == str(ns.local.pk) and "Punjab Traders (inactive)</option>" in html
+    assert "Punjab Traders" not in html_of(owner_c.get(reverse("saleorder_new")))
+    r = owner_c.post(url, {"customer": ns.local.pk, "date": DAY.isoformat(), "due_date": "", "order_type": "stock", "remarks": "",
+                           "style": [ns.style.pk], f"rate_{ns.style.pk}": "500", f"disc_{ns.style.pk}": "",
+                           f"q_{ns.style.pk}_{sku.colour_id}_{sku.size_id}": "3"})
+    order.refresh_from_db()
+    assert r.status_code == 302 and order.customer == ns.local and order.lines.get().qty == D("3")
+
+
+def test_a_production_order_raised_for_a_sale_order_stays_made_to_order(ns, owner, owner_c):
+    from production.models import ProductionOrder
+    from production.services import orders as prod_orders
+    from sales.services import orders as so_service
+
+    sale = so_service.create_order(company=ns.company, factory=ns.factory, customer=ns.local, date=DAY, user=owner, order_type="mto",
+                                   lines=[so_service.OrderLineSpec(ns.sku("Black", "M"), D("12"), D("500"))])
+    sale = so_service.confirm_order(sale, user=owner)
+    raised = ProductionOrder.objects.get(pk=sale.production_order_id)
+    assert raised.status == "draft" and raised.purpose == "mto" and prod_orders.raised_for_sale_order(raised)
+    url = reverse("order_edit", args=[raised.pk])
+    html = html_of(owner_c.get(url))
+    assert '<select id="purpose"' not in html and '<input type="hidden" name="purpose" value="mto">' in html
+    assert '<div class="static-value">Made to order</div>' in html and "Punjab Traders" not in html         # BR-15
+    line = raised.lines.get()
+    form = {"date": DAY.isoformat(), "due_date": "", "order_reference": raised.order_reference, "remarks": raised.remarks,
+            "style": [line.style_id], "colour": [line.colour_id], "qty": [str(line.total_qty)], "ratios": ["M:1"]}
+    html = html_of(owner_c.post(url, {**form, "purpose": "stock"}))
+    raised.refresh_from_db()
+    assert "it stays Made to order." in flashed(html) and raised.purpose == "mto"
+    assert owner_c.post(url, {**form, "purpose": "mto"}).status_code == 302
+    with pytest.raises(BusinessRuleError, match="stays Made to order"):
+        prod_orders.update_order(raised, user=owner, purpose="stock",
+                                 lines=[prod_orders.OrderLineSpec(line.style, line.colour, line.total_qty, {ns.sizes["M"]: 1})])

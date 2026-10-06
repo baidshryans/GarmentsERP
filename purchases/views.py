@@ -4,6 +4,7 @@ from decimal import Decimal, InvalidOperation
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.core.exceptions import PermissionDenied, ValidationError
+from django.db.models import Q
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.views import View
@@ -73,7 +74,11 @@ def form_values(obj, data, fields):
     return out
 
 
-def _vendors():
+def _vendors(keep=None):
+    """Suppliers to choose from. A document being edited keeps its own supplier in the list even when that
+    supplier has since been made inactive, so the form shows who it is for instead of "Choose…"."""
+    if keep is not None:
+        return Party.objects.filter(Q(is_vendor=True, is_active=True) | Q(pk=keep))
     return Party.objects.filter(is_vendor=True, is_active=True)
 
 
@@ -128,7 +133,7 @@ class POSave(LoginRequiredMixin, ScreenPermissionMixin, View):
         if rows is None:
             rows = [{"item": f"m:{l.material_id}" if l.material_id else f"s:{l.sku_id}", "qty": l.qty, "rate": l.rate}
                     for l in po.lines.all()] if po else []
-        return {"po": po, "factory": po.factory if po else request.factory, "vendors": _vendors(), "mats": mats, "skus": skus,
+        return {"po": po, "factory": po.factory if po else request.factory, "vendors": _vendors(po.vendor_id if po else None), "mats": mats, "skus": skus,
                 "rows": rows + [{}, {}], "d": d or {},
                 # submitting is the order page's `edit` action: a new order can be saved and submitted by a role that has it
                 "can_submit": po is None and request.user.has_screen_perm("purchases.po", "edit"),
@@ -301,7 +306,7 @@ class GrnSave(LoginRequiredMixin, ScreenPermissionMixin, View):
         if po is not None and not (d or grn):
             vals.update(vendor=str(po.vendor_id))
         return {"grn": grn, "po": po or (grn.po if grn else None), "mats": mats, "skus": skus, "rows": rows + [{}, {}],
-                "factory": factory, "locations": locations, "vendors": _vendors(), "d": d or {}, "vals": vals}
+                "factory": factory, "locations": locations, "vendors": _vendors(grn.vendor_id if grn else None), "d": d or {}, "vals": vals}
 
     def get(self, request, pk=None):
         grn = get_object_or_404(Grn.objects.for_user(request.user), pk=pk) if pk else None
@@ -707,7 +712,7 @@ class DebitNoteSave(LoginRequiredMixin, ScreenPermissionMixin, View):
         mats, skus = item_choices()
         itc = (d.get("itc_claimable") == "on") if posted else (note.itc_claimable if note else True)
         return {
-            "vendors": _vendors(), "factory": factory, "mats": mats, "skus": skus, "note": note, "itc": itc,
+            "vendors": _vendors(note.vendor_id if note else None), "factory": factory, "mats": mats, "skus": skus, "note": note, "itc": itc,
             "tax_open": forms_ui.more_open({"gst_template": (d or {}).get("gst_template"), "itc_claimable": itc},
                                            {"gst_template": "", "itc_claimable": True}),
             "locations": Location.objects.filter(factory=factory, is_active=True).exclude(loc_type="transit"),

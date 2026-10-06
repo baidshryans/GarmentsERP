@@ -10,12 +10,12 @@ user entered is ever hidden. That rule lives here (`more_open`) and nowhere else
   the flag from `{% more_open vals "expected_date remarks" as open %}`, or from `more_open()` called in the view
   when a default is not blank.
 """
-from decimal import Decimal, InvalidOperation
+from decimal import Decimal
 
 
 def _plain(value) -> str:
     """One comparable text for a value, whether it came from a model, a form's initial data or a posted string.
-    Nothing, False and zero are all "blank"; True is a ticked box."""
+    Nothing and False are "blank"; True is a ticked box."""
     if value is None or value is False:
         return ""
     if value is True:
@@ -26,15 +26,32 @@ def _plain(value) -> str:
         return ",".join(sorted(filter(None, (_plain(v) for v in value))))
     if hasattr(value, "isoformat"):
         return value.isoformat()
-    text = str(value).strip()
+    return str(value).strip()
+
+
+def _is_number(value) -> bool:
+    return isinstance(value, (int, float, Decimal)) and not isinstance(value, bool)
+
+
+def _number(value):
+    """The value as a Decimal (blank is zero), or None when it is not a plain finite number."""
+    if value is None or value is False or (isinstance(value, str) and not value.strip()):
+        return Decimal(0)
     try:
-        number = Decimal(text.replace(",", ""))
-        return "" if number == 0 else format(number.normalize(), "f")
-    except (InvalidOperation, ValueError):
-        return text
+        number = Decimal(str(value).strip().replace(",", ""))
+        return number if number.is_finite() else None
+    except (ArithmeticError, ValueError):
+        return None
 
 
 def differs(value, default="") -> bool:
+    """Does a field hold something other than its default? Numbers are compared as numbers (0, "0.00" and blank are
+    the same amount) only when the field is numeric: its default, or the value a model gave, is a number. In a text
+    field "0" or "000" is something the user typed, and counts."""
+    if _is_number(default) or _is_number(value):
+        a, b = _number(value), _number(default)
+        if a is not None and b is not None:
+            return a != b
     return _plain(value) != _plain(default)
 
 
@@ -55,6 +72,8 @@ def more_open(values, defaults, errors=()) -> bool:
 
 def _blank_values(form, names):
     """What a brand-new form of this class shows in these fields: the defaults a value is compared with."""
+    if not names:
+        return {}
     try:
         fresh = type(form)()
     except TypeError:                       # a form that needs arguments: fall back to each field's own initial

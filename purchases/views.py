@@ -128,6 +128,8 @@ class POSave(LoginRequiredMixin, ScreenPermissionMixin, View):
                     for l in po.lines.all()] if po else []
         return {"po": po, "factory": po.factory if po else request.factory, "vendors": _vendors(), "mats": mats, "skus": skus,
                 "rows": rows + [{}, {}], "d": d or {},
+                # submitting is the order page's `edit` action: a new order can be saved and submitted by a role that has it
+                "can_submit": po is None and request.user.has_screen_perm("purchases.po", "edit"),
                 "vals": form_values(po, d, ("vendor", "date", "expected_date", "remarks"))}
 
     def get(self, request, pk=None):
@@ -139,6 +141,9 @@ class POSave(LoginRequiredMixin, ScreenPermissionMixin, View):
     def post(self, request, pk=None):
         po = get_object_or_404(PurchaseOrder.objects.for_user(request.user), pk=pk) if pk else None
         p = request.POST
+        submit_now = po is None and p.get("then") == "submit"
+        if submit_now and not request.user.has_screen_perm("purchases.po", "edit"):
+            raise PermissionDenied
         rows, specs = [], []
         try:
             for i, value in enumerate(p.getlist("item")):
@@ -149,7 +154,7 @@ class POSave(LoginRequiredMixin, ScreenPermissionMixin, View):
             vendor = get_object_or_404(Party, pk=p.get("vendor"))
             expected = _date(p.get("expected_date"), default=None) if p.get("expected_date") else None
             if po is None:
-                po = orders.create_po(
+                po = (orders.create_and_submit if submit_now else orders.create_po)(
                     company=_company(), factory=require_active_factory(request),
                     vendor=vendor, date=_date(p.get("date")), lines=specs, user=request.user,
                     expected_date=expected, remarks=p.get("remarks", ""))
@@ -159,7 +164,12 @@ class POSave(LoginRequiredMixin, ScreenPermissionMixin, View):
         except (ValueError, BusinessRuleError) as exc:
             _msgs(request, exc)
             return render(request, "purchases/po_form.html", self._ctx(request, po, rows, p))
-        messages.success(request, "Purchase order saved as a draft.")
+        if not submit_now:
+            messages.success(request, "Purchase order saved as a draft.")
+        elif po.status == PurchaseOrder.Status.PENDING:
+            messages.warning(request, f"{po.number} is above the approval limit and is waiting for the owner.")
+        else:
+            messages.success(request, f"{po.number} approved. You can receive goods against it.")
         return redirect("po_detail", pk=po.pk)
 
 
@@ -352,6 +362,8 @@ class GrnDetail(LoginRequiredMixin, ScreenPermissionMixin, View):
             "can_open_po": request.user.has_screen_perm("purchases.po", "view"),
             "can_open_note": request.user.has_screen_perm("purchases.debitnote", "view"),
             "can_edit": request.user.has_screen_perm("purchases.grn", "edit"),
+            # recording QC, finishing it and posting are each this screen's `edit`; the POST below checks it
+            "can_accept_all": request.user.has_screen_perm("purchases.grn", "edit") and grn_service.untouched(grn),
             "can_cancel": request.user.has_screen_perm("purchases.grn", "cancel") or request.user.has_screen_perm("purchases.grn", "edit"),
             "qc_choices": [("accepted", "Accepted"), ("rejected", "Rejected"), ("accepted_remark", "Accepted with remark")],
         })
@@ -377,6 +389,9 @@ class GrnDetail(LoginRequiredMixin, ScreenPermissionMixin, View):
                     messages.success(request, "QC recorded. The GRN is ready to post.")
                 else:
                     messages.success(request, "QC saved.")
+            elif action == "accept_all":
+                grn = grn_service.accept_all_and_post(grn, user=user)
+                messages.success(request, f"{grn.number} posted with everything accepted. Stock and books are updated.")
             elif action == "post":
                 grn = grn_service.post_grn(grn, user=user)
                 messages.success(request, f"{grn.number} posted. Stock and books are updated.")

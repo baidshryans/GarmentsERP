@@ -65,7 +65,7 @@ def receive_action(po):
 
 
 def check_action(grn):
-    return _action("check", "Check quality", "Mark what was accepted and what was rejected, then press Finish QC.",
+    return _action("check", "Check quality", "Accept everything in one step, or mark what was rejected and press Finish QC.",
                    reverse("grn_detail", args=[grn.pk]), ("purchases.grn", "edit"), ("purchases.grn", "view"))
 
 

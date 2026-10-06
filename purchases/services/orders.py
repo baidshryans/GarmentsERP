@@ -93,6 +93,13 @@ def submit_po(po, *, user) -> PurchaseOrder:
 
 
 @transaction.atomic
+def create_and_submit(*, user, **details) -> PurchaseOrder:
+    """Make an order and submit it in one go (the form's "Save and submit"). `details` are the arguments of
+    `create_po`. One transaction: if submitting fails, no draft is left behind and no number is used."""
+    return submit_po(create_po(user=user, **details), user=user)
+
+
+@transaction.atomic
 def approve_po(po, *, user) -> PurchaseOrder:
     po = PurchaseOrder.objects.get(pk=po.pk)
     if not user.has_screen_perm(PO_SCREEN, "approve"):

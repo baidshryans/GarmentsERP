@@ -11,6 +11,7 @@ from django.test import Client
 from django.urls import reverse
 from django.utils.html import escape
 
+from core.exceptions import BusinessRuleError, FactoryNotAllowed
 from core.models import Location, Role, RolePermission
 from ledger.models import Ledger
 from ledger.selectors import bill_outstanding
@@ -707,7 +708,7 @@ def test_the_goods_received_page_leads_from_the_quality_check_to_posting_to_the_
     g1 = draft_grn(ns)
     html = page(ns.owner, "grn_detail", g1.pk)
     assert button("#do-next", "Check quality") in guide_of(html) and '<form method="post" id="do-next">' in html
-    assert '<button class="btn primary" name="action" value="finish_qc">Finish QC</button>' in html
+    assert 'name="action" value="finish_qc">Finish QC</button>' in html
     grns.finish_qc(g1, user=ns.owner)
     html = page(ns.owner, "grn_detail", g1.pk)
     assert button("#do-next", "Post goods received") in guide_of(html)
@@ -894,3 +895,208 @@ def test_the_bill_link_never_sends_anyone_to_a_goods_receipt_they_cannot_open(ns
     far = role_user("far_biller", {"purchases.invoice": ["create", "view"], "purchases.grn": ["view"]}, factory2)
     r = login(far).get(url)
     assert r.status_code == 200 and r.context["factory"] == factory2 and ns.factory.name not in r.content.decode()
+
+
+# ================================================================ fewer steps
+
+# ---------------- Save and submit an order ----------------
+
+def po_form(ns, qty="100", rate="100", **extra):
+    return {"vendor": ns.vendor.pk, "date": "2026-06-15", "expected_date": "2026-06-30", "remarks": "Urgent",
+            "item": [f"m:{ns.trim.pk}", ""], "qty": [qty, ""], "rate": [rate, ""], **extra}
+
+
+SUBMIT = '<button class="btn primary" name="then" value="submit">Save and submit</button>'
+DRAFT = '<button class="btn" name="then" value="draft">Save draft</button>'
+
+
+def test_save_and_submit_makes_the_order_and_submits_it_in_one_step(ns):
+    html = page(ns.owner, "po_new")
+    assert SUBMIT in html and DRAFT in html
+    r = login(ns.owner).post(reverse("po_new"), po_form(ns, then="submit"), follow=True)
+    po = PurchaseOrder.objects.get()
+    assert r.redirect_chain == [(reverse("po_detail", args=[po.pk]), 302)]
+    assert po.status == "approved" and po.number == "PO/LDH1/26-27/0001" and po.lines.get().qty == D("100")
+    done = r.content.decode()
+    assert f"{po.number} approved. You can receive goods against it." in done
+    # within the limit it comes out approved, ready to receive against
+    assert button(reverse("grn_new") + f"?po={po.pk}", "Receive goods") in guide_of(done)
+
+
+def test_save_and_submit_above_the_limit_leaves_the_order_waiting_for_the_owner(ns):
+    r = login(ns.owner).post(reverse("po_new"), po_form(ns, qty="1000", then="submit"), follow=True)
+    po = PurchaseOrder.objects.get()
+    assert po.status == "pending_approval" and po.number
+    done = r.content.decode()
+    assert f"{po.number} is above the approval limit and is waiting for the owner." in done
+    assert button("#do-next", "Approve order") in guide_of(done)
+
+
+def test_the_draft_button_still_saves_a_draft(ns):
+    c = login(ns.owner)
+    for n, extra in enumerate(({"then": "draft"}, {}), start=1):
+        r = c.post(reverse("po_new"), po_form(ns, **extra), follow=True)
+        assert PurchaseOrder.objects.count() == n
+        po = PurchaseOrder.objects.order_by("-id").first()
+        assert po.status == "draft" and po.number is None and "Purchase order saved as a draft." in r.content.decode()
+
+
+def test_without_edit_only_the_draft_button_shows_and_a_forged_submit_is_refused(ns):
+    clerk = role_user("draft_only", {"purchases.po": ["view", "create"]}, ns.factory)
+    html = page(clerk, "po_new")
+    assert "Save and submit" not in html and '<button class="btn primary">Save draft</button>' in html
+    r = login(clerk).post(reverse("po_new"), po_form(ns, then="submit"))
+    assert r.status_code == 403 and not PurchaseOrder.objects.exists()
+    assert login(clerk).post(reverse("po_new"), po_form(ns)).status_code == 302
+    assert PurchaseOrder.objects.get().status == "draft"
+
+
+def test_editing_a_draft_order_offers_no_save_and_submit_and_never_submits(ns):
+    po = draft_po(ns)
+    html = page(ns.owner, "po_edit", po.pk)
+    assert "Save and submit" not in html and '<button class="btn primary">Save draft</button>' in html
+    login(ns.owner).post(reverse("po_edit", args=[po.pk]), po_form(ns, qty="5", then="submit"))
+    po = po_of(po)
+    assert po.status == "draft" and po.number is None and po.lines.get().qty == D("5")
+
+
+def test_if_submitting_fails_nothing_is_saved_and_the_form_comes_back(ns, monkeypatch):
+    from inventory.models import StockMovement
+    from ledger.models import Voucher
+
+    real = PurchaseOrder.save
+
+    def fails(self, *args, **kwargs):
+        # the very last thing submitting does, after the lines were written and the number was drawn
+        if self.number:
+            raise BusinessRuleError("The order could not be submitted.")
+        return real(self, *args, **kwargs)
+
+    monkeypatch.setattr(PurchaseOrder, "save", fails)
+    moves, vouchers = StockMovement.objects.count(), Voucher.objects.count()
+    c = login(ns.owner)
+    r = c.post(reverse("po_new"), po_form(ns, then="submit"))
+    html = r.content.decode()
+    assert r.status_code == 200 and "The order could not be submitted." in html
+    assert not PurchaseOrder.objects.exists() and not PurchaseOrder.history.exists()      # no draft left behind
+    assert (StockMovement.objects.count(), Voucher.objects.count()) == (moves, vouchers)
+    # the form comes back with both buttons and what was typed
+    assert SUBMIT in html and DRAFT in html and 'value="Urgent"' in html and 'name="qty" value="100"' in html
+    # the number drawn by the failed attempt was given back: the next order is the first of the series
+    monkeypatch.undo()
+    assert c.post(reverse("po_new"), po_form(ns, then="submit")).status_code == 302
+    assert PurchaseOrder.objects.get().number == "PO/LDH1/26-27/0001"
+
+
+def test_a_validation_error_shows_for_both_buttons_and_saves_nothing(ns):
+    c = login(ns.owner)
+    for then in ("submit", "draft"):
+        r = c.post(reverse("po_new"), po_form(ns, qty="0", then=then))
+        html = r.content.decode()
+        assert r.status_code == 200 and "must be more than zero" in html and SUBMIT in html
+        assert not PurchaseOrder.objects.exists()
+
+
+# ---------------- Accept all and post a goods receipt ----------------
+
+ACCEPT_ALL = '<button class="btn primary" name="action" value="accept_all">Accept all and post</button>'
+
+
+def mixed_grn(ns, po=None):
+    """Two rolls of fabric and a line of zippers, nothing checked yet."""
+    lines = [grns.GrnLineSpec(item=ns.fabric, rate=D("200"), rolls=[grns.RollSpec("R1", D("60")), grns.RollSpec("R2", D("40"))]),
+             grns.GrnLineSpec(item=ns.trim, rate=D("100"), qty_received=D("100"), po_line=po.lines.get() if po else None)]
+    return grns.create_grn(company=ns.company, factory=ns.factory, location=ns.godown, vendor=ns.vendor, date=DAY,
+                           lines=lines, user=ns.owner, po=po)
+
+
+def test_accept_all_and_post_checks_finishes_and_posts_in_one_step(ns):
+    from inventory.models import FabricRoll
+    from inventory.services import stock
+    from ledger.models import Voucher
+
+    po = order(ns)
+    g1 = mixed_grn(ns, po)
+    html = page(ns.owner, "grn_detail", g1.pk)
+    assert ACCEPT_ALL in html and '<button class="btn" name="action" value="finish_qc">Finish QC</button>' in html
+    assert html.count("btn primary") == 2                    # the guide's Check quality and this one
+    r = login(ns.owner).post(reverse("grn_detail", args=[g1.pk]), {"action": "accept_all"}, follow=True)
+    g1 = grn_of(g1)
+    assert g1.status == "posted" and g1.number == "GRN/LDH1/26-27/0001"
+    assert {l.qc_status for l in g1.lines.all()} == {"accepted"} and FabricRoll.objects.count() == 2
+    assert sum(l.qty_accepted for l in g1.lines.all()) == D("200") and not DebitNote.objects.exists()
+    assert stock.on_hand(ns.factory, ns.fabric) == (D("100.000"), D("20000.00"))
+    assert stock.on_hand(ns.factory, ns.trim) == (D("100.000"), D("10000.00"))
+    assert Voucher.objects.get().total == D("30000.00") and po_of(po).status == "received"
+    done = r.content.decode()
+    assert f"{g1.number} posted with everything accepted. Stock and books are updated." in done
+    # the page leads on: the supplier's bill is next
+    assert button(bill_url(ns, g1), "Enter supplier bill") in guide_of(done) and "Accept all and post" not in done
+
+
+def test_accept_all_is_offered_only_while_nothing_has_been_checked(ns):
+    g1 = mixed_grn(ns)
+    roll = g1.lines.get(material=ns.fabric).rolls.first()
+    grns.record_qc(g1, user=ns.owner, rolls={roll.pk: ("rejected", "stains")})
+    html = page(ns.owner, "grn_detail", g1.pk)
+    assert "Accept all and post" not in html and '<button class="btn primary" name="action" value="finish_qc">Finish QC</button>' in html
+    # a forged request does not run over the result already recorded
+    r = login(ns.owner).post(reverse("grn_detail", args=[g1.pk]), {"action": "accept_all"}, follow=True)
+    assert "already have a quality check result" in r.content.decode()
+    assert grn_of(g1).status == "draft" and type(roll).objects.get(pk=roll.pk).qc_status == "rejected"
+    # a rejected quantity on a line of trims counts as a result too; so does a goods receipt already checked
+    g2 = draft_grn(ns, rejected="5")
+    assert not grns.untouched(g2) and "Accept all and post" not in page(ns.owner, "grn_detail", g2.pk)
+    g3 = draft_grn(ns)
+    assert grns.untouched(g3)
+    grns.finish_qc(g3, user=ns.owner)
+    assert not grns.untouched(grn_of(g3)) and "Accept all and post" not in page(ns.owner, "grn_detail", g3.pk)
+    with pytest.raises(BusinessRuleError, match="already have a quality check result"):
+        grns.accept_all_and_post(g3, user=ns.owner)
+
+
+def test_accept_all_needs_the_right_to_check_and_post_and_the_goods_receipts_factory(ns, factory2):
+    g1 = mixed_grn(ns)
+    looker = role_user("grn_looker", {"purchases.grn": ["view", "create"]}, ns.factory)
+    assert "Accept all and post" not in page(looker, "grn_detail", g1.pk)
+    assert login(looker).post(reverse("grn_detail", args=[g1.pk]), {"action": "accept_all"}).status_code == 403
+    far = role_user("far_keeper", {"purchases.grn": ["view", "create", "edit"]}, factory2)
+    assert login(far).post(reverse("grn_detail", args=[g1.pk]), {"action": "accept_all"}).status_code == 404
+    with pytest.raises(FactoryNotAllowed):
+        grns.accept_all_and_post(g1, user=far)
+    assert grn_of(g1).status == "draft" and grns.untouched(grn_of(g1))
+
+
+def test_if_posting_fails_after_accept_all_nothing_is_saved(ns, monkeypatch):
+    from inventory.models import FabricRoll, StockBalance, StockMovement
+    from ledger.models import Voucher
+    from purchases.models import GrnLine, GrnRoll
+
+    po = order(ns)
+    g1 = mixed_grn(ns, po)
+
+    def fails(po):
+        raise BusinessRuleError("The order could not be updated.")
+
+    # the very last thing posting does, after the QC marks, the rolls, the stock movements, the voucher and the
+    # number: all of it must come back, the number included
+    monkeypatch.setattr(orders, "refresh_status", fails)
+    moves, vouchers, history = StockMovement.objects.count(), Voucher.objects.count(), g1.history.count()
+    c = login(ns.owner)
+    r = c.post(reverse("grn_detail", args=[g1.pk]), {"action": "accept_all"}, follow=True)
+    html = r.content.decode()
+    assert "The order could not be updated." in html and ACCEPT_ALL in html     # still unchecked, still offered
+    g1 = grn_of(g1)
+    assert g1.status == "draft" and g1.number is None and g1.voucher_id is None and g1.history.count() == history
+    assert set(GrnRoll.objects.values_list("qc_status", "roll_id")) == {("pending", None)}
+    assert set(GrnLine.objects.values_list("qc_status", "qty_accepted", "value")) == {("pending", D("0"), D("0"))}
+    assert (StockMovement.objects.count(), Voucher.objects.count()) == (moves, vouchers)
+    assert not FabricRoll.objects.exists() and not StockBalance.objects.exists() and not DebitNote.objects.exists()
+    assert po_of(po).status == "approved"
+    # the numbers drawn by the failed attempt were given back: the next goods receipt and its voucher are the first
+    monkeypatch.undo()
+    r = c.post(reverse("grn_detail", args=[g1.pk]), {"action": "accept_all"}, follow=True)
+    g1 = grn_of(g1)
+    assert g1.status == "posted" and g1.number == "GRN/LDH1/26-27/0001"
+    assert Voucher.objects.get().number.endswith("/0001") and FabricRoll.objects.count() == 2
+    assert po_of(po).status == "received"

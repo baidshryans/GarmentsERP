@@ -188,6 +188,32 @@ def finish_qc(grn, *, user) -> Grn:
     return grn
 
 
+def untouched(grn) -> bool:
+    """Read-only: a draft on which no quality check result has been recorded yet, on any roll or line."""
+    if grn.status != Grn.Status.DRAFT:
+        return False
+    if GrnRoll.objects.filter(line__grn=grn).exclude(qc_status=Q.PENDING).exists():
+        return False
+    for line in grn.lines.select_related("material"):
+        if line.qc_status != Q.PENDING or (not line.is_fabric_rolls and (line.qty_rejected or line.remark.strip())):
+            return False
+    return True
+
+
+@transaction.atomic
+def accept_all_and_post(grn, *, user) -> Grn:
+    """Accept everything on an unchecked GRN, finish its QC and post it (the page's "Accept all and post").
+    The three existing steps in one transaction: if any of them fails, nothing is saved and no number is used."""
+    grn = Grn.objects.get(pk=grn.pk)
+    if not untouched(grn):
+        raise BusinessRuleError("Some of these goods already have a quality check result. Finish the check line by line, then post.")
+    rolls = {pk: (Q.ACCEPTED, "") for pk in GrnRoll.objects.filter(line__grn=grn).values_list("pk", flat=True)}
+    lines = {l.pk: (Decimal("0.000"), "") for l in grn.lines.select_related("material") if not l.is_fabric_rolls}
+    record_qc(grn, user=user, rolls=rolls, lines=lines)
+    finish_qc(grn, user=user)
+    return post_grn(grn, user=user)
+
+
 def _round(v):
     return Decimal(v).quantize(TWO, rounding=ROUND_HALF_UP)
 

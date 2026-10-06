@@ -4,6 +4,7 @@
 movements, records the StageMovement and updates the bundle. Moves, job work issue / receipt / QC and packing all
 go through it.
 """
+import uuid
 from dataclasses import dataclass
 from datetime import date as date_cls
 from decimal import Decimal
@@ -178,6 +179,36 @@ def apply_move(*, bundle, kind, to_location, user, date, new_status, to_step=Non
         bundle.rework_qty = bundle.qty
     bundle.save()
     return movement
+
+
+@transaction.atomic
+def split_bundle(bundle, qty, *, user, date, reason="") -> Bundle:
+    """Take `qty` pieces out of a bundle into a new bundle of its own, at the same place and stage, so the two can
+    go different ways (E7.8). The new bundle is numbered after the first one (B002-R1) and needs its own tag.
+    Stock at the place does not change, and neither does the lot's cost."""
+    bundle = Bundle.objects.select_related("lot", "sku", "location", "location__factory", "split_from").get(pk=bundle.pk)
+    if not bundle.is_live:
+        raise BusinessRuleError(f"Bundle {bundle.bundle_no} is {bundle.get_status_display().lower()} and cannot be split.")
+    if qty <= 0 or qty >= bundle.qty:
+        raise BusinessRuleError(f"Bundle {bundle.bundle_no} has {bundle.qty} pieces: split off at least 1 and leave at least 1.")
+    root = bundle
+    while root.split_from_id:
+        root = root.split_from
+    taken = set(Bundle.objects.filter(lot=bundle.lot, bundle_no__startswith=f"{root.bundle_no}-R").values_list("bundle_no", flat=True))
+    n = 1
+    while f"{root.bundle_no}-R{n}" in taken:
+        n += 1
+    child = Bundle.objects.create(
+        lot=bundle.lot, entry=bundle.entry, bundle_no=f"{root.bundle_no}-R{n}", sku=bundle.sku, qty=qty, original_qty=qty,
+        qr_token=uuid.uuid4().hex[:16], status=bundle.status, location=bundle.location, current_step=bundle.current_step,
+        completed_seq=bundle.completed_seq, split_from=bundle)
+    common = dict(factory=bundle.location.factory, location=bundle.location, item=bundle.sku, value=Decimal("0"), date=date,
+                  user=user, lot=bundle.lot, notes=reason or f"Split: {child.bundle_no} out of {bundle.bundle_no}")
+    stock.post_movement(qty=-Decimal(qty), movement_type=T.TRANSFER_OUT, bundle=bundle, **common)
+    stock.post_movement(qty=Decimal(qty), movement_type=T.TRANSFER_IN, bundle=child, **common)
+    bundle.qty -= qty
+    bundle.save(update_fields=["qty"])
+    return child
 
 
 def check_entry(b, to_step, reason=""):

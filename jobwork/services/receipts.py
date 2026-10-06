@@ -181,8 +181,9 @@ def pay_qty_for(challan, challan_bundle, accepted, rejected, rework) -> int:
 def record_qc(*, receipt_line, accepted, rejected=0, rework=0, user, reject_reason="", destination="rejects") -> QcResult:
     """QC of one received bundle. accepted + rejected + rework must equal the pieces received.
 
-    Rejected pieces go to rejects stock (or are scrapped). Rework sends the whole bundle back to the fabricator
-    on a rework challan, so no pieces are accepted yet (split bundles arrive in a later release)."""
+    Rejected pieces go to rejects stock (or are scrapped). Pieces for rework go back to the fabricator on a rework
+    challan. When some pieces are accepted and some need rework, the rework pieces are split into a bundle of their
+    own (B002-R1), so the accepted ones move on without waiting for them."""
     line = ReceiptLine.objects.select_related(
         "receipt", "receipt__challan", "receipt__challan__factory", "receipt__challan__lot", "challan_bundle",
         "challan_bundle__bundle", "challan_bundle__challan").get(pk=receipt_line.pk)
@@ -198,8 +199,6 @@ def record_qc(*, receipt_line, accepted, rejected=0, rework=0, user, reject_reas
     if accepted + rejected + rework != line.qty_received:
         raise BusinessRuleError(
             f"Accepted {accepted} + rejected {rejected} + rework {rework} must equal the {line.qty_received} pieces received.")
-    if rework and accepted:
-        raise BusinessRuleError("To send pieces back for rework, send the whole bundle: accepted pieces cannot be split off yet.")
     if rejected and not reject_reason.strip():
         raise BusinessRuleError("Give the reason for rejecting pieces.")
     cb = line.challan_bundle
@@ -207,12 +206,19 @@ def record_qc(*, receipt_line, accepted, rejected=0, rework=0, user, reject_reas
     step = challan.step
     date = timezone.localdate()
     scrap = destination == QcResult.Destination.SCRAP
-    new_status = Bundle.Status.REWORK if rework else Bundle.Status.READY
+    redo = bundle           # the bundle that waits for rework: this one, or the pieces split out of it
+    if rework and accepted:
+        redo = bundle_service.split_bundle(bundle, rework, user=user, date=date, reason=f"QC: {rework} pieces for rework")
+        bundle_service.apply_move(
+            bundle=redo, kind="qc", to_location=redo.location, user=user, date=date, new_status=Bundle.Status.REWORK,
+            reason="QC: sent back for rework")
+    new_status = Bundle.Status.REWORK if redo.pk == bundle.pk and rework else Bundle.Status.READY
     bundle_service.apply_move(
         bundle=bundle, kind="qc", to_location=bundle.location, user=user, date=date, new_status=new_status,
-        completed_seq=None if rework else max(bundle.completed_seq, step.sequence),
+        completed_seq=None if new_status == Bundle.Status.REWORK else max(bundle.completed_seq, step.sequence),
         rejection=0 if scrap else rejected, loss=rejected if scrap else 0, reason=reject_reason or "QC")
-    Bundle.objects.filter(pk=bundle.pk).update(rework_qty=rework)
+    if rework:
+        Bundle.objects.filter(pk=redo.pk).update(rework_qty=rework)
     result = QcResult.objects.create(
         line=line, accepted=accepted, rejected=rejected, rework=rework, reject_reason=reject_reason.strip(),
         destination=destination, rate=cb.rate, is_rework_pass=challan.kind == JobWorkChallan.Kind.REWORK, checked_by=user,

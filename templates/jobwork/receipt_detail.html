@@ -13,12 +13,12 @@
   <div class="island">
     <h3>Bundle {{ l.challan_bundle.bundle.bundle_no }} · {{ l.challan_bundle.bundle.sku.size.code }}
       <span class="muted" style="font-weight:400">issued {{ l.challan_bundle.qty_issued }} · counted {{ l.qty_received }}{% if l.shortage_qty %} · <strong>short {{ l.shortage_qty }}</strong>{% endif %}{% if l.over_qty %} · over {{ l.over_qty }}{% endif %}</span></h3>
-    {% if l.qc_done %}{% with q=l.qc %}<p>QC: accepted <strong>{{ q.accepted }}</strong>, rejected {{ q.rejected }}{% if q.reject_reason %} ({{ q.reject_reason }}){% endif %}, rework {{ q.rework }}{% if q.bill_line_id %} · <span class="pill success">Paid</span>{% endif %}</p>{% endwith %}
+    {% if l.qc_done %}{% with q=l.qc %}<p>QC: accepted <strong>{{ q.accepted }}</strong>, rejected {{ q.rejected }}{% if q.reject_reason %} ({{ q.reject_reason }}){% endif %}, rework {{ q.rework }}{% for s in l.split_bundles %} <span class="muted">as bundle {{ s.bundle_no }}</span>{% if can_tags %} <a href="{% url 'lot_tags' r.challan.lot_id %}?bundle={{ s.pk }}">print its tag</a>{% endif %}{% endfor %}{% if q.bill_line_id %} · <span class="pill success">Paid</span>{% endif %}</p>{% endwith %}
     {% elif r.status != "pending_approval" and can_qc %}
     <form method="post" class="field-row" style="align-items:end">{% csrf_token %}<input type="hidden" name="action" value="qc"><input type="hidden" name="line" value="{{ l.pk }}">
       <div class="field"><label>Accepted</label><input type="text" inputmode="numeric" name="accepted" value="{{ l.qty_received }}"></div>
       <div class="field"><label>Rejected</label><input type="text" inputmode="numeric" name="rejected" value="0"></div>
-      <div class="field"><label>Rework (whole bundle)</label><input type="text" inputmode="numeric" name="rework" value="0"></div>
+      <div class="field"><label>Rework (send back)</label><input type="text" inputmode="numeric" name="rework" value="0"></div>
       <div class="field"><label>Reject reason</label><input type="text" name="reason"></div>
       <div class="field"><label>Rejected go to</label><select name="destination"><option value="rejects">Rejects stock</option><option value="scrap">Scrapped</option></select></div>
       <div class="field"><button class="btn primary">Save QC</button></div></form>

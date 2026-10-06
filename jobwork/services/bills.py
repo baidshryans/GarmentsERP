@@ -195,7 +195,8 @@ def _refresh_billed(challan):
     everything_in = all(cb.qty_received or cb.qty_shortage for cb in challan.bundles.all())
     unpaid = QcResult.objects.filter(line__challan_bundle__challan=challan, bill_line__isnull=True, pay_qty__gt=0).exists()
     pending_qc = ReceiptLine.objects.filter(challan_bundle__challan=challan, qc_done=False).exists()
-    rework_open = challan.bundles.filter(bundle__status="rework").exists()
+    rework_open = (challan.bundles.filter(bundle__status="rework").exists()
+                   or challan.bundles.filter(bundle__splits__status="rework", bundle__splits__current_step=challan.step_id).exists())
     if everything_in and not unpaid and not pending_qc and not rework_open and challan.bill_lines.exists():
         challan.status = JobWorkChallan.Status.BILLED
         challan.save(update_fields=["status"])

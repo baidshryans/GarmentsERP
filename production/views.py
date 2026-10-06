@@ -187,18 +187,18 @@ class LotDetail(LoginRequiredMixin, ScreenPermissionMixin, View):
     def get(self, request, pk):
         lot = self._lot(request, pk)
         steps = list(lot.steps.select_related("process", "factory", "party"))
-        bundles = list(lot.bundles.select_related("sku__size", "location", "current_step__process").order_by("bundle_no"))
+        bundles = list(lot.bundles.select_related("sku__size", "location", "current_step__process", "split_from").order_by("bundle_no"))
         cuts = list(lot.cuttings.all())
         planned = sum(l.qty for l in lot.order_line.sizes.all())
         breakdown = costing.cost_breakdown(lot)
         can_cost = request.user.can_view_field("cost")
         can_edit = request.user.has_screen_perm("production.lot", "edit")
         live = [b for b in bundles if b.is_live]
-        expected_charges = sum((c.amount_per_piece for c in lot.bom_version.charges.all()), Decimal("0")) * sum(b.original_qty for b in bundles) if lot.bom_version else None
+        expected_charges = sum((c.amount_per_piece for c in lot.bom_version.charges.all()), Decimal("0")) * sum(b.original_qty for b in bundles if not b.split_from_id) if lot.bom_version else None
         return render(request, "production/lot_detail.html", {
             "lot": lot, "guide": guide.lot_guide(lot, request.user),
             "steps": steps, "bundles": bundles, "cuttings": cuts, "planned": planned,
-            "cut_pieces": sum(b.original_qty for b in bundles), "live_pieces": sum(b.qty for b in live),
+            "cut_pieces": sum(b.original_qty for b in bundles if not b.split_from_id), "live_pieces": sum(b.qty for b in live),
             "expected_from_fabric": cutting.expected_pieces(lot, cutting.fabric_with_lot(lot)) if lot.fabric_issues.exists() else None,
             "cutting_loss": sum(cs.loss for c in cuts for cs in c.sizes.all()),
             "breakdown": breakdown if can_cost else None, "total_cost": costing.lot_cost(lot) if can_cost else None,
@@ -487,7 +487,7 @@ class Dashboard(LoginRequiredMixin, ScreenPermissionMixin, View):
         late = [l for l in lots if l.order_line.order.due_date and l.order_line.order.due_date < today]
         ageing = sorted(({"lot": l, "days": (today - l.created_at.date()).days} for l in lots), key=lambda r: -r["days"])[:10]
         moves = in_active(StageMovement.objects.for_user(user), request).filter(at__date=today)
-        cut_today = Bundle.objects.filter(lot__in=scope, created_at__date=today).aggregate(s=Sum("original_qty"))["s"] or 0
+        cut_today = Bundle.objects.filter(lot__in=scope, created_at__date=today, split_from__isnull=True).aggregate(s=Sum("original_qty"))["s"] or 0
         packed_today = moves.filter(kind="pack").aggregate(s=Sum("qty_in"))["s"] or 0
         stitched_today = moves.filter(Q(from_step__process__kind="stitching", kind__in=("move", "factory")) |
                                       Q(kind="qc", from_step__process__kind="stitching")).aggregate(s=Sum("qty_in"))["s"] or 0

@@ -273,6 +273,8 @@ class Bundle(models.Model):
     completed_seq = models.PositiveSmallIntegerField(default=0, help_text="Highest route step finished")
     rework_qty = models.PositiveIntegerField(default=0, help_text="Pieces QC sent back to the fabricator")
     is_rework = models.BooleanField(default=False, help_text="Moved back to an earlier stage; shown separately in WIP")
+    split_from = models.ForeignKey("self", on_delete=models.PROTECT, null=True, blank=True, related_name="splits",
+                                   help_text="The bundle these pieces were taken out of (rework sent back at QC)")
     created_at = models.DateTimeField(auto_now_add=True)
 
     history = HistoricalRecords()

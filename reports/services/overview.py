@@ -35,7 +35,7 @@ def production_overview(user, today):
         holders[b.lot_id].add(b.location.party.name if b.location.party_id else "In-house")
         if b.is_rework:
             rework += b.qty
-    cut = dict(Bundle.objects.filter(lot__in=lots).values_list("lot_id").annotate(s=Sum("original_qty")))
+    cut = dict(Bundle.objects.filter(lot__in=lots, split_from__isnull=True).values_list("lot_id").annotate(s=Sum("original_qty")))
     rows, perms = [], {}
     for lot in lots:
         order = lot.order_line.order

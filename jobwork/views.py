@@ -286,11 +286,14 @@ class ReceiptDetail(LoginRequiredMixin, ScreenPermissionMixin, View):
         lines = list(r.lines.select_related("challan_bundle__bundle__sku__size", "challan_bundle__bundle__sku__colour"))
         for l in lines:
             l.qc_result = getattr(l, "qc", None) if hasattr(l, "qc") else None
+            # rework pieces QC split out of this bundle on this challan's step
+            l.split_bundles = list(l.challan_bundle.bundle.splits.filter(current_step=r.challan.step_id)) if l.qc_done else []
         return render(request, "jobwork/receipt_detail.html", {
             "r": r, "lines": lines, "trims": r.trims.select_related("challan_trim__material"),
             "can_approve": user.has_screen_perm("jobwork.receipt", "approve"),
             "can_qc": user.has_screen_perm("jobwork.qc", "create"),
             "can_open_lot": user.has_screen_perm("production.lot", "view"),
+            "can_tags": user.has_screen_perm("production.bundle", "view"),
             "guide": guide_service.challan_guide(r.challan, user),   # scoped with the receipt: same factory as its challan
         })
 

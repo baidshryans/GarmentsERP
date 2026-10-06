@@ -373,7 +373,8 @@ def test_the_guide_reads_and_never_writes(ns, django_assert_num_queries):
     ch = fresh(ch)
     before = (ch.history.count(), ch.status)
     answers = {("jobwork.bill", "create"): True, ("jobwork.bill", "view"): True}
-    with django_assert_num_queries(4) as seen_queries:   # the challan's lines, its receipts, unbilled pieces, draft bills
+    # the challan's lines, its receipts, rework pieces split out of its bundles, unbilled pieces, draft bills
+    with django_assert_num_queries(5) as seen_queries:
         g = challan_guide(ch, ns.owner, answers)
     assert g["primary"]["label"] == f"Make labour bill for {ns.fab.name}"
     assert all(q["sql"].lstrip().upper().startswith("SELECT") for q in seen_queries.captured_queries)

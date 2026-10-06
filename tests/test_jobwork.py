@@ -266,8 +266,6 @@ def test_qc_quantities_must_add_up_and_rejects_need_a_reason(ns):
         qc(ns, line, accepted=10)
     with pytest.raises(BusinessRuleError, match="reason"):
         qc(ns, line, accepted=15, rejected=2)
-    with pytest.raises(BusinessRuleError, match="whole bundle"):
-        qc(ns, line, accepted=10, rework=7)
     assert not QcResult.objects.exists()
 
 
@@ -691,3 +689,115 @@ def test_waiving_is_scoped_to_the_users_factories(ns, company, factory2):
     other.allowed_factories.add(factory2)
     with pytest.raises(FactoryNotAllowed):
         bills.waive_deduction(user=other, reason="Not mine", receipt_line=r.lines.get(shortage_qty__gt=0))
+
+
+# ---------------- QC splits rework pieces out of a bundle (E7.8, E8.3) ----------------
+
+def rework_challan(ns, bundle, party=None):
+    c = challans.create_challan(company=ns.company, factory=ns.factory, party=party or ns.fab, lot=ns.lot, step=step(ns, "STITCH"),
+                                bundles=[bundle], date=DAY, user=ns.owner, kind="rework")
+    return challans.issue_challan(c, user=ns.owner)
+
+
+def test_qc_splits_the_rework_pieces_into_their_own_bundle_and_the_accepted_ones_move_on(ns, company, factory):
+    ch = issue(ns, ns.fab, ns.bundles[1:2])                                 # B002, 25 pieces
+    cost = costing.lot_cost(ns.lot, factory)
+    res = qc(ns, receive(ns, ch).lines.get(), accepted=20, rejected=2, rework=3, reject_reason="Holes")
+    parent = Bundle.objects.get(pk=ns.bundles[1].pk)
+    child = Bundle.objects.get(split_from=parent)
+    assert (parent.qty, parent.status, parent.rework_qty, parent.original_qty) == (20, "ready", 0, 25)
+    assert (child.bundle_no, child.qty, child.status, child.rework_qty) == ("B002-R1", 3, "rework", 3)
+    assert child.sku == parent.sku and child.location == parent.location and child.current_step == step(ns, "STITCH")
+    assert child.qr_token != parent.qr_token and child.completed_seq < step(ns, "STITCH").sequence
+    assert (res.accepted, res.rejected, res.rework, res.pay_qty) == (20, 2, 3, 20)
+    for m in list(parent.movements.filter(kind="qc")) + list(child.movements.filter(kind="qc")):
+        assert m.qty_in == m.qty_out + m.qty_extra - m.loss - m.rejection - m.shortage          # BR-21
+    assert parent.movements.get(kind="qc").rejection == 2
+    process = Location.objects.get(factory=factory, name="Process Area")
+    assert StockBalance.objects.get(location=process, sku=parent.sku).qty == 23       # 20 + 3: only the rejects left
+    assert costing.lot_cost(ns.lot, factory) == cost                        # a split costs nothing
+
+    # the accepted pieces go on to ironing while the rework pieces are still to be redone
+    bundle_service.move_bundles(bundles=[parent], to_step=step(ns, "IRON"), user=ns.owner, date=DAY)
+    assert Bundle.objects.get(pk=parent.pk).current_step == step(ns, "IRON")
+    with pytest.raises(BusinessRuleError, match="cannot be moved now"):
+        bundle_service.move_bundles(bundles=[child], to_step=step(ns, "IRON"), user=ns.owner, date=DAY)
+
+    # the rework pieces go back to the stitcher, come back, and follow
+    rw = rework_challan(ns, child)
+    assert rw.bundles.get().rate == D("30.00") and rw.bundles.get().qty_issued == 3   # 25 + 5: the first pass paid 20 only
+    assert qc(ns, receive(ns, rw).lines.get(), accepted=3).is_rework_pass
+    child.refresh_from_db()
+    assert child.status == "ready" and child.rework_qty == 0
+    bundle_service.move_bundles(bundles=[child], to_step=step(ns, "IRON"), user=ns.owner, date=DAY)
+    bill = bills.create_bill(company=company, factory=factory, party=ns.fab, date=DAY, user=ns.owner)
+    assert bill.gross == D("590.00")                                        # 20 x 25 + 3 x 30
+    assert not costing.check_wip_reconciles(company)
+
+
+def test_on_pieces_received_split_rework_pieces_earn_the_rework_charge_alone(ns, company, factory):
+    on_received(ns)
+    ch = issue(ns, ns.fab, ns.bundles[1:2])
+    assert qc(ns, receive(ns, ch).lines.get(), accepted=20, rejected=2, rework=3, reject_reason="Holes").pay_qty == 25
+    child = Bundle.objects.get(split_from=ns.bundles[1])
+    rw = rework_challan(ns, child)
+    assert rw.pay_basis == "received" and rw.bundles.get().rate == D("5.00")
+    qc(ns, receive(ns, rw).lines.get(), accepted=3)
+    bill = bills.create_bill(company=company, factory=factory, party=ns.fab, date=DAY, user=ns.owner)
+    assert bill.gross == D("640.00")                                        # 25 stitched x 25 + 3 redone x 5
+
+
+def test_rework_with_nothing_accepted_keeps_the_whole_bundle_together(ns):
+    ch = issue(ns, ns.fab, ns.bundles[1:2])
+    qc(ns, receive(ns, ch).lines.get(), accepted=0, rejected=2, rework=23, reject_reason="Holes")
+    b = Bundle.objects.get(pk=ns.bundles[1].pk)
+    assert (b.qty, b.status, b.rework_qty) == (23, "rework", 23) and not b.splits.exists()
+
+
+def test_a_second_round_of_rework_is_numbered_after_the_first_bundle(ns):
+    ch = issue(ns, ns.fab, ns.bundles[1:2])
+    qc(ns, receive(ns, ch).lines.get(), accepted=20, rework=5)
+    first = Bundle.objects.get(bundle_no="B002-R1")
+    rw = rework_challan(ns, first)
+    qc(ns, receive(ns, rw).lines.get(), accepted=3, rework=2)
+    second = Bundle.objects.get(bundle_no="B002-R2")
+    assert second.split_from == first and second.qty == 2 and Bundle.objects.get(pk=first.pk).qty == 3
+    assert challans.first_pass_line(second, step(ns, "STITCH")).challan == ch      # found through both splits
+
+
+def test_a_split_does_not_inflate_the_pieces_cut_or_clash_with_new_bundle_numbers(ns, owner):
+    from production.services import cutting, guide as lot_guide
+
+    ch = issue(ns, ns.fab, ns.bundles[1:2])
+    qc(ns, receive(ns, ch).lines.get(), accepted=20, rework=5)
+    assert sum(b.original_qty for b in ns.lot.bundles.filter(split_from__isnull=True)) == 100
+    cutting.issue_fabric(lot=ns.lot, lines=[(ns.roll_b, D("10"))], user=owner, date=DAY)
+    entry = cutting.record_cutting(lot=ns.lot, user=owner, date=DAY, pieces={ns.sizes["M"]: 20},
+                                   rolls=[cutting.RollUseSpec(ns.roll_b, used=D("8"), remnant=D("2"))])
+    (new,) = cutting.create_bundles(entry, bundle_size=25, user=owner)
+    assert new.bundle_no == "B007"                                          # six bundles were cut before: the split is not counted
+    assert lot_guide.lot_guide(ns.lot, owner) is not None
+
+
+def test_split_bundle_rules(ns):
+    b = ns.bundles[1]
+    with pytest.raises(BusinessRuleError, match="leave at least 1"):
+        bundle_service.split_bundle(b, 25, user=ns.owner, date=DAY)
+    with pytest.raises(BusinessRuleError, match="leave at least 1"):
+        bundle_service.split_bundle(b, 0, user=ns.owner, date=DAY)
+    child = bundle_service.split_bundle(b, 5, user=ns.owner, date=DAY)
+    assert child.bundle_no == "B002-R1" and child.status == "cut" and Bundle.objects.get(pk=b.pk).qty == 20
+
+
+def test_the_first_challan_is_not_marked_billed_while_its_split_rework_is_still_out(ns, company, factory):
+    from jobwork.services import guide as jw_guide
+
+    ch = issue(ns, ns.fab, ns.bundles[1:2])
+    qc(ns, receive(ns, ch).lines.get(), accepted=20, rework=5)
+    guide = jw_guide.challan_guide(JobWorkChallan.objects.get(pk=ch.pk), ns.owner)
+    assert "rework" in [a["kind"] for a in [guide["primary"], *guide["others"]]]
+    bills.post_bill(bills.create_bill(company=company, factory=factory, party=ns.fab, date=DAY, user=ns.owner), user=ns.owner)
+    ch.refresh_from_db()
+    assert ch.status == "fully_received"                                    # 5 pieces still wait to go back
+    guide = jw_guide.challan_guide(ch, ns.owner)
+    assert guide["primary"]["kind"] == "rework" and guide["primary"]["pieces"] == 5 and not guide["complete"]

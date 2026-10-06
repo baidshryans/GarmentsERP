@@ -53,8 +53,13 @@ def _trim_needs(lot, bundles):
 
 
 def first_pass_line(bundle, step):
-    """The line a bundle first went out on for this step. A rework challan builds on its rate and pay basis."""
-    return (ChallanBundle.objects.filter(bundle=bundle, challan__kind="issue", challan__step=step)
+    """The line a bundle first went out on for this step: its own, or that of the bundle it was split from.
+    A rework challan builds on its rate and pay basis."""
+    ids = [bundle.pk]
+    while bundle.split_from_id:
+        bundle = bundle.split_from
+        ids.append(bundle.pk)
+    return (ChallanBundle.objects.filter(bundle_id__in=ids, challan__kind="issue", challan__step=step)
             .select_related("challan").order_by("-id").first())
 
 

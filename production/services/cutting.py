@@ -228,7 +228,7 @@ def create_bundles(entry, *, bundle_size, user, loss=None) -> list:
         for cs in sizes:
             cs.loss = loss.get(cs.size, 0)
             cs.save(update_fields=["loss"])
-    seq = lot.bundles.count()
+    seq = lot.bundles.filter(split_from__isnull=True).count()     # a split bundle is numbered after its first
     made = []
     for cs in sizes:
         sku = SKU.objects.filter(style=lot.style, colour=lot.colour, size=cs.size, is_active=True).first()

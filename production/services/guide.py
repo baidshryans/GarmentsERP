@@ -47,7 +47,7 @@ def _reached(bundle):
 
 
 def _journey(lot, steps, bundles, cuts, issued):
-    cut_pieces = sum(b.original_qty for b in bundles)
+    cut_pieces = sum(b.original_qty for b in bundles if not b.split_from_id)
     bundled = bool(cuts) and all(c.bundled for c in cuts)
     at = {}
     for b in bundles:

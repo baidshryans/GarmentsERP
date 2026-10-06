@@ -11,6 +11,7 @@ from django.urls import reverse
 
 from jobwork.models import ChallanBundle, JobWorkBill, JobWorkBillLine, JobWorkChallan, QcResult, Receipt
 from jobwork.services import receipts as receipt_service
+from production.models import Bundle
 
 S = JobWorkChallan.Status
 # what is furthest behind comes first (the lot guide ranks its own send / move / rework actions around these)
@@ -112,7 +113,7 @@ def _actions(challan, lines, receipts):
     for r in sorted(receipts, key=lambda r: r.pk):
         r.challan = challan                      # already loaded: the hint names its fabricator
         found.append(receipt_action(r))
-    back = [l.bundle for l in lines if _waits_for_rework(l.bundle) and l.bundle.current_step_id == challan.step_id]
+    back = [b for b in _with_splits(lines) if _waits_for_rework(b) and b.current_step_id == challan.step_id]
     if back:
         # a bundle already on a draft rework challan asks for that draft to be issued, not for another challan
         drafted = set(ChallanBundle.objects.filter(bundle__in=back, challan__status=S.DRAFT).values_list("bundle_id", flat=True))
@@ -129,6 +130,12 @@ def _actions(challan, lines, receipts):
     return sorted((a for a in found if a), key=lambda a: RANK[a["kind"]])
 
 
+def _with_splits(lines):
+    """The challan's bundles and the rework pieces QC split out of them, which wait as bundles of their own."""
+    own = [l.bundle for l in lines]
+    return own + list(Bundle.objects.filter(split_from__in=own, status=Bundle.Status.REWORK))
+
+
 def _waits_for_rework(bundle):
     return bundle.is_live and (bundle.status == bundle.Status.REWORK or bool(bundle.rework_qty))
 
@@ -141,7 +148,7 @@ def _finished(challan, lines, receipts, actions):
     if challan.status in (S.BILLED, S.CLOSED):
         return True
     return (challan.status == S.RECEIVED and all(r.status == Receipt.Status.QC_DONE for r in receipts)
-            and not any(_waits_for_rework(l.bundle) for l in lines))
+            and not any(_waits_for_rework(b) for b in _with_splits(lines)))
 
 
 def _journey(challan, lines, receipts, finished):

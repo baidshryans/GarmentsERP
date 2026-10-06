@@ -397,3 +397,33 @@ def test_pay_on_pieces_received_through_the_rate_bill_and_waive_screens(company,
     c.post(reverse("bill_new"), {"party": fab.pk, "date": "2026-06-30", "tds_template": "", **{f"qc_{x.pk}": "on" for x in qcs}})
     bill = JobWorkBill.objects.get()
     assert bill.gross == D("1000.00") and bill.deductions == D("0.00")        # 40 received x 25, nothing taken off
+
+
+# ---------------- QC split on the screens ----------------
+
+def test_qc_screen_splits_rework_pieces_and_offers_their_tag(company, factory, owner):
+    from jobwork.services import challans, receipts
+    from jobwork.services.receipts import Counted
+
+    ns = build(company, factory, owner)
+    bundles = cut(ns)
+    fab = fabricator(company)
+    rates.save_rate(party=fab, process=step(ns, "STITCH").process, rate_type="A", base_rate=D("25"), rework_rate=D("5"),
+                    effective_from=date(2026, 4, 1))
+    ch = challans.create_and_issue(company=company, factory=factory, party=fab, lot=ns.lot, step=step(ns, "STITCH"),
+                                   bundles=bundles[1:3], date=DAY, user=owner)
+    cb1, cb2 = list(ch.bundles.order_by("id"))
+    rec = receipts.create_receipt(challan=ch, user=owner, date=DAY, counts=[Counted(cb1, 25), Counted(cb2, 8)])
+    l1, l2 = list(rec.lines.order_by("id"))
+    c = login(owner)
+    assert b"Rework (send back)" in c.get(reverse("receipt_detail", args=[rec.pk])).content
+    c.post(reverse("receipt_detail", args=[rec.pk]), {"action": "qc", "line": l1.pk, "accepted": "20", "rejected": "0", "rework": "5"})
+    child = Bundle.objects.get(split_from=bundles[1])
+    page = c.get(reverse("receipt_detail", args=[rec.pk])).content.decode()
+    assert "as bundle B002-R1" in page and f"?bundle={child.pk}" in page
+    tags = c.get(reverse("lot_tags", args=[ns.lot.pk]), {"bundle": child.pk}).content.decode()
+    assert "B002-R1" in tags
+    lot_page = c.get(reverse("lot_detail", args=[ns.lot.pk])).content.decode()
+    assert "from B002" in lot_page
+    form = c.get(reverse("challan_new"), {"lot": ns.lot.pk, "kind": "rework", "step": step(ns, "STITCH").pk}).content.decode()
+    assert "B002-R1" in form and f'<option value="{fab.pk}" selected' in form.replace("  ", " ")     # back to the same stitcher

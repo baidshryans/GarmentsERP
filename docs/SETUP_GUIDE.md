@@ -317,7 +317,8 @@ Rules:
 
 - Choose the unit you **stock and issue** in. Fabric is almost always KG (or MTR if you buy by length). Everything in the BOM uses this unit.
 - One code per distinct item. Different GSM, width or composition is a different material.
-- Fabric is tracked **per roll** in stock, so colour and roll number are captured at GRN, not in the material name. If you buy the same cotton fleece in black and navy, make one material and record the colour per roll, or make `FAB-001-BLK` and `FAB-001-NVY` if your consumption differs by shade. Decide this once and stay consistent.
+- The form asks for **Code**, **Name**, **Kind** and **Unit**. **Composition**, **GSM** and **Width (cm)** are under **More options** on the same form. A new material is active; the **Active** box appears when you edit one. The same holds for units, sizes, colours, products, processes, price lists and HSN codes: no Active box on a new one, and it shows on edit.
+- Fabric is tracked **per roll** in stock, so colour and roll number are captured when the goods are received (GRN), not in the material name. If you buy the same cotton fleece in black and navy, make one material and record the colour per roll, or make `FAB-001-BLK` and `FAB-001-NVY` if your consumption differs by shade. Decide this once and stay consistent.
 
 ### 7.6 Processes
 
@@ -440,18 +441,22 @@ Goods moving from LDH1 to LDH2 are an **inter-factory transfer** and are valued 
 
 ## 9. Parties
 
-*Masters → Parties → New.* One record per firm. A party can have several roles at once, for example a vendor who is also a customer.
+*Masters → Parties → New.* One record per firm. A party can have several roles at once, for example a supplier who is also a customer.
+
+The form asks first for what is needed every time: the **Firm name**, a **Mobile**, and **This party is a** Customer, Supplier or Fabricator (tick all that apply). When GST is switched on for the company (section 4) the **GSTIN** is asked there too. Everything else is under **More options** on the same form. That section opens by itself when something inside is filled in or has an error, so nothing you entered is ever hidden.
 
 ### 9.1 Fields
 
 | Field | Notes |
 | --- | --- |
-| Name | The firm's name |
-| Contact person | |
-| Roles | Customer, Vendor, Fabricator, Agent, Transporter (tick all that apply) |
+| Firm name | The firm's name |
+| This party is a | Customer, Supplier, Fabricator (tick all that apply) |
 | Mobile | **Required**, 10 digits. A duplicate customer mobile is rejected |
-| Landline, email | |
-| GSTIN, PAN, State | State drives CGST+SGST vs IGST. GSTIN format is validated |
+| GSTIN | In view when the company is GST-registered, otherwise under More options. The format is validated; its state code sets the State, which drives CGST+SGST vs IGST |
+| *Under More options:* | |
+| Contact person | |
+| Other mobile, landline, email | |
+| PAN, TDS section | TDS section is a suggestion only. TDS applies only when chosen on a bill |
 | Category | Wholesaler, Distributor, Retailer, Online, Walk-in, Institutional. For customers |
 | Price list | For customers. See Part 12 |
 | Discount % | Default discount |
@@ -459,7 +464,8 @@ Goods moving from LDH1 to LDH2 are an **inter-factory transfer** and are valued 
 | Payment terms | Free text |
 | Agent, Transporter | Default agent and transporter for this customer |
 | Destination | Delivery city |
-| TDS section | A suggestion only. TDS applies only when chosen on a bill |
+| This party is also an | Agent, Transporter |
+| Active | Ticked. Untick to stop using the party |
 | Addresses | Billing, shipping, with city, state, pincode |
 | Special rates | Customer-specific rate per style or product, with a start date |
 
@@ -469,8 +475,8 @@ Party codes (`P0001`, `P0002` …) are generated for you.
 
 | Field | Value |
 | --- | --- |
-| Name | Sri Ram Textiles |
-| Roles | Vendor |
+| Firm name | Sri Ram Textiles |
+| This party is a | Supplier |
 | Contact / Mobile | Ramesh Gupta / `9811100022` |
 | GSTIN | `03AAAAA1111A1Z5` |
 | State | Punjab |
@@ -481,8 +487,8 @@ Party codes (`P0001`, `P0002` …) are generated for you.
 
 | Field | Value |
 | --- | --- |
-| Name | Bharat Trims and Labels |
-| Roles | Vendor |
+| Firm name | Bharat Trims and Labels |
+| This party is a | Supplier |
 | Mobile | `9815500033` |
 | GSTIN | `03BBBBB2222B1Z7` |
 | Credit days | 15 |
@@ -491,8 +497,8 @@ Party codes (`P0001`, `P0002` …) are generated for you.
 
 | Field | Value |
 | --- | --- |
-| Name | Gurpreet Garments |
-| Roles | Fabricator |
+| Firm name | Gurpreet Garments |
+| This party is a | Fabricator |
 | Contact / Mobile | Gurpreet Singh / `9876511144` |
 | GSTIN | blank (unregistered) |
 | PAN | `ABCPG1234H` (needed if TDS will be deducted) |
@@ -508,8 +514,8 @@ Other fabricators in the examples: `Royal Embroidery` (embroidery, Mobile `98765
 
 | Field | Value |
 | --- | --- |
-| Name | Mehta Traders |
-| Roles | Customer |
+| Firm name | Mehta Traders |
+| This party is a | Customer |
 | Contact / Mobile | Rakesh Mehta / `9876543210` |
 | GSTIN | `07ABCDE1234F1Z5` |
 | State | Delhi |
@@ -525,8 +531,8 @@ Other fabricators in the examples: `Royal Embroidery` (embroidery, Mobile `98765
 
 | Field | Value |
 | --- | --- |
-| Name | Walk-in Customer |
-| Roles | Customer |
+| Firm name | Walk-in Customer |
+| This party is a | Customer |
 | Mobile | `9876500099` (the shop counter's number; each customer mobile must be unique) |
 | Category | Walk-in |
 | Price list | Retail MRP |
@@ -534,7 +540,7 @@ Other fabricators in the examples: `Royal Embroidery` (embroidery, Mobile `98765
 
 ### 9.7 Agent and transporter
 
-| Name | Roles | Mobile | Note |
+| Firm name | This party is also an (More options) | Mobile | Note |
 | --- | --- | --- | --- |
 | Sunil Agencies | Agent | `9810011177` | Commission handled as an expense |
 | Jai Mata Roadlines | Transporter | `9814488899` | Used on packing and dispatch |
@@ -553,12 +559,14 @@ Other fabricators in the examples: `Royal Embroidery` (embroidery, Mobile `98765
 | Product | Jogger |
 | Name | Cuffed jogger, fleece |
 | Description | Elastic waist with drawcord, ribbed cuffs, two side pockets |
-| HSN | 6103 |
+| HSN code | 6103 |
 | Default route | Route B — Jogger with embroidered logo |
 | MRP | 699 |
 | Colours | Black, Navy, Grey Melange |
 | Sizes | S, M, L, XL, XXL |
 | Image | Photo (optional; a thumbnail is made) |
+
+Style no, Name, Product, Default route, Colours and Sizes are asked every time. **Description**, **MRP**, **Image** and **Archived** are under **More options**; so is **HSN code**, unless GST is switched on for the company, when it is asked every time.
 
 This creates **3 colours × 5 sizes = 15 SKUs**. For example:
 
@@ -593,7 +601,7 @@ Each line has:
 | Wastage % | Allowance for cutting loss, added on top |
 | Size overrides | Different quantity for a size that uses more or less |
 
-You can also add **per-piece charges** (not materials): a fixed amount per piece for a process, for example embroidery or washing, which the cost includes.
+You can also add **per-piece charges** (not materials): a fixed amount per piece for a process, for example embroidery or washing, which the cost includes. A **Version note** (why this changed) is under **More options** at the bottom.
 
 **BOM example — style JGR-104, version 1**
 
@@ -619,34 +627,34 @@ Reading this: the base quantity applies to sizes M, and sizes listed in *size ov
 
 **To work out fabric per piece**, cut and weigh one finished garment per size, add the wastage you normally lose in the lay, and round to 4 decimals. A close estimate is fine; the system shows actual versus BOM after your first few lots, and you refine.
 
-**Cost check.** With fabric at ₹190/kg: `0.42 × 190 = ₹79.80` plus rib and trims. This is why accurate rates in opening stock and GRN matter.
+**Cost check.** With fabric at ₹190/kg: `0.42 × 190 = ₹79.80` plus rib and trims. This is why accurate rates in opening stock and goods received matter.
 
 ---
 
 ## 11. Labour rates (what each fabricator is paid)
 
-*Make → Labour rates → New.* A rate is for one **fabricator + process**, with a start date. A new rate never changes bills already made; it applies to challans issued after its date. Labour is paid **only on QC-accepted pieces**.
+*Make → Labour rates → New.* A rate is for one **fabricator + process**, with a start date. Both start on "Choose…": the rate is not saved until you pick them ("Choose the fabricator.", "Choose the process."). A new rate never changes bills already made; it applies to challans issued after its date. Labour is paid **only on QC-accepted pieces**.
 
-There are four rate types.
+There are four rate types. Choose one under **Rate type**; the form then shows only that type's fields.
 
-| Type | Use when | What you enter |
+| Rate type | Use when | What you enter |
 | --- | --- | --- |
-| **A. Per piece** | One rate per piece for the process | Rate per piece |
-| **B. Per piece plus add-ons** | A base rate plus extras (flatlock, pocket, bartack) | Base rate and named add-ons per piece |
-| **C. Size-wise** | The rate depends on size | A rate for each size |
-| **D. Flat per lot** | A fixed amount for the lot (washing, dyeing) | Flat amount per lot |
+| **Per piece** | One rate per piece for the process | Rate per piece |
+| **Per piece plus extras** | A rate per piece plus extras (flatlock, pocket, bartack) | Rate per piece and named extras per piece |
+| **Different rate per size** | The rate depends on size | A rate for each size |
+| **Fixed amount per lot** | A fixed amount for the lot (washing, dyeing) | Fixed amount per lot |
 
-Every rate can also have a **rework rate per piece**: what the fabricator is paid to redo a rejected piece.
+Every rate can also have a **rework rate per piece**: what the fabricator is paid to redo a rejected piece. It is under **More options**.
 
 **Examples**
 
-| Fabricator | Process | Type | Details | From |
+| Fabricator | Process | Rate type | Details | From |
 | --- | --- | --- | --- | --- |
-| Gurpreet Garments | Stitching | A | ₹26.00 per piece, rework ₹6.00 | 01-04-2026 |
-| Gurpreet Garments | Stitching | B | Base ₹24.00 + Flatlock ₹3.00 + Bartack ₹1.50 | 01-04-2026 |
-| Gurpreet Garments | Stitching (kids) | C | 4-6Y ₹16, 6-8Y ₹18, 8-10Y ₹20 | 01-04-2026 |
-| Royal Embroidery | Embroidery | A | ₹8.00 per piece | 01-04-2026 |
-| Shree Wash House | Washing | D | ₹4,500 per lot, rework ₹5.00 | 01-04-2026 |
+| Gurpreet Garments | Stitching | Per piece | ₹26.00 per piece, rework ₹6.00 | 01-04-2026 |
+| Gurpreet Garments | Stitching | Per piece plus extras | ₹24.00 per piece + Flatlock ₹3.00 + Bartack ₹1.50 | 01-04-2026 |
+| Gurpreet Garments | Stitching (kids) | Different rate per size | 4-6Y ₹16, 6-8Y ₹18, 8-10Y ₹20 | 01-04-2026 |
+| Royal Embroidery | Embroidery | Per piece | ₹8.00 per piece | 01-04-2026 |
+| Shree Wash House | Washing | Fixed amount per lot | ₹4,500 per lot, rework ₹5.00 | 01-04-2026 |
 
 If a fabricator's stitching rate goes to ₹28 from 1 July 2026, add a **new** rate dated `01-07-2026`. Do not edit the old one.
 
@@ -912,6 +920,9 @@ Challans and receipts guide you the same way (section 23.2). On Home, **Receive 
 - On the new order form **Save draft** comes first, so pressing Enter in a field saves a draft; **Save and submit** is the violet button.
 - A short-closed order asks for no more goods, but what it did receive is still billed and paid from its Next button.
 - If the next step belongs to another role the page says **Waiting for:** and the step. The default roles: Purchase Officer orders, Store Keeper receives and checks, Accountant enters bills and pays, Owner approves.
+- **The buying forms ask only for what is needed every time.** *Purchase order:* Supplier, Date and the items; **Expected by** and **Notes** are under **More options**. *Goods received (GRN):* Supplier, Receive into, Date and the items; the supplier's challan no. and date and Notes are under More options. *Supplier bill:* Supplier's bill no., Bill date, the received goods to bill, and one **GST** choice that starts on "No tax". The GST template, the by-hand amounts and the input credit tick appear only for the choice that uses them, inside **Tax (GST / TDS)**, where **Deduct TDS** also sits; that section opens when you choose a GST option. The Booking date (today unless you change it) and Notes are under More options. *Return to supplier:* Supplier, Date, Reason and the items; GST on the return is under **Tax (GST)**. A folded section opens by itself when something inside is filled in or has an error.
+- **The supplier must be chosen.** On a purchase order, goods received and a return to supplier the **Supplier** starts on "Choose…" (it is filled in for you when you receive against a purchase order). Saving without one is refused with "Choose the supplier." and everything you typed is kept. The same rule holds for the **Customer** on a sale order and on quick billing, and for the **Fabricator** when you send to a fabricator or add a labour rate.
+- **Editing a draft goods received** saves a change of supplier and of the supplier's challan date. One received against a purchase order keeps that order's supplier, shown as fixed text.
 - **Enter supplier bill** makes the bill in the factory chosen in the top bar. If another factory is chosen, you are sent back to the goods received page with a message; choose the right factory and press the button again.
 
 **Selling guides you the same way.** The sale order, packing list, bill and return pages open with one journey strip, **Ordered → Confirmed → Packed → Billed → Paid**, and one violet Next button. A bill made by Quick billing has no order and starts at Billed. The strip shows the pieces ordered, how many are packed ("20 of 60"; a draft packing list does not count yet), the amount billed and the amount still to receive. The lists *Sell → Sale orders*, *Packing and dispatch* and *Bills* have a **Next step** column with the same button on every row. Section 26 has the details of each screen.
@@ -950,10 +961,12 @@ Challans and receipts guide you the same way (section 23.2). On Home, **Receive 
 | --- | --- |
 | Factory | LDH1 |
 | Date | 05-10-2026 |
-| Due date | 25-10-2026 |
+| Due by | 25-10-2026 |
 | For | **Stock** (make for the shelf) or **Made to order** (for a customer order) |
 | Order reference | Blank for stock. For made-to-order, the sale order number. Never type the customer's name; production staff must not see it |
-| Remarks | Festive season lot |
+| Notes | Festive season lot |
+
+**For**, **Order reference** and **Notes** are under **More options**. Left alone, the order is for stock. On a draft you can change all three, including **For**.
 
 **Lines** (one per style and colour; two blank rows are offered)
 
@@ -1079,12 +1092,12 @@ What the system checks:
 
 ### 23.2 Issue to a fabricator (challan)
 
-*Make → Sent to fabricators* (the challan list) *→ New challan*, the lot's Next button **Send to … for …**, or the link from Move bundles.
+*Make → Sent to fabricators* (the challan list) *→ Send to fabricator*, Home → **Send to fabricator**, the lot's Next button **Send to … for …**, or the link from Move bundles.
 
-1. Choose **Lot**, **Kind** (Job work, or Rework for pieces sent back) and the **Step**, then **Show bundles**. For Rework the step starts on the one the first waiting bundle came back from.
-2. Choose the **Fabricator**, Date and **Expected back by**.
+1. Choose the **Lot** and the **Step**, then **Show bundles**. The form is for normal job work, so it does not ask the kind. **Kind** (Job work, or Rework for pieces sent back) is under **More options**, and the lot's **Send back for rework** link opens the form with Rework already chosen. For Rework the step starts on the one the first waiting bundle came back from.
+2. Choose the **Fabricator**, Date and **Expected by**. The fabricator starts on "Choose…" unless the step already has one; without one the form is refused with "Choose the fabricator." and your ticks are kept. **Notes** are under More options.
 3. Scan or tick the bundles to send. Only eligible bundles not already on an open challan are listed. For Kind = Rework, only the bundles waiting for rework **at the chosen step** are listed.
-4. Press **Save and issue** to save the challan and hand the bundles over in one step. It opens the issued challan, ready to **Print**. If issuing fails, nothing is saved and the form comes back with your bundles still ticked. Or press **Save challan** to keep a Draft you can review first and issue later. Save and issue shows only if your role may issue challans.
+4. Press **Save and issue** to save the challan and hand the bundles over in one step. It opens the issued challan, ready to **Print**. If issuing fails, nothing is saved and the form comes back with your bundles still ticked. Or press **Save** to keep a Draft you can review first and issue later. Save and issue shows only if your role may issue challans.
 
 **Rework goes back on its own step.** A bundle sent back by QC waits at the step of the challan it came back on, and a rework challan can only be made for that step. If you pick another step the system refuses with "Bundle … is waiting for rework at …, not …". The lot's **Send back for rework** link opens the form on the right step.
 
@@ -1123,7 +1136,7 @@ Lot page or challan page → Next button **Receive from …**, Home → **Receiv
 | Field | Example |
 | --- | --- |
 | Date | 12-10-2026 |
-| Receive into | Process Area |
+| Receive into | Process Area. Filled in for you; it is under **More options** if you need to change it |
 | Counted, per bundle | the pieces actually counted, with the tick box |
 | Trims: Returned / Missing | 0 / 10 |
 
@@ -1157,7 +1170,7 @@ Press **Save QC**. The rules:
 Results:
 
 - **No rework:** the bundle becomes **Ready for next stage** and the step counts as complete for it. Move it on (23.1, or a new challan).
-- **Rework:** the bundle becomes **Awaiting rework**. It cannot move until you issue a **Rework challan** (Kind = Rework) for it, on the same step it came back from. The fabricator is then paid the rework rate.
+- **Rework:** the bundle becomes **Awaiting rework**. It cannot move until you issue a **Rework challan** for it (the **Send back for rework** link, or Send to fabricator with Kind = Rework under More options), on the same step it came back from. The fabricator is then paid the rework rate.
 - **Rejected:** goes to the Rejects location (or is scrapped).
 - When every bundle on the receipt has QC, the receipt is **QC done**, and checking the last line returns you to the lot. If your role cannot open lots you stay on the receipt, where the Next button names what comes next.
 
@@ -1168,8 +1181,8 @@ Only **accepted pieces are payable**.
 | Step | What the user does | Bundle status after |
 | --- | --- | --- |
 | 1 Cutting | Issue fabric, record the lay, make bundles, print tags | Cut |
-| 2 Embroidery (Royal Embroidery) | New challan for all bundles, issue, print. Later: Receive, then QC (say 296 accepted, 4 rejected) | Ready for next stage |
-| 3 Stitching (Gurpreet Garments) | New challan, issue. Later: Receive, then QC | Ready for next stage |
+| 2 Embroidery (Royal Embroidery) | Send to fabricator for all bundles, issue, print. Later: Receive, then QC (say 296 accepted, 4 rejected) | Ready for next stage |
+| 3 Stitching (Gurpreet Garments) | Send to fabricator, issue. Later: Receive, then QC | Ready for next stage |
 | 4 Ironing (in-house) | Move bundles to "Ironing and pressing"; enter Loss on a row if a piece was damaged | At stage |
 | 5 Quality check (in-house) | Move bundles to "Quality check" | At stage |
 | 6 Packing (in-house) | Move bundles to "Packing" | At stage |
@@ -1207,7 +1220,7 @@ The lot becomes **Completed** when none of its bundles is still live; packed, wr
 
 1. Choose the **Fabricator** (the **Factory** shown is the one active in the top bar), then **Show what is payable**.
 2. The screen lists **accepted QC pieces not yet paid**: Challan, Lot, Bundle, Accepted, Rate, Amount. It also lists the **deductions** it found: shortage of pieces (at lot cost) and missing trims (at unit cost).
-3. Set the **Bill date**. Choose a **TDS** template, or **No TDS**.
+3. Set the **Bill date**. To deduct TDS or add notes, open **More options** and choose a **TDS** template; left alone it is **No TDS**.
 4. Press **Save draft and review**.
 
 Example: Gurpreet Garments, stitching at ₹26 per piece.
@@ -1225,7 +1238,7 @@ Your figures will differ; the arithmetic is the point: earned − deductions, th
 
 Details:
 
-- Flat-rate (type D) challans pay in proportion to accepted pieces over pieces issued.
+- Challans on a **Fixed amount per lot** rate pay in proportion to accepted pieces over pieces issued.
 - Errors you may meet: the fabricator has no payable ledger; nothing is payable; deductions are more than earned.
 - On the draft, check the numbers, then press **Post bill** (or **Discard draft**). While a bill is a draft, the challans on it show the Next button **Post labour bill**, which opens it.
 
@@ -1235,7 +1248,7 @@ To undo a posted bill, use **Cancel bill** with a reason. It reverses the entrie
 
 ### 25.2 Pay the money
 
-Open the posted labour bill. It shows **Outstanding** and a **Pay fabricator** button. The button opens a **Payment voucher** with the fabricator, the amount still open and the bill reference already filled in. **Nothing is posted until you press Post.**
+Open the posted labour bill. It shows **Outstanding** and a **Pay fabricator** button. The button opens **Money paid** with the fabricator, the amount still open and the bill reference already filled in. **Nothing is posted until you press Post.**
 
 | Field | Example |
 | --- | --- |
@@ -1245,9 +1258,9 @@ Open the posted labour bill. It shows **Outstanding** and a **Pay fabricator** b
 | Bill | **Against bill** (filled in) |
 | Reference | The labour bill number (filled in) |
 
-Choose **Paid from**, check the figures, and **Post payment voucher**. Afterwards the bill shows **Settled**. A part payment leaves the rest as **Outstanding**.
+Choose **Paid from**, check the figures, and **Post payment**. Afterwards the bill shows **Settled**. A part payment leaves the rest as **Outstanding**.
 
-Pick the **factory in the top bar** that the bill belongs to before you post. The Payment voucher posts to the factory you are working in.
+Pick the **factory in the top bar** that the bill belongs to before you post. Money paid posts to the factory you are working in.
 
 The same works for suppliers: a posted supplier bill shows **Outstanding**, its Next button is **Pay** and the supplier's name, and the header has a plain **Pay supplier** button for the same step (section 19). Section 27 explains the Bill options.
 
@@ -1276,7 +1289,9 @@ The same works for suppliers: a posted supplier bill shows **Outstanding**, its 
 | Factory | LDH1 |
 | Date / Due by | 08-10-2026 / 22-10-2026 |
 | Type | **Ready stock** or **Made to order** |
-| Remarks | |
+| Notes | Under **More options** |
+
+The **Customer** starts on "Choose…". Saving without one is refused with "Choose the customer." and the styles and pieces you typed are kept.
 
 Use **Add a style** to pick `JGR-104`. A grid appears with colours as rows and sizes as columns. Type pieces in each cell; row and column totals update. Each style has one **Rate** and one **Disc %**.
 
@@ -1317,8 +1332,10 @@ The order's Next button **Pack goods** (also a plain button in the order's heade
 | Pack from | Dispatch (LDH1) |
 | Date | 15-10-2026 |
 | Transporter | Jai Mata Roadlines |
-| LR / docket no, LR date | 44821, 15-10-2026 |
-| Vehicle no | PB10AB1234 |
+| LR / docket no., LR date | 44821, 15-10-2026 |
+| Vehicle no. | PB10AB1234 |
+
+Pack from and Date are asked every time. Transporter, LR / docket no., LR date, Vehicle no. and Notes are under **Transport details**: open it when the goods are booked with a transporter. It opens by itself when any of them is filled in.
 
 In the **Pieces in each carton** grid, rows are order lines with "Left to pack" and columns are cartons (two to start; **Add a carton** up to 30). Fill what goes in each carton. No carton may be empty, and you cannot pack more than is left on the order.
 
@@ -1336,10 +1353,10 @@ On screen a sale invoice is called a **bill**; the printed document is still the
 
 **Counter sale by scanning:** *Sell → Quick billing (barcode).*
 
-1. Choose **Customer**, **Factory**, **Goods leave from** (location) and **Date**.
+1. Choose the **Customer** (it starts on "Choose…"; a bill is refused with "Choose the customer." until one is picked), **Goods leave from** (location) and **Date**. The **Factory** shown is the one in the top bar.
 2. Scan each item's barcode in the scan box and press Enter. One scan adds one piece; a carton code adds the whole carton. "Unknown barcode" means the code is not a SKU or carton.
 3. The rate and discount fill from the pricing lookup. Check Rate, Disc % and Amount on every row; the footer shows Pieces and Before GST.
-4. Choose the GST option (below) and add notes.
+4. Choose the GST option (below). **Notes** are under **More options**.
 5. **Post bill**, or **Save as draft** to check first. Pressing Enter in a field saves a draft.
 
 **GST on the bill** (only if GST is switched on for the factory and date; otherwise "no tax is charged"):
@@ -1400,7 +1417,7 @@ On screen a credit note is called a **return from customer**. Open the posted bi
 
 ## 27. Receive the customer's money
 
-**The quick way.** Open the posted bill (or its order or packing list). The Next button is **Receive money from** and the customer's name; the bill's header shows **Outstanding** and a plain **Receive money** button that does the same. Either opens a **Receipt voucher** with the customer, the amount still to receive and the bill reference already filled in. Choose **Received in** (cash or bank), check the amount, add a narration and press **Post receipt voucher**. The bill then shows **Settled** and "This bill is settled." If the customer pays only part, enter that amount; the rest stays Outstanding and stays on the button. A role that may not enter vouchers sees **Waiting for: Receive money from …** instead.
+**The quick way.** Open the posted bill (or its order or packing list). The Next button is **Receive money from** and the customer's name; the bill's header shows **Outstanding** and a plain **Receive money** button that does the same. Either opens **Money received** with the customer, the amount still to receive and the bill reference already filled in. Choose **Received in** (cash or bank), check the amount, add notes if you want (under **More options**) and press **Post receipt**. The bill then shows **Settled** and "This bill is settled." If the customer pays only part, enter that amount; the rest stays Outstanding and stays on the button. A role that may not enter vouchers sees **Waiting for: Receive money from …** instead.
 
 **Any time.** *Money → Money received.* Needs the Accountant role and a **single factory chosen in the top bar** (the form does not ask for it). Post it in the factory the bill belongs to.
 
@@ -1412,9 +1429,11 @@ On screen a credit note is called a **return from customer**. Open the posted bi
 | Amount | 45,070.00 |
 | Bill | **Against bill** |
 | Reference | The invoice number (pick from the list of open bills; the outstanding amount fills in) |
-| Narration | RTGS UTR 1234567890 |
+| Notes (under **More options**) | RTGS UTR 1234567890 |
 
-Press **Post receipt voucher**. The receipt is numbered and the customer's bill is settled.
+Press **Post receipt**. The receipt is numbered and the customer's bill is settled.
+
+**Bill**, **Reference** and **Due** take no space on Money received and Money paid until a row uses a ledger that keeps bills (a customer, supplier or fabricator). They appear as soon as you choose one.
 
 **Bill options on every row**
 
@@ -1435,7 +1454,7 @@ Rules: the account in a row cannot be the same as the cash or bank account (use 
 
 The Receipt screen has no TDS or discount fields; every row is a credit to a party. As far as the code shows, the way to record the difference is a **Journal** voucher. Example: the customer pays ₹44,500 against a ₹45,070 invoice and deducts ₹570.
 
-- Receipt voucher: ₹44,500 against the invoice.
+- Money received: ₹44,500 against the invoice.
 - Journal voucher: debit "Discount Allowed", or a "TDS Receivable" ledger you create (section 6; none is seeded), ₹570; credit the customer ₹570 against the same bill.
 
 Your accountant must confirm which ledger fits each case.
@@ -1457,7 +1476,7 @@ Your accountant must confirm which ledger fits each case.
 
 **See what a party owes as you enter.** When you choose a customer or vendor on a **Sales voucher** (and the other party vouchers), or choose a ledger on a **Journal**, **Payment** or **Receipt**, a note appears beneath it, for example *Outstanding ₹1,20,000.00 Dr (owes you) in 2 open bills · advance ₹5,000.00 Cr*. Dr means they owe you, Cr means you owe them. For an ordinary ledger such as a bank account it shows the balance. This is **information only**; it never stops you from posting.
 
-A purchase invoice posts the vendor's bill (reference = their invoice number, with due date). Open the posted supplier bill and press its Next button (**Pay** and the supplier's name) or **Pay supplier** in the header, or use a Payment voucher with **Against bill**.
+A supplier bill posts what you owe the supplier (reference = their bill number, with due date). Open the posted supplier bill and press its Next button (**Pay** and the supplier's name) or **Pay supplier** in the header, or use Money paid with **Against bill**.
 
 ---
 
@@ -1496,7 +1515,7 @@ A purchase invoice posts the vendor's bill (reference = their invoice number, wi
 | --- | --- | --- |
 | "no BOM yet; define it before releasing" | The style has no BOM | Add the BOM (section 10), release again |
 | "no default route" | The style has no default route | Set it on the style |
-| "is done by a fabricator: issue a job work challan instead" | You tried to move into a fabricator step | Use New challan |
+| "is done by a fabricator: issue a job work challan instead" | You tried to move into a fabricator step | Use Send to fabricator |
 | "Moving back to an earlier stage needs a reason" | The target is at or before the bundle's completed step | Type the reason, or pick the right step |
 | "pieces waiting for rework; finish that first" | QC sent the bundle back | Issue a Rework challan |
 | "is waiting for rework at …, not …" | The rework challan is for a different step than the one the bundle came back from | Make the rework challan for the step named first |

@@ -25,6 +25,16 @@ def settlement(user, *, ledger, reference, direction, narration=""):
     due = due if due > 0 else ZERO
     url = None
     if due and user.has_screen_perm("ledger.voucher", "create"):
-        query = urlencode({"ledger": ledger.pk, "amount": f"{due:.2f}", "ref": reference, "narration": narration})
-        url = f"{reverse('voucher_receipt' if direction == 'receive' else 'voucher_payment')}?{query}"
+        url = settle_url(direction, ledger.pk, due, reference, narration)
     return {"due": due, "settled": due == 0, "url": url}
+
+
+def settle_url(direction, ledger_id, due, reference, narration=""):
+    """The Receipt or Payment voucher with one row set to settle `due` on that bill. It only fills the form."""
+    query = urlencode({"ledger": ledger_id, "amount": f"{due:.2f}", "ref": reference, "narration": narration})
+    return f"{reverse('voucher_receipt' if direction == 'receive' else 'voucher_payment')}?{query}"
+
+
+def pay_url(ledger_id, due, reference, narration=""):
+    """Money paid, with the supplier or fabricator, the amount still open and the bill reference filled in."""
+    return settle_url("pay", ledger_id, due, reference, narration)

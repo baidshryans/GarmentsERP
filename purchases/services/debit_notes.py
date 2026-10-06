@@ -111,6 +111,17 @@ def _remaining_recoverable(grn_line):
     return _r2(billed) - _r2(debited)
 
 
+def can_post(note) -> bool:
+    """Read-only: is this a draft that `post_debit_note` would take now? A rejection note waits until the vendor
+    has billed every line of it (the same test posting applies); a return note is ready as soon as it is saved."""
+    if note.status != DebitNote.Status.DRAFT:
+        return False
+    if note.kind != DebitNote.Kind.REJECTION:
+        return True
+    lines = list(note.lines.select_related("grn_line"))
+    return bool(lines) and all(_remaining_recoverable(l.grn_line) > 0 for l in lines)
+
+
 @transaction.atomic
 def post_debit_note(note, *, user) -> DebitNote:
     note = DebitNote.objects.select_related("factory", "vendor", "company", "gst_template").get(pk=note.pk)

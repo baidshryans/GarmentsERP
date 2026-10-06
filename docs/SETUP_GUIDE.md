@@ -32,7 +32,7 @@ Later steps depend on earlier ones. Do not skip ahead.
 | 6 | Chart of accounts: add bank accounts and your own ledgers | More → Accountant → Chart of accounts | Accountant | 30 min |
 | 7 | Basic masters: units, sizes, colours, products, materials, processes | Masters | Merchandiser | 1–2 hours |
 | 8 | Routes | Masters → Setup → Routes | Merchandiser + Production head | 30 min |
-| 9 | Parties: vendors, fabricators, customers, agents, transporters | Masters → Parties | Accountant / Purchase | 1–3 hours |
+| 9 | Parties: suppliers, fabricators, customers, agents, transporters | Masters → Parties | Accountant / Purchase | 1–3 hours |
 | 10 | Styles, SKUs and BOMs | Masters → Styles | Merchandiser | per style |
 | 11 | Labour rates for each fabricator | Make → Labour rates | Production head + Accountant | 1 hour |
 | 12 | Price lists | Masters → Price lists | Owner / Sales | 30 min |
@@ -139,13 +139,13 @@ The system supplies these. Copy and adjust rather than starting from blank.
 | Owner | Proprietor | Everything, including approvals |
 | Administrator | IT / office manager | Company, factories, users, roles. Cannot post transactions |
 | Accountant | Accountant | Vouchers, opening balances, books, tax settings, bills |
-| Purchase Officer | Purchase | POs, vendors |
+| Purchase Officer | Purchase | Purchase orders, suppliers |
 | Merchandiser | Design / merchandising | Styles, BOM, routes, materials, price lists |
 | Production Planner | Planner | Production orders and route planning |
 | Production Supervisor | Floor supervisor | Move bundles, challans, receipts, QC |
 | QC Checker | QC | Accept, reject, send back |
 | Cutting Master | Cutting | Cutting entries, bundle tags |
-| Store Keeper | Store | GRN, transfers, opening stock, labels |
+| Store Keeper | Store | Goods received (GRN), transfers, opening stock, labels |
 | Billing Clerk | Billing | Invoices, packing, dispatch |
 | Salesperson | Sales | Orders and own customers |
 | Fabricator | Outside stitcher | Own bundles and earnings on the mobile app |
@@ -244,7 +244,7 @@ A change applies from that day. Earlier stock keeps its value.
 | Insurance | Indirect Expenses | No |
 | Transport Inward – Fabric | Direct Expenses | No |
 
-**Party ledgers.** Each customer, vendor and fabricator has a ledger: sundry debtors for customers, sundry creditors for vendors and fabricators. Mark debtor and creditor groups **bill-wise** so payments can be matched to bills. The system links the right ledger when you save a party; override only for special cases.
+**Party ledgers.** Each customer, supplier and fabricator has a ledger: sundry debtors for customers, sundry creditors for suppliers and fabricators. Mark debtor and creditor groups **bill-wise** so payments can be matched to bills. The system links the right ledger when you save a party; override only for special cases.
 
 Do not delete or rename system ledgers (for example `Raw Material Stock`, `Job Work Charges`, `Goods Received Not Billed`, `Opening Balance Difference`). The posting engine finds them by a hidden key, but renaming them confuses reports.
 
@@ -633,7 +633,7 @@ Reading this: the base quantity applies to sizes M, and sizes listed in *size ov
 
 ## 11. Labour rates (what each fabricator is paid)
 
-*Make → Labour rates → New.* A rate is for one **fabricator + process**, with a start date. Both start on "Choose…": the rate is not saved until you pick them ("Choose the fabricator.", "Choose the process."). A new rate never changes bills already made; it applies to challans issued after its date. Labour is paid **only on QC-accepted pieces**.
+*Make → Labour rates → New.* A rate is for one **fabricator + process**, with a start date. The first field is labelled **Fabricator or supplier**, because a supplier who also does job work can have a rate. Both start on "Choose…": the rate is not saved until you pick them ("Choose the fabricator or supplier.", "Choose the process."). A new rate never changes bills already made; it applies to challans issued after its date. Labour is paid **only on QC-accepted pieces**.
 
 There are four rate types. Choose one under **Rate type**; the form then shows only that type's fields.
 
@@ -779,7 +779,7 @@ Rules for the sheet:
 
 Run one small lot through the whole system. This is the same flow as BRD scenarios A1–A3 and A10.
 
-1. **Purchase fabric.** *Buy → Purchase orders → New PO*, then **Save and submit**. From there follow the violet Next button on each page: **Receive goods** (into Main Godown, with roll numbers and weights) → **Check quality** → **Post goods received** → **Enter supplier bill** → **Post supplier bill** → **Pay …** (section 19 lists every step). Check the roll balance in *Stock → Stock*.
+1. **Purchase fabric.** *Buy → Purchase orders → New purchase order*, then **Save and submit**. From there follow the violet Next button on each page: **Receive goods** (into Main Godown, with roll numbers and weights) → **Check quality** → **Post goods received** → **Enter supplier bill** → **Post supplier bill** → **Pay …** (section 19 lists every step). Check the roll balance in *Stock → Stock*.
 2. **Create a production order** for `JGR-104`, Black, 20 pieces each of M and L, and release it. Route B is copied into the lot.
 3. **Plan the route.** On the lot page open **Route and rates** and check each step; assign stitching to Gurpreet Garments and embroidery to Royal Embroidery.
 4. **Issue fabric** by roll (the lot's Next button). The roll balance reduces.
@@ -802,7 +802,7 @@ If any figure looks wrong, fix the master (rate, BOM, route) and repeat. **Cance
 - [ ] Bank accounts and own ledgers added
 - [ ] Units, sizes, colours, products, materials, processes checked
 - [ ] 2–4 routes created and attached to styles
-- [ ] Vendors, fabricators, customers, agents, transporters entered with mobile numbers and GSTIN/PAN
+- [ ] Suppliers, fabricators, customers, agents, transporters entered with mobile numbers and GSTIN/PAN
 - [ ] Active styles, SKUs and BOMs entered
 - [ ] Labour rates entered for every fabricator and process they do
 - [ ] Price lists entered and attached to customers
@@ -1274,10 +1274,10 @@ The same works for suppliers: a posted supplier bill shows **Outstanding**, its 
 
 | Setting | Meaning | Suggested |
 | --- | --- | --- |
-| Invoice total | No rounding, or round to the nearest rupee (the difference posts to Round Off) | Round to nearest rupee |
+| Bill total | No rounding, or round to the nearest rupee (the difference posts to Round Off) | Round to nearest rupee |
 | Discount limit % | Higher discounts need the "Discount above the limit" permission | 10 |
 | E-invoicing is switched on | Shows the e-invoice and e-way bill buttons | Off until a provider is chosen |
-| E-way bill needed from invoice value | | 50,000 |
+| E-way bill needed from bill value | | 50,000 |
 
 ### 26.2 Sale order
 
@@ -1467,14 +1467,14 @@ Your accountant must confirm which ledger fits each case.
 
 | Voucher | Use | Example |
 | --- | --- | --- |
-| **Payment** | Money out of cash or bank to a vendor, fabricator or expense | Pay Sri Ram Textiles ₹2,10,000 against bill `PI/4471` |
+| **Payment** | Money out of cash or bank to a supplier, fabricator or expense | Pay Sri Ram Textiles ₹2,10,000 against bill `PI/4471` |
 | **Receipt** | Money into cash or bank | Section 27 |
 | **Contra** | Cash ↔ bank | Deposit ₹50,000 cash into HDFC |
 | **Journal** | Any balanced entry between ledgers | Adjustments, TDS and discounts |
 
 *More → Accountant* also has manual **Sales**, **Purchase**, **Debit note** and **Credit note** vouchers. They are value-only: **no stock moves**. Prefer the document screens (bills, goods received, supplier bills) whenever goods are involved.
 
-**See what a party owes as you enter.** When you choose a customer or vendor on a **Sales voucher** (and the other party vouchers), or choose a ledger on a **Journal**, **Payment** or **Receipt**, a note appears beneath it, for example *Outstanding ₹1,20,000.00 Dr (owes you) in 2 open bills · advance ₹5,000.00 Cr*. Dr means they owe you, Cr means you owe them. For an ordinary ledger such as a bank account it shows the balance. This is **information only**; it never stops you from posting.
+**See what a party owes as you enter.** When you choose a customer or supplier on a **Sales voucher** (and the other party vouchers), or choose a ledger on a **Journal**, **Payment** or **Receipt**, a note appears beneath it, for example *Outstanding ₹1,20,000.00 Dr (owes you) in 2 open bills · advance ₹5,000.00 Cr*. Dr means they owe you, Cr means you owe them. For an ordinary ledger such as a bank account it shows the balance. This is **information only**; it never stops you from posting.
 
 A supplier bill posts what you owe the supplier (reference = their bill number, with due date). Open the posted supplier bill and press its Next button (**Pay** and the supplier's name) or **Pay supplier** in the header, or use Money paid with **Against bill**.
 
@@ -1524,7 +1524,7 @@ A supplier bill posts what you owe the supplier (reference = their bill number, 
 | Nothing payable on a labour bill | No QC-accepted unpaid pieces | Complete QC first |
 | "Pick a single factory in the top bar before entering a voucher" | Voucher entry needs one factory | Switch factory in the top bar |
 | "No rate found; enter one" | No customer rate, price list or last invoice rate | Add a price list rate (section 12) or type the rate |
-| "only X available at <location>" when finalising packing | Not enough stock at that location | Move or pack stock there first |
+| "only X available at <location>" when finishing packing | Not enough stock at that location | Move or pack stock there first |
 | A wrong posted document | Posted documents are never edited | Cancel with a reason, then enter a correct one |
 
 ---

@@ -6,12 +6,14 @@ from django.core.exceptions import PermissionDenied, ValidationError
 from django.db.models import Q
 from django.http import HttpResponseBadRequest
 from django.shortcuts import get_object_or_404, redirect, render
+from django.utils import timezone
 from django.views import View
 
 from core.exceptions import BusinessRuleError
 from core.models import Company, Factory, Location
 from core.scoping import ScreenPermissionMixin
 from core.services.active_factory import require_active_factory
+from tax import services as tax_services
 from tax.models import HSN
 
 from . import forms as f
@@ -24,6 +26,11 @@ from .services import boms, imports, parties, routes, styles
 
 def _company():
     return Company.objects.get(setup_complete=True)
+
+
+def _gst_registered():
+    """Is the company GST-registered today? Decides whether GSTIN and HSN code are asked every time or fold away."""
+    return tax_services.gst_enabled(_company(), timezone.localdate())
 
 
 def _messages_for(request, exc):
@@ -155,11 +162,12 @@ class StyleSave(LoginRequiredMixin, ScreenPermissionMixin, View):
         return get_object_or_404(Style, pk=pk) if pk else None
 
     def get(self, request, pk=None):
-        return render(request, "masters/style_form.html", {"form": f.StyleForm(instance=self._obj(pk)), "style": self._obj(pk)})
+        style = self._obj(pk)
+        return render(request, "masters/style_form.html", {"form": f.StyleForm(instance=style, gst_registered=_gst_registered()), "style": style})
 
     def post(self, request, pk=None):
         style = self._obj(pk)
-        form = f.StyleForm(request.POST, request.FILES, instance=style)
+        form = f.StyleForm(request.POST, request.FILES, instance=style, gst_registered=_gst_registered())
         if form.is_valid():
             try:
                 d = form.cleaned_data
@@ -207,7 +215,7 @@ class BomEdit(LoginRequiredMixin, ScreenPermissionMixin, View):
     screen_code = "masters.bom"
     screen_action = "edit"
 
-    def _context(self, style, rows=None, charge_rows=None):
+    def _context(self, style, rows=None, charge_rows=None, notes=""):
         sizes = [ss.size for ss in style.style_sizes.select_related("size").order_by("size__sort_order")]
         bom = boms.current_version(style)
         if rows is None:
@@ -223,7 +231,7 @@ class BomEdit(LoginRequiredMixin, ScreenPermissionMixin, View):
         return {
             "style": style, "sizes": sizes, "rows": rows + [{}, {}], "charge_rows": charge_rows + [{}, {}],
             "materials": Material.objects.filter(is_active=True).select_related("unit"),
-            "processes": Process.objects.filter(is_active=True), "bom": bom,
+            "processes": Process.objects.filter(is_active=True), "bom": bom, "vals": {"notes": notes},
         }
 
     def get(self, request, pk):
@@ -257,7 +265,7 @@ class BomEdit(LoginRequiredMixin, ScreenPermissionMixin, View):
             version, new = boms.save_bom(style, lines=specs, charges=charges, user=request.user, notes=post.get("notes", ""))
         except (ValueError, BusinessRuleError) as exc:
             _messages_for(request, exc)
-            return render(request, "masters/bom_form.html", self._context(style, rows, charge_rows))
+            return render(request, "masters/bom_form.html", self._context(style, rows, charge_rows, post.get("notes", "")))
         if new:
             messages.warning(request, f"Lots already use the previous BOM, so this was saved as version {version.version_no}. Old lots keep the old version.")
         else:
@@ -370,14 +378,15 @@ class PartySave(LoginRequiredMixin, ScreenPermissionMixin, View):
 
     def get(self, request, pk=None):
         party = self._obj(pk)
-        form = f.PartyForm(instance=party, initial={"is_customer": request.GET.get("role") == "customer",
-                                                    "is_fabricator": request.GET.get("role") == "fabricator",
-                                                    "is_vendor": request.GET.get("role") == "vendor"} if not party else None)
+        form = f.PartyForm(instance=party, gst_registered=_gst_registered(),
+                           initial={"is_customer": request.GET.get("role") == "customer",
+                                    "is_fabricator": request.GET.get("role") == "fabricator",
+                                    "is_vendor": request.GET.get("role") == "vendor"} if not party else None)
         return render(request, "masters/party_form.html", {"form": form, "party": party})
 
     def post(self, request, pk=None):
         party = self._obj(pk)
-        form = f.PartyForm(request.POST, instance=party)
+        form = f.PartyForm(request.POST, instance=party, gst_registered=_gst_registered())
         if form.is_valid():
             try:
                 if party is None:

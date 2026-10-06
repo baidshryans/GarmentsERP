@@ -1,17 +1,22 @@
 {% extends "base.html" %}
+{% load forms_ui %}
 {% block title %}{% if style %}Edit {{ style.style_no }}{% else %}New style{% endif %}{% endblock %}
 {% block content %}
   <div class="page-head"><h1 class="page-title">{% if style %}Edit {{ style.style_no }}{% else %}New style{% endif %}</h1></div>
   <form method="post" enctype="multipart/form-data" novalidate>
     {% csrf_token %}{% include "partials/form_errors.html" %}
+    {% more_fields form as more %}
     <div class="island" style="max-width:720px">
-      {% for field in form %}{% if field.name != "colours" and field.name != "sizes" %}{% include "partials/field.html" %}{% endif %}{% endfor %}
+      {% for field in form %}{% if field.name != "colours" and field.name != "sizes" and field.name not in more.names %}{% include "partials/field.html" %}{% endif %}{% endfor %}
     </div>
     <div class="grid-2">
       <div class="island"><h2>Colours</h2>{{ form.colours }}{% for e in form.colours.errors %}<div class="error">{{ e }}</div>{% endfor %}</div>
       <div class="island"><h2>Sizes</h2>{{ form.sizes }}{% for e in form.sizes.errors %}<div class="error">{{ e }}</div>{% endfor %}</div>
     </div>
     <p class="muted">Every colour and size combination gets its own SKU and barcode. Removing one only deactivates its SKUs.</p>
+    <div class="island" style="max-width:720px">
+      {% more more.label open=more.open %}{% for field in more.fields %}{% include "partials/field.html" %}{% endfor %}{% endmore %}
+    </div>
     <div class="form-actions"><button class="btn primary">Save style</button><a class="btn ghost" href="{% url 'style_list' %}">Cancel</a></div>
   </form>
 {% endblock %}

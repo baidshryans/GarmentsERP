@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load forms_ui %}
 {% block title %}BOM {{ style.style_no }}{% endblock %}
 {% block content %}
   <div class="page-head"><h1 class="page-title">BOM for {{ style.style_no }}</h1>{% if bom %}<span class="pill">Editing version {{ bom.version_no }}</span>{% endif %}</div>
@@ -29,7 +30,8 @@
           <td class="num"><input type="text" inputmode="decimal" name="charge_amount" value="{{ c.amount|default:'' }}"></td></tr>{% endfor %}</tbody>
       </table></div>
     </div>
-    <div class="island" style="max-width:640px"><div class="field"><label for="notes">Version note</label><input id="notes" name="notes" type="text" placeholder="Why this changed"></div></div>
+    {% more_open vals "notes" as notes_open %}
+    {% more "version note" open=notes_open cls="island" %}<div class="field" style="max-width:640px"><label for="notes">Version note</label><input id="notes" name="notes" type="text" value="{{ vals.notes }}" placeholder="Why this changed"></div>{% endmore %}
     <div class="form-actions"><button class="btn primary">Save BOM</button><a class="btn ghost" href="{% url 'style_detail' style.pk %}">Cancel</a></div>
   </form>
 {% endblock %}

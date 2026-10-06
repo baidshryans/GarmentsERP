@@ -353,3 +353,142 @@ def test_the_labour_rate_form_opens_on_the_fabricator_a_link_names(job, owner_c)
     stitch = Process.objects.get(code="STITCH")
     html = html_of(owner_c.get(reverse("rate_new"), {"party": job.fab.pk, "process": stitch.pk}))
     assert chosen(html, "party") == str(job.fab.pk) and chosen(html, "process") == str(stitch.pk)
+
+
+# ================================================================ masters
+
+PARTY_FOLDED = ("contact_person", "mobile2", "mobile3", "landline", "email", "pan", "tds_section", "category", "price_list",
+                "discount_pct", "credit_limit", "credit_days", "payment_terms", "agent", "transporter", "destination",
+                "is_agent", "is_transporter", "is_active")
+
+
+def test_a_new_party_asks_for_the_firm_what_it_is_and_a_mobile(company, owner_c):
+    html = html_of(owner_c.get(reverse("party_new")))
+    assert in_view(html, "name", "mobile", "is_customer", "is_vendor", "is_fabricator")
+    assert folded(html, "gstin", *PARTY_FOLDED)
+    text = flashed(html)
+    for words in ("Firm name", "This party is a", "Customer", "Supplier", "Fabricator", "TDS section", "Active", "GSTIN", "PAN"):
+        assert words in text, words
+    for old in ("Is vendor", "Is customer", "Is fabricator", "Is agent", "Is transporter", "Tds section", "Is active", "Gstin"):
+        assert old not in text, old
+    assert 'name="is_active" id="id_is_active" checked' in html or re.search(r'name="is_active"[^>]*checked', html)
+    for name in ("name", "mobile", "is_vendor", "email", "tds_section", "is_active"):      # every input keeps its label
+        assert f'<label for="id_{name}">' in html, name
+
+
+def test_a_gst_registered_company_is_asked_for_the_gstin_every_time(company, owner_c):
+    sh.gst_on(company)
+    html = html_of(owner_c.get(reverse("party_new")))
+    assert in_view(html, "name", "mobile", "gstin") and folded(html, *PARTY_FOLDED)
+
+
+def test_the_party_form_still_opens_ticked_for_the_role_a_link_names(company, owner_c):
+    html = html_of(owner_c.get(reverse("party_new"), {"role": "vendor"}))
+    assert re.search(r'name="is_vendor"[^>]*checked', html) and not re.search(r'name="is_customer"[^>]*checked', html)
+    assert folded(html, *PARTY_FOLDED)
+
+
+def test_the_party_fold_opens_for_a_saved_value_and_for_an_error(company, owner_c):
+    plain = parties.create_party(company=company, name="Plain Traders", mobile="9800000001", is_customer=True)
+    assert folded(html_of(owner_c.get(reverse("party_edit", args=[plain.pk]))), *PARTY_FOLDED)
+    terms = parties.create_party(company=company, name="Credit Traders", mobile="9800000002", is_customer=True, credit_days=30)
+    assert folded(html_of(owner_c.get(reverse("party_edit", args=[terms.pk]))), *PARTY_FOLDED, is_open=True)
+    off = parties.create_party(company=company, name="Old Traders", mobile="9800000003", is_customer=True, is_active=False)
+    assert folded(html_of(owner_c.get(reverse("party_edit", args=[off.pk]))), *PARTY_FOLDED, is_open=True)
+    html = html_of(owner_c.post(reverse("party_new"), {"name": "Nayi Firm", "mobile": "9800000004", "is_customer": "on",
+                                                       "is_active": "on", "email": "not-an-email"}))
+    assert folded(html, *PARTY_FOLDED, is_open=True) and 'class="error"' in fold_of(html, "email")[2]
+
+
+def test_saving_a_party_from_the_short_form_saves_what_it_always_did(company, owner_c):
+    from masters.models import Party
+
+    html = html_of(owner_c.get(reverse("party_new"), {"role": "customer"}))
+    untouched = {"discount_pct": "0", "credit_limit": "0", "credit_days": "0", "is_active": "on"}
+    for name, value in untouched.items():           # the folded fields post their defaults when left alone
+        assert re.search(rf'name="{name}"[^>]*(value="{value}"|checked)', html), name
+    r = owner_c.post(reverse("party_new"), {"name": "Short Form Traders", "mobile": "9800000005", "is_customer": "on", **untouched})
+    party = Party.objects.get(name="Short Form Traders")
+    assert r.status_code == 302 and party.is_customer and party.is_active and not party.is_vendor
+    assert (party.discount_pct, party.credit_limit, party.credit_days, party.email, party.gstin) == (D("0"), D("0"), 0, "", "")
+
+
+STYLE_FOLDED = ("description", "mrp", "image", "is_archived")
+
+
+def test_a_new_style_folds_what_is_rarely_filled(company, owner_c):
+    html = html_of(owner_c.get(reverse("style_new")))
+    assert in_view(html, "style_no", "name", "product", "default_route", "colours", "sizes")
+    assert folded(html, "hsn", *STYLE_FOLDED)
+    text = flashed(html)
+    assert "HSN code" in text and "MRP" in text and "Archived" in text
+    assert "Hsn" not in text and "Mrp" not in text and "Is archived" not in text
+    sh.gst_on(company)
+    html = html_of(owner_c.get(reverse("style_new")))
+    assert in_view(html, "style_no", "name", "product", "default_route", "hsn") and folded(html, *STYLE_FOLDED)
+
+
+def test_the_style_fold_opens_for_a_saved_value_and_for_an_error(ns, owner_c):
+    assert folded(html_of(owner_c.get(reverse("style_edit", args=[ns.style.pk]))), *STYLE_FOLDED, is_open=True)   # it has an HSN code
+    sh.gst_on(ns.company)
+    assert folded(html_of(owner_c.get(reverse("style_edit", args=[ns.style.pk]))), *STYLE_FOLDED)                 # now in plain view
+    ns.style.mrp = D("999")
+    ns.style.save()
+    assert folded(html_of(owner_c.get(reverse("style_edit", args=[ns.style.pk]))), *STYLE_FOLDED, is_open=True)
+    html = html_of(owner_c.post(reverse("style_new"), {"style_no": "N-1", "name": "New", "mrp": "abc"}))
+    assert folded(html, *STYLE_FOLDED, is_open=True) and 'class="error"' in fold_of(html, "mrp")[2]
+
+
+def test_a_new_material_asks_for_four_things_and_is_active(company, owner_c):
+    html = html_of(owner_c.get(reverse("material_new")))
+    assert in_view(html, "code", "name", "kind", "unit") and folded(html, "composition", "gsm", "width_cm")
+    assert 'name="is_active"' not in html                      # a new one is active; the box appears on edit
+    text = flashed(html)
+    assert "GSM" in text and "Width (cm)" in text and "Gsm" not in text and "Width cm" not in text
+    r = owner_c.post(reverse("material_new"), {"code": "RIB-1", "name": "Rib", "kind": "fabric", "unit": Unit.objects.get(code="KG").pk})
+    rib = Material.objects.get(code="RIB-1")
+    assert r.status_code == 302 and rib.is_active and rib.gsm is None and rib.composition == ""
+
+
+def test_the_material_fold_on_edit_holds_active_and_opens_when_it_matters(company, owner_c, trim):
+    url = reverse("material_edit", args=[trim.pk])
+    html = html_of(owner_c.get(url))
+    assert folded(html, "composition", "gsm", "width_cm", "is_active") and '<label for="id_is_active">Active</label>' in html
+    trim.gsm = 180
+    trim.save()
+    assert folded(html_of(owner_c.get(url)), "composition", "gsm", "width_cm", "is_active", is_open=True)
+    trim.gsm, trim.is_active = None, False
+    trim.save()
+    assert folded(html_of(owner_c.get(url)), "is_active", is_open=True)
+    html = html_of(owner_c.post(url, {"code": trim.code, "name": trim.name, "kind": trim.kind, "unit": trim.unit_id,
+                                      "is_active": "on", "gsm": "heavy"}))
+    assert folded(html, "gsm", is_open=True) and 'class="error"' in fold_of(html, "gsm")[2]
+    r = owner_c.post(url, {"code": trim.code, "name": trim.name, "kind": trim.kind, "unit": trim.unit_id})
+    trim.refresh_from_db()
+    assert r.status_code == 302 and trim.is_active is False     # an unticked Active on edit still switches it off
+
+
+def test_small_masters_show_active_only_on_edit(company, owner_c):
+    from masters.models import Colour
+
+    html = html_of(owner_c.get(reverse("colour_new")))
+    assert 'name="is_active"' not in html and not folds(html)
+    assert owner_c.post(reverse("colour_new"), {"name": "Olive"}).status_code == 302
+    olive = Colour.objects.get(name="Olive")
+    assert olive.is_active
+    html = html_of(owner_c.get(reverse("colour_edit", args=[olive.pk])))
+    assert in_view(html, "name", "code", "is_active") and '<label for="id_is_active">Active</label>' in html and "Is active" not in html
+    owner_c.post(reverse("colour_edit", args=[olive.pk]), {"name": "Olive"})
+    olive.refresh_from_db()
+    assert olive.is_active is False
+
+
+def test_the_bom_folds_only_its_version_note(ns, owner_c, trim):
+    url = reverse("bom_edit", args=[ns.style.pk])
+    html = html_of(owner_c.get(url))
+    assert in_view(html, "material", "qty", "wastage", "charge_desc") and folded(html, "notes")
+    assert '<label for="notes">Version note</label>' in html and f'name="size_{ns.sizes["S"].pk}"' in html
+    html = html_of(owner_c.post(url, {"material": [trim.pk], "qty": ["lots"], "wastage": [""], "notes": "new zip",
+                                      **{f"size_{s.pk}": [""] for s in ns.sizes.values()},
+                                      "charge_desc": [""], "charge_process": [""], "charge_amount": [""]}))
+    assert folded(html, "notes", is_open=True) and 'value="new zip"' in html

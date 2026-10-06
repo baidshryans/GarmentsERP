@@ -86,7 +86,8 @@ class ChallanNew(LoginRequiredMixin, ScreenPermissionMixin, View):
                 waiting = lot.bundles.filter(status="rework", current_step__isnull=False).order_by("bundle_no").first()
                 step = next((s for s in steps if waiting and s.pk == waiting.current_step_id), None)
             step = step or next((s for s in steps if s.assignment == "subcontract" and s.status != "done"), None)
-            ctx.update(steps=steps, step=step)
+            # the fabricator starts blank unless the step already has one (or the link or the returned form names one)
+            ctx.update(steps=steps, step=step, party_sel=d.get("party", "") if "party" in d else str(step.party_id or "") if step else "")
             eligible = []
             for b in lot.bundles.filter(status__in=("cut", "ready", "at_stage", "rework")).select_related(
                     "sku__size", "location__factory", "current_step__process", "lot").order_by("bundle_no"):
@@ -126,9 +127,10 @@ class ChallanNew(LoginRequiredMixin, ScreenPermissionMixin, View):
             if lot is None or step is None:
                 raise BusinessRuleError("Choose the lot and the step first.")
             ids = p.getlist("bundle")
+            party = vu.chosen(Party.objects.filter(is_fabricator=True), p.get("party"), "fabricator")
             challan = save(
                 company=vu.company(), factory=get_object_or_404(_factories(request.user), pk=p.get("factory") or lot.factory_id),
-                party=get_object_or_404(Party, pk=p.get("party"), is_fabricator=True), lot=lot, step=step,
+                party=party, lot=lot, step=step,
                 bundles=list(Bundle.objects.filter(pk__in=ids, lot=lot)), date=vu.day(p.get("date"), default=timezone.localdate()),
                 user=request.user, expected_date=vu.day(p.get("expected_date")) if p.get("expected_date") else None,
                 kind=p.get("kind", "issue"), remarks=p.get("remarks", ""), confirm_second_fabricator=p.get("confirm_second") == "on")
@@ -322,12 +324,20 @@ class RateNew(LoginRequiredMixin, ScreenPermissionMixin, View):
     screen_action = "create"
 
     def _ctx(self, d=None):
+        d = d or {}
+        names = d.getlist("addon_name") if hasattr(d, "getlist") else []
+        amounts = d.getlist("addon_amount") if hasattr(d, "getlist") else []
+        addons = [{"name": n, "amount": amounts[i] if i < len(amounts) else ""} for i, n in enumerate(names)]
+        sizes = list(Size.objects.filter(is_active=True))
         return {"fabricators": Party.objects.filter(is_active=True).filter(is_fabricator=True) | Party.objects.filter(is_vendor=True, is_active=True),
-                "processes": Process.objects.filter(is_active=True), "sizes": Size.objects.filter(is_active=True),
-                "types": LabourRate.Type.choices, "d": d or {}}
+                "processes": Process.objects.filter(is_active=True), "sizes": sizes,
+                # what was typed comes back with the form: the add-on rows and each size's rate
+                "addons": (addons + [{}, {}, {}])[:max(3, len(addons))],
+                "size_rows": [{"size": s, "value": d.get(f"size_{s.pk}", "")} for s in sizes],
+                "types": LabourRate.Type.choices, "d": d}
 
     def get(self, request):
-        return render(request, "jobwork/rate_form.html", self._ctx())
+        return render(request, "jobwork/rate_form.html", self._ctx(request.GET))
 
     def post(self, request):
         p = request.POST
@@ -335,7 +345,8 @@ class RateNew(LoginRequiredMixin, ScreenPermissionMixin, View):
             addons = [(n.strip(), vu.dec(a, "Add-on amount")) for n, a in zip(p.getlist("addon_name"), p.getlist("addon_amount")) if n.strip()]
             size_rates = {s: vu.dec(p.get(f"size_{s.pk}"), "Size rate") for s in Size.objects.all() if p.get(f"size_{s.pk}", "").strip()}
             rates.save_rate(
-                party=get_object_or_404(Party, pk=p.get("party")), process=get_object_or_404(Process, pk=p.get("process")),
+                party=vu.chosen(Party.objects.all(), p.get("party"), "fabricator"),
+                process=vu.chosen(Process.objects.all(), p.get("process"), "process"),
                 rate_type=p.get("rate_type"), effective_from=vu.day(p.get("effective_from")),
                 base_rate=vu.dec(p.get("base_rate"), "Rate", Decimal("0")), flat_amount=vu.dec(p.get("flat_amount"), "Flat amount", Decimal("0")),
                 rework_rate=vu.dec(p.get("rework_rate"), "Rework rate", Decimal("0")), addons=addons, size_rates=size_rates)

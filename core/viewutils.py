@@ -5,6 +5,7 @@ from decimal import Decimal, InvalidOperation
 from django.contrib import messages
 from django.core.exceptions import ValidationError
 
+from .exceptions import BusinessRuleError
 from .models import Company
 
 
@@ -49,3 +50,16 @@ def day(text, label="Date", default=None):
         return date.fromisoformat(text)
     except ValueError:
         raise ValueError(f"{label} '{text}' is not a valid date (use YYYY-MM-DD).")
+
+
+def chosen(queryset, value, what):
+    """The supplier, customer or fabricator picked on a form. These selects start blank, so a blank (or unknown)
+    choice is refused in plain words that name the field: "Choose the supplier."."""
+    try:
+        pk = int(value)
+    except (TypeError, ValueError):
+        pk = None
+    found = queryset.filter(pk=pk).first() if pk is not None else None
+    if found is None:
+        raise BusinessRuleError(f"Choose the {what}.")
+    return found

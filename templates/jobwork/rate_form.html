@@ -4,16 +4,16 @@
   <div class="page-head"><h1 class="page-title">New labour rate</h1></div>
   <form method="post" novalidate>{% csrf_token %}
     <div class="island"><div class="field-row">
-      <div class="field"><label for="party">Fabricator</label><select id="party" name="party">{% for f in fabricators %}<option value="{{ f.pk }}" {% if d.party == f.pk|stringformat:"s" %}selected{% endif %}>{{ f.name }}</option>{% endfor %}</select></div>
-      <div class="field"><label for="process">Process</label><select id="process" name="process">{% for p in processes %}<option value="{{ p.pk }}" {% if d.process == p.pk|stringformat:"s" %}selected{% endif %}>{{ p.name }}</option>{% endfor %}</select></div>
+      <div class="field"><label for="party">Fabricator</label><select id="party" name="party"><option value="">Choose…</option>{% for f in fabricators %}<option value="{{ f.pk }}" {% if d.party == f.pk|stringformat:"s" %}selected{% endif %}>{{ f.name }}</option>{% endfor %}</select></div>
+      <div class="field"><label for="process">Process</label><select id="process" name="process"><option value="">Choose…</option>{% for p in processes %}<option value="{{ p.pk }}" {% if d.process == p.pk|stringformat:"s" %}selected{% endif %}>{{ p.name }}</option>{% endfor %}</select></div>
       <div class="field"><label for="rate_type">Type</label><select id="rate_type" name="rate_type">{% for v, l in types %}<option value="{{ v }}" {% if d.rate_type == v %}selected{% endif %}>{{ l }}</option>{% endfor %}</select></div>
       <div class="field"><label for="effective_from">From</label><input id="effective_from" name="effective_from" type="date" value="{{ d.effective_from|default:today }}" required></div></div>
       <div class="field-row"><div class="field"><label for="base_rate">Rate per piece (A, B)</label><input id="base_rate" name="base_rate" type="text" inputmode="decimal" value="{{ d.base_rate }}"></div>
         <div class="field"><label for="flat_amount">Flat amount per lot (D)</label><input id="flat_amount" name="flat_amount" type="text" inputmode="decimal" value="{{ d.flat_amount }}"></div>
         <div class="field"><label for="rework_rate">Rework rate per piece</label><input id="rework_rate" name="rework_rate" type="text" inputmode="decimal" value="{{ d.rework_rate }}"></div></div></div>
     <div class="grid-2">
-      <div class="island"><h2>Add-ons (type B)</h2>{% for i in "123" %}<div class="field-row"><div class="field"><input type="text" name="addon_name" aria-label="Add-on name" placeholder="Embroidery, finishing…"></div><div class="field"><input type="text" inputmode="decimal" name="addon_amount" aria-label="Add-on amount per piece" placeholder="Per piece"></div></div>{% endfor %}</div>
-      <div class="island"><h2>Size-wise rates (type C)</h2><div class="field-row">{% for s in sizes %}<div class="field"><label for="size_{{ s.pk }}">{{ s.code }}</label><input id="size_{{ s.pk }}" type="text" inputmode="decimal" name="size_{{ s.pk }}"></div>{% endfor %}</div></div>
+      <div class="island"><h2>Add-ons (type B)</h2>{% for a in addons %}<div class="field-row"><div class="field"><input type="text" name="addon_name" aria-label="Add-on name" placeholder="Embroidery, finishing…" value="{{ a.name }}"></div><div class="field"><input type="text" inputmode="decimal" name="addon_amount" aria-label="Add-on amount per piece" placeholder="Per piece" value="{{ a.amount }}"></div></div>{% endfor %}</div>
+      <div class="island"><h2>Size-wise rates (type C)</h2><div class="field-row">{% for r in size_rows %}<div class="field"><label for="size_{{ r.size.pk }}">{{ r.size.code }}</label><input id="size_{{ r.size.pk }}" type="text" inputmode="decimal" name="size_{{ r.size.pk }}" value="{{ r.value }}"></div>{% endfor %}</div></div>
     </div>
     <div class="form-actions"><button class="btn primary">Save rate</button><a class="btn ghost" href="{% url 'rate_list' %}">Cancel</a></div>
   </form>

@@ -8,6 +8,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.views import View
 
 from core.exceptions import BusinessRuleError
+from core import viewutils as vu
 from core.models import Company, Location
 from core.scoping import ScreenPermissionMixin
 from core.services.active_factory import in_active, require_active_factory
@@ -144,14 +145,14 @@ class POSave(LoginRequiredMixin, ScreenPermissionMixin, View):
         submit_now = po is None and p.get("then") == "submit"
         if submit_now and not request.user.has_screen_perm("purchases.po", "edit"):
             raise PermissionDenied
-        rows, specs = [], []
+        # every line as typed first, so the form comes back whole whatever is refused below
+        rows = [{"item": value, "qty": p.getlist("qty")[i], "rate": p.getlist("rate")[i]} for i, value in enumerate(p.getlist("item"))]
+        specs = []
         try:
-            for i, value in enumerate(p.getlist("item")):
-                row = {"item": value, "qty": p.getlist("qty")[i], "rate": p.getlist("rate")[i]}
-                rows.append(row)
-                if value:
-                    specs.append(orders.POLineSpec(parse_item(value), _decimal(row["qty"], "Quantity"), _decimal(row["rate"], "Rate")))
-            vendor = get_object_or_404(Party, pk=p.get("vendor"))
+            vendor = vu.chosen(Party.objects.all(), p.get("vendor"), "supplier")
+            for row in rows:
+                if row["item"]:
+                    specs.append(orders.POLineSpec(parse_item(row["item"]), _decimal(row["qty"], "Quantity"), _decimal(row["rate"], "Rate")))
             expected = _date(p.get("expected_date"), default=None) if p.get("expected_date") else None
             if po is None:
                 po = (orders.create_and_submit if submit_now else orders.create_po)(
@@ -314,15 +315,15 @@ class GrnSave(LoginRequiredMixin, ScreenPermissionMixin, View):
         grn = get_object_or_404(Grn.objects.for_user(request.user), pk=pk) if pk else None
         p = request.POST
         po = PurchaseOrder.objects.for_user(request.user).filter(pk=p.get("po")).first() if p.get("po") else None
-        rows, specs = [], []
+        rows = [{"item": value, "rate": p.getlist("rate")[i], "qty": p.getlist("qty")[i],
+                 "rolls": p.getlist("rolls")[i], "po_line": p.getlist("po_line")[i]} for i, value in enumerate(p.getlist("item"))]
+        specs = []
         try:
-            for i, value in enumerate(p.getlist("item")):
-                row = {"item": value, "rate": p.getlist("rate")[i], "qty": p.getlist("qty")[i],
-                       "rolls": p.getlist("rolls")[i], "po_line": p.getlist("po_line")[i]}
-                rows.append(row)
-                if not value:
+            vendor = vu.chosen(Party.objects.all(), p.get("vendor"), "supplier")
+            for row in rows:
+                if not row["item"]:
                     continue
-                item = parse_item(value)
+                item = parse_item(row["item"])
                 po_line = PurchaseOrderLine.objects.filter(pk=row["po_line"], po=po).first() if row["po_line"] and po else None
                 spec = grn_service.GrnLineSpec(item=item, rate=_decimal(row["rate"], "Rate"), po_line=po_line)
                 if isinstance(item, Material) and item.kind == "fabric":
@@ -330,7 +331,6 @@ class GrnSave(LoginRequiredMixin, ScreenPermissionMixin, View):
                 else:
                     spec.qty_received = _decimal(row["qty"], f"Quantity of {item}")
                 specs.append(spec)
-            vendor = get_object_or_404(Party, pk=p.get("vendor"))
             location = get_object_or_404(Location, pk=p.get("location"))
             challan_date = _date(p.get("vendor_challan_date")) if p.get("vendor_challan_date") else None
             if grn is None:
@@ -729,19 +729,19 @@ class DebitNoteSave(LoginRequiredMixin, ScreenPermissionMixin, View):
         if back:
             return back
         p = request.POST
-        rows, specs = [], []
+        rows = [{k: p.getlist(k)[i] for k in ("item", "location", "roll", "qty", "rate")} for i in range(len(p.getlist("item")))]
+        specs = []
         try:
-            for i, value in enumerate(p.getlist("item")):
-                row = {k: p.getlist(k)[i] for k in ("item", "location", "roll", "qty", "rate")}
-                rows.append(row)
-                if not value:
+            vendor = vu.chosen(Party.objects.filter(is_vendor=True), p.get("vendor"), "supplier")
+            for row in rows:
+                if not row["item"]:
                     continue
                 specs.append(debit_notes.ReturnLineSpec(
-                    item=parse_item(value), qty=_decimal(row["qty"], "Quantity"), rate=_decimal(row["rate"], "Rate"),
+                    item=parse_item(row["item"]), qty=_decimal(row["qty"], "Quantity"), rate=_decimal(row["rate"], "Rate"),
                     location=get_object_or_404(Location, pk=row["location"]),
                     roll=get_object_or_404(FabricRoll, pk=row["roll"]) if row["roll"] else None))
             fields = dict(
-                vendor=get_object_or_404(Party, pk=p.get("vendor"), is_vendor=True), date=_date(p.get("date")),
+                vendor=vendor, date=_date(p.get("date")),
                 lines=specs, user=request.user, reason=p.get("reason", ""),
                 gst_template=TaxTemplate.objects.filter(pk=p["gst_template"]).first() if p.get("gst_template") else None,
                 itc_claimable=p.get("itc_claimable") == "on")

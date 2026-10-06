@@ -10,6 +10,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.views import View
 
+from core import viewutils as vu
 from core.exceptions import BusinessRuleError
 from core.models import Location
 from core.scoping import ScreenPermissionMixin
@@ -239,7 +240,7 @@ class OrderSave(LoginRequiredMixin, ScreenPermissionMixin, View):
                         sku=sku, qty=_dec(qty, f"Quantity of {sku}"),
                         rate=_dec(rate, "Rate") if rate.strip() else None,
                         discount_pct=_dec(disc, "Discount") if disc.strip() else None))
-            customer = _choose(_customers(), p.get("customer"), "customer")
+            customer = vu.chosen(_customers(), p.get("customer"), "customer")
             due = _day(p.get("due_date"), "Due date", default=None) if p.get("due_date") else None
             if order is None:
                 order = (orders.create_and_confirm if confirm_now else orders.create_order)(
@@ -578,7 +579,7 @@ class Billing(LoginRequiredMixin, ScreenPermissionMixin, View):
                     rows.append({"sku": sku, "qty": p.getlist("qty")[i], "rate": p.getlist("rate")[i], "disc": p.getlist("disc")[i]})
             factory = require_active_factory(request)
             inv = invoices.save_invoice(
-                company=_company(), factory=factory, customer=_choose(_customers(), p.get("customer"), "customer"),
+                company=_company(), factory=factory, customer=vu.chosen(_customers(), p.get("customer"), "customer"),
                 date=_day(p.get("date"), "Date"), lines=_line_specs(p), user=request.user,
                 location=_choose(_locations(factory), p.get("location"), "location"), notes=p.get("notes", ""), **_tax_args(p))
             if p.get("action") == "post":

@@ -13,7 +13,7 @@
     <input type="hidden" name="lot" value="{{ lot.pk }}"><input type="hidden" name="step" value="{{ step.pk }}"><input type="hidden" name="kind" value="{{ kind }}"><input type="hidden" name="factory" value="{{ lot.factory_id }}">
     <h2>{{ step.process.name }} · {{ lot.style.style_no }} {{ lot.colour }}</h2>
     <div class="field-row">
-      <div class="field"><label for="party">Fabricator</label><select id="party" name="party">{% for f in fabricators %}<option value="{{ f.pk }}" {% if d.party == f.pk|stringformat:"s" or step.party_id == f.pk %}selected{% endif %}>{{ f.name }}</option>{% endfor %}</select></div>
+      <div class="field"><label for="party">Fabricator</label><select id="party" name="party"><option value="">Choose…</option>{% for f in fabricators %}<option value="{{ f.pk }}" {% if party_sel == f.pk|stringformat:"s" %}selected{% endif %}>{{ f.name }}</option>{% endfor %}</select></div>
       <div class="field"><label for="date">Date</label><input id="date" name="date" type="date" value="{{ d.date|default:today }}"></div>
       <div class="field"><label for="expected_date">Expected back by</label><input id="expected_date" name="expected_date" type="date" value="{{ d.expected_date }}"></div>
       <div class="field"><label for="remarks">Remarks</label><input id="remarks" name="remarks" type="text" value="{{ d.remarks }}"></div></div>

@@ -6,7 +6,7 @@
   <form method="post" novalidate>
     {% csrf_token %}{% if po %}<input type="hidden" name="po" value="{{ po.pk }}">{% endif %}
     <div class="island"><div class="field-row">
-      <div class="field"><label for="vendor">Vendor</label><select id="vendor" name="vendor">{% for v in vendors %}<option value="{{ v.pk }}" {% if vals.vendor == v.pk|stringformat:"s" %}selected{% endif %}>{{ v.name }}</option>{% endfor %}</select></div>
+      <div class="field"><label for="vendor">Vendor</label><select id="vendor" name="vendor"><option value="">Choose…</option>{% for v in vendors %}<option value="{{ v.pk }}" {% if vals.vendor == v.pk|stringformat:"s" %}selected{% endif %}>{{ v.name }}</option>{% endfor %}</select></div>
       <div class="field"><label>Factory</label><div class="static-value">{{ factory.code }} — {{ factory.name }}</div></div>
       <div class="field"><label for="location">Receive into</label><select id="location" name="location">{% for l in locations %}<option value="{{ l.pk }}" data-factory="{{ l.factory_id }}" {% if vals.location == l.pk|stringformat:"s" %}selected{% endif %}>{{ l.name }}</option>{% endfor %}</select></div>
       <div class="field"><label for="date">Date</label><input id="date" name="date" type="date" value="{{ vals.date|default:today }}" required></div>

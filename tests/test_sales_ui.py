@@ -299,9 +299,9 @@ def test_blank_selects_from_the_browser_are_handled_not_500s(ns, owner_c, factor
     r = owner_c.post(reverse("billing"), {"customer": "", "factory": factory.pk, "location": ns.godown.pk, "date": "2026-06-15",
                                           "action": "post", "tax_mode": "auto", "gst_template": "", "sku": [sku.pk],
                                           "qty": ["1"], "rate": ["500"], "disc": [""]})
-    assert r.status_code == 200 and "Choose a customer" in r.content.decode()
+    assert r.status_code == 200 and "Choose the customer." in r.content.decode()
     r = owner_c.post(reverse("saleorder_new"), {"customer": "", "factory": factory.pk, "date": "2026-06-15", "order_type": "stock"})
-    assert r.status_code == 200 and "Choose a customer" in r.content.decode()
+    assert r.status_code == 200 and "Choose the customer." in r.content.decode()
     order = confirmed_order(ns)
     s_id = ns.sku("Black", "S").pk
     r = owner_c.post(reverse("packing_new", args=[order.pk]), {"n": "1", "location": ns.godown.pk, "date": "2026-06-15",

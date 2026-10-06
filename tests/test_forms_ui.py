@@ -931,6 +931,7 @@ def test_journal_and_contra_change_only_the_word_notes(company, ledgers, owner_c
     assert in_view(html, "date", "vendor_invoice_no", "row_ledger", "row_debit", "row_credit", "narration", *BILL_COLUMNS)
     assert not folds(html) and not bill_columns_hidden(html) and "Journal voucher" in flashed(html)
     assert '<label for="narration">Notes</label>' in html and "Post journal voucher" in html
+    assert "Bill options appear for ledgers that track bills" in flashed(html)
     html = html_of(owner_c.get(reverse("voucher_contra")))
     assert in_view(html, "date", "row_ledger", "row_to_ledger", "row_amount", "narration") and not folds(html)
     assert '<label for="narration">Notes</label>' in html and "Post contra voucher" in html and "Narration" not in flashed(html)

@@ -76,7 +76,7 @@
         {% if vtype == "journal" %}<td class="num" id="tot-dr">0.00</td><td class="num" id="tot-cr">0.00</td>{% else %}<td class="num" id="tot">0.00</td>{% endif %}
         <td colspan="{% if show_bills %}5{% else %}2{% endif %}" class="bill-span"></td></tr></tfoot>
     </table></div>
-    <p class="muted small">Bill, Reference and Due appear once you choose a ledger that keeps bills (customers, suppliers, fabricators). Choose <em>Against bill</em> to pay or receive against an invoice: pick the reference and its outstanding amount fills in. A bill that is fully settled cannot be paid again, and you cannot settle more than is outstanding.</p>
+    <p class="muted small">{% if vtype == "journal" %}Bill options appear for ledgers that track bills (customers, suppliers, fabricators).{% else %}Bill, Reference and Due appear once you choose a ledger that keeps bills (customers, suppliers, fabricators).{% endif %} Choose <em>Against bill</em> to pay or receive against an invoice: pick the reference and its outstanding amount fills in. A bill that is fully settled cannot be paid again, and you cannot settle more than is outstanding.</p>
     <div style="margin-top:8px"><button type="button" class="btn" id="add-row"><svg width="16" height="16"><use href="#i-plus"/></svg> Add row</button></div>
     {% endif %}
 

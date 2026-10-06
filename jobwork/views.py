@@ -9,7 +9,7 @@ from django.urls import reverse
 from django.utils import timezone
 from django.views import View
 
-from core import viewutils as vu
+from core import forms_ui, viewutils as vu
 from core.exceptions import BusinessRuleError
 from core.models import Factory, Location
 from core.scoping import ScreenPermissionMixin
@@ -48,6 +48,10 @@ def _fabricators():
     return Party.objects.filter(is_fabricator=True, is_active=True)
 
 
+# How a labour rate is worked out, in plain words. The stored values (A to D) are unchanged.
+RATE_TYPE_WORDS = [("A", "Per piece"), ("B", "Per piece plus extras"), ("C", "Different rate per size"), ("D", "Fixed amount per lot")]
+
+
 # ================================================================ challans (E8.1)
 
 class ChallanList(LoginRequiredMixin, ScreenPermissionMixin, View):
@@ -78,6 +82,8 @@ class ChallanNew(LoginRequiredMixin, ScreenPermissionMixin, View):
                "lots": in_active(Lot.objects.for_user(request.user), request).exclude(status__in=("closed", "completed")).select_related("style", "colour"),
                "kind": d.get("kind", "issue"),
                "can_issue": request.user.has_screen_perm("jobwork.challan", "edit")}
+        # normal job work does not ask for the kind; a rework link (or a choice made here) opens it
+        ctx["kind_open"] = forms_ui.more_open(ctx, {"kind": "issue"})
         if lot:
             steps = [s for s in lot.steps.select_related("process", "party") if s.status != "skipped"]
             step = next((s for s in steps if str(s.pk) == d.get("step")), None)
@@ -227,8 +233,14 @@ class ReceiptNew(LoginRequiredMixin, ScreenPermissionMixin, View):
                  if not (cb.qty_received or cb.qty_shortage) and cb.pk not in counted]
         for cb in lines:
             cb.scan = scan_text(cb.bundle)
+        locations = list(Location.objects.filter(factory=challan.factory, is_active=True).exclude(loc_type__in=("transit", "fabricator", "rejects")))
+        # prefilled with the process area, as before; what the user chose comes back with the form
+        usual = next((l for l in reversed(locations) if l.loc_type == "process"), locations[0] if locations else None)
+        usual = str(usual.pk) if usual else ""
+        chosen = (d or {}).get("location") or usual
         return {"ch": challan, "lines": lines, "trims": [t for t in challan.trims.select_related("material")],
-                "d": d or {}, "locations": Location.objects.filter(factory=challan.factory, is_active=True).exclude(loc_type__in=("transit", "fabricator", "rejects"))}
+                "d": d or {}, "locations": locations, "location_sel": chosen,
+                "more_is_open": forms_ui.more_open({"location": chosen}, {"location": usual})}
 
     def _challan(self, request, pk):
         return get_object_or_404(JobWorkChallan.objects.for_user(request.user).select_related("party", "lot", "factory", "step__process"), pk=pk)
@@ -315,6 +327,7 @@ class RateList(LoginRequiredMixin, ScreenPermissionMixin, View):
     def get(self, request):
         return render(request, "jobwork/rate_list.html", {
             "rates": LabourRate.objects.select_related("party", "process").prefetch_related("addons", "sizes__size"),
+            "type_words": dict(RATE_TYPE_WORDS),
             "can_create": request.user.has_screen_perm("jobwork.rate", "create"),
         })
 
@@ -334,7 +347,7 @@ class RateNew(LoginRequiredMixin, ScreenPermissionMixin, View):
                 # what was typed comes back with the form: the add-on rows and each size's rate
                 "addons": (addons + [{}, {}, {}])[:max(3, len(addons))],
                 "size_rows": [{"size": s, "value": d.get(f"size_{s.pk}", "")} for s in sizes],
-                "types": LabourRate.Type.choices, "d": d}
+                "types": RATE_TYPE_WORDS, "rate_type": d.get("rate_type") or LabourRate.Type.PER_PIECE, "d": d}
 
     def get(self, request):
         return render(request, "jobwork/rate_form.html", self._ctx(request.GET))
@@ -375,6 +388,7 @@ class BillNew(LoginRequiredMixin, ScreenPermissionMixin, View):
         party = Party.objects.filter(pk=d.get("party")).first() if d.get("party") else None
         factory = request.factory
         ctx = {"fabricators": _fabricators(), "party": party, "factory": factory, "d": d,
+               "vals": {k: d.get(k, "") for k in ("date", "tds_template", "notes")},     # typed values come back with the form
                "tds": TaxTemplate.objects.filter(kind="tds", is_active=True)}
         if party and factory:
             rows = []

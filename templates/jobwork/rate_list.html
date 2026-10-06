@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load forms_ui %}
 {% block title %}Labour rates{% endblock %}
 {% block content %}
   <div class="page-head"><h1 class="page-title">Labour rates</h1>
@@ -7,7 +8,7 @@
   <div class="island">
     {% if rates %}<div class="table-wrap"><table>
       <thead><tr><th scope="col">Fabricator</th><th scope="col">Process</th><th scope="col">Type</th><th scope="col">Rate</th><th scope="col" class="num">Rework</th><th scope="col">From</th></tr></thead>
-      <tbody>{% for r in rates %}<tr><td>{{ r.party.name }}</td><td>{{ r.process.name }}</td><td>{{ r.get_rate_type_display }}</td>
+      <tbody>{% for r in rates %}<tr><td>{{ r.party.name }}</td><td>{{ r.process.name }}</td><td>{% rate_words type_words r.rate_type %}</td>
         <td>{% if r.rate_type == "A" %}{{ r.base_rate }} / pc{% elif r.rate_type == "B" %}{{ r.base_rate }} + {% for a in r.addons.all %}{{ a.name }} {{ a.amount }}{% if not forloop.last %}, {% endif %}{% endfor %}{% elif r.rate_type == "C" %}{% for s in r.sizes.all %}{{ s.size.code }} {{ s.amount }}{% if not forloop.last %}, {% endif %}{% endfor %}{% else %}{{ r.flat_amount }} per lot{% endif %}</td>
         <td class="num">{{ r.rework_rate }}</td><td>{{ r.effective_from|date:"d M Y" }}</td></tr>{% endfor %}</tbody>
     </table></div>{% else %}<div class="empty"><div class="hand">No labour rates yet</div></div>{% endif %}

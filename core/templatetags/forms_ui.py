@@ -55,6 +55,12 @@ def more(parser, token):
 
 
 @register.simple_tag
+def rate_words(words, value):
+    """A stored choice value in the plain words a form uses for it; the value itself when there are none."""
+    return words.get(value, value)
+
+
+@register.simple_tag
 def show_when(name, current, wanted, off=""):
     """Attributes for a field that applies to one choice only: {% show_when "tax_mode" d.tax_mode "template manual" %}.
     The server hides it when the choice is another one; reveal.js keeps it in step as the choice changes. Pass "off"

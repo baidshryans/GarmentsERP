@@ -49,15 +49,15 @@ def save_rate(*, party, process, rate_type, effective_from, base_rate=ZERO, flat
               addons=(), size_rates=None) -> LabourRate:
     """Add a dated rate. addons = [(name, amount)] for type B; size_rates = {Size: amount} for type C."""
     if not party.is_fabricator and not party.is_vendor:
-        raise BusinessRuleError(f"{party.name} is not a fabricator or vendor.")
+        raise BusinessRuleError(f"{party.name} is not a fabricator or supplier.")
     if rate_type == LabourRate.Type.PER_PIECE and base_rate <= 0:
         raise BusinessRuleError("Enter the rate per piece.")
     if rate_type == LabourRate.Type.ADDONS and (base_rate <= 0 or not addons):
-        raise BusinessRuleError("Type B needs a base rate and at least one add-on.")
+        raise BusinessRuleError("Enter the rate per piece and at least one extra.")
     if rate_type == LabourRate.Type.SIZE_WISE and not size_rates:
-        raise BusinessRuleError("Type C needs a rate for each size.")
+        raise BusinessRuleError("Enter the rate for each size.")
     if rate_type == LabourRate.Type.FLAT and flat_amount <= 0:
-        raise BusinessRuleError("Enter the flat amount per lot.")
+        raise BusinessRuleError("Enter the fixed amount per lot.")
     if LabourRate.objects.filter(party=party, process=process, effective_from=effective_from).exists():
         raise BusinessRuleError("There is already a rate for this fabricator and process from that date.")
     rate = LabourRate.objects.create(party=party, process=process, rate_type=rate_type, base_rate=base_rate,

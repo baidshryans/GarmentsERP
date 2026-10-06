@@ -77,7 +77,7 @@ def test_rate_validation(ns):
         rates.save_rate(party=ns.fab, process=proc, rate_type="A", base_rate=D("0"), effective_from=date(2026, 8, 1))
     with pytest.raises(BusinessRuleError, match="already"):
         rates.save_rate(party=ns.fab, process=proc, rate_type="A", base_rate=D("30"), effective_from=date(2026, 4, 1))
-    with pytest.raises(BusinessRuleError, match="add-on"):
+    with pytest.raises(BusinessRuleError, match="at least one extra"):
         rates.save_rate(party=ns.fab, process=proc, rate_type="B", base_rate=D("30"), effective_from=date(2026, 8, 1))
 
 

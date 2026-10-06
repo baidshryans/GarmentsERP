@@ -657,3 +657,171 @@ def test_the_return_to_supplier_shows_supplier_date_reason_and_lines(company, fa
                                           lines=[debit_notes.ReturnLineSpec(item=trim, qty=D("5"), rate=D("10"), location=godown)])
     html = html_of(owner_c.get(reverse("debitnote_edit", args=[note.pk])))
     assert folded(html, "gst_template", "itc_claimable", title="Tax (GST)") and chosen(html, "vendor") == str(vendor.pk)
+
+
+# ================================================================ making and job work
+
+def test_the_production_order_shows_dates_and_lines(job, owner_c):
+    html = html_of(owner_c.get(reverse("order_new")))
+    assert in_view(html, "date", "due_date", "style", "colour", "qty", "ratios")
+    assert folded(html, "purpose", "order_reference", "remarks") and chosen(html, "purpose") == "stock"
+    assert '<label for="due_date">Due by</label>' in html and '<label for="remarks">Notes</label>' in html
+    text = flashed(html)
+    assert "Due date" not in text and "Remarks" not in text
+    assert "customer" not in text.lower().replace("never sees the customer", "")      # BR-15: no customer on a production screen
+    typed = {"date": "2026-06-15", "due_date": "", "purpose": "stock", "order_reference": "", "remarks": "",
+             "style": [job.style.pk], "colour": [job.black.pk], "qty": ["many"], "ratios": ["S:1"]}
+    assert folded(html_of(owner_c.post(reverse("order_new"), typed)), "purpose", "order_reference", "remarks")
+    for change in ({"purpose": "mto"}, {"order_reference": "SO-12"}, {"remarks": "rush"}):
+        html = html_of(owner_c.post(reverse("order_new"), {**typed, **change}))
+        assert folded(html, "purpose", "order_reference", "remarks", is_open=True), change
+
+
+def test_a_production_order_saved_from_the_short_form_is_the_same_order(job, owner_c):
+    from production.models import ProductionOrder
+
+    before = set(ProductionOrder.objects.values_list("pk", flat=True))
+    r = owner_c.post(reverse("order_new"), {"date": "2026-06-15", "due_date": "", "purpose": "stock", "order_reference": "",
+                                            "remarks": "", "style": [job.style.pk], "colour": [job.black.pk], "qty": ["60"],
+                                            "ratios": ["S:1, M:2"]})
+    order = ProductionOrder.objects.exclude(pk__in=before).get()
+    assert r.status_code == 302 and (order.purpose, order.order_reference, order.remarks, order.due_date) == ("stock", "", "", None)
+    assert folded(html_of(owner_c.get(reverse("order_edit", args=[order.pk]))), "purpose", "order_reference", "remarks")
+
+
+def test_sending_to_a_fabricator_does_not_ask_the_kind_for_normal_job_work(job, owner_c):
+    stitch = ph.step(job, "STITCH")
+    html = html_of(owner_c.get(reverse("challan_new"), {"lot": job.lot.pk, "step": stitch.pk}))
+    assert in_view(html, "party", "date", "expected_date", "bundle") and 'id="lot"' in html and 'id="step"' in html
+    assert folded(html, "remarks") and folded(html, "kind") and chosen(html, "kind") == "issue"
+    text = flashed(html)
+    assert "Send to fabricator" in text and "Expected by" in text and "Notes" in text
+    for old in ("New challan", "Issue to a fabricator", "Save challan", "Expected back by", "Remarks"):
+        assert old not in text, old
+    assert html.index('value="draft">Save</button>') < html.index('value="issue">Save and issue</button>')     # the safe one first
+    assert '<input type="hidden" name="kind" value="issue">' in html
+    # rework arrives by its own link: the kind is then shown, already chosen
+    html = html_of(owner_c.get(reverse("challan_new"), {"lot": job.lot.pk, "step": stitch.pk, "kind": "rework"}))
+    assert folded(html, "kind", is_open=True) and chosen(html, "kind") == "rework" and "for rework" in flashed(html)
+    assert '<input type="hidden" name="kind" value="rework">' in html
+    html = html_of(owner_c.post(reverse("challan_new"), {"lot": job.lot.pk, "step": stitch.pk, "kind": "issue", "party": "",
+                                                         "date": DAY.isoformat(), "remarks": "fragile"}))
+    assert folded(html, "remarks", is_open=True)
+
+
+@pytest.fixture
+def out(job):
+    from jobwork.services import challans
+
+    return challans.create_and_issue(company=job.company, factory=job.factory, party=job.fab, lot=job.lot,
+                                     step=ph.step(job, "STITCH"), bundles=job.bundles[:2], date=DAY, user=job.owner)
+
+
+def test_receiving_from_a_fabricator_folds_the_place_it_is_received_into(job, out, owner_c):
+    from jobwork.models import Receipt
+
+    url = reverse("receipt_new", args=[out.pk])
+    html = html_of(owner_c.get(url))
+    first = out.bundles.first()
+    assert in_view(html, "date", f"use_{first.pk}", f"count_{first.pk}") and folded(html, "location")
+    usual = Location.objects.get(factory=job.factory, loc_type="process")
+    assert chosen(html, "location") == str(usual.pk)                        # prefilled, exactly as before
+    assert '<label for="location">Receive into</label>' in html
+    if out.trims.exists():
+        assert in_view(html, f"returned_{out.trims.first().pk}")
+    other = Location.objects.filter(factory=job.factory, is_active=True).exclude(
+        loc_type__in=("transit", "fabricator", "rejects", "process")).first()
+    html = html_of(owner_c.post(url, {"date": DAY.isoformat(), "location": other.pk}))       # nothing ticked: it comes back
+    assert folded(html, "location", is_open=True) and chosen(html, "location") == str(other.pk)
+    r = owner_c.post(url, {"date": DAY.isoformat(), "location": usual.pk, f"use_{first.pk}": "on",
+                           f"count_{first.pk}": str(first.qty_issued)})
+    assert r.status_code == 302 and Receipt.objects.get().location == usual
+
+
+def test_the_labour_bill_folds_tds_and_notes(job, out, owner_c):
+    from jobwork.services import receipts
+    from jobwork.services.receipts import Counted
+    from tax.models import TaxTemplate
+
+    receipt = receipts.create_receipt(challan=out, user=job.owner, date=DAY,
+                                      counts=[Counted(cb, cb.qty_issued) for cb in out.bundles.all()])
+    for line in receipt.lines.all():
+        receipts.record_qc(receipt_line=line, accepted=line.qty_received, user=job.owner)
+    html = html_of(owner_c.get(reverse("bill_new"), {"party": job.fab.pk}))
+    assert in_view(html, "date") and 'id="party"' in html and 'name="qc_' in html
+    assert folded(html, "tds_template", "notes") and "TDS, notes" in fold_of(html, "notes")[1]
+    tds = TaxTemplate.objects.filter(kind="tds", is_active=True).first()
+    html = html_of(owner_c.post(reverse("bill_new"), {"party": job.fab.pk, "date": "not-a-date", "tds_template": tds.pk,
+                                                      "notes": "june work"}))
+    assert folded(html, "tds_template", "notes", is_open=True) and chosen(html, "tds") == str(tds.pk)
+    assert 'value="june work"' in html and 'value="not-a-date"' in html
+    html = html_of(owner_c.post(reverse("bill_new"), {"party": job.fab.pk, "date": "not-a-date", "tds_template": "", "notes": ""}))
+    assert folded(html, "tds_template", "notes")
+
+
+RATE_FIELDS = {"A": ("base_rate",), "B": ("base_rate", "addon_name", "addon_amount"), "C": ("size_",), "D": ("flat_amount",)}
+
+
+def test_the_labour_rate_names_its_types_in_plain_words(job, owner_c):
+    html = html_of(owner_c.get(reverse("rate_new")))
+    assert in_view(html, "party", "process", "rate_type", "effective_from", "base_rate") and folded(html, "rework_rate")
+    options = re.findall(r'<option value="([A-D])"[^>]*>([^<]+)</option>', re.search(r'<select id="rate_type".*?</select>', html, re.S).group(0))
+    assert options == [("A", "Per piece"), ("B", "Per piece plus extras"), ("C", "Different rate per size"), ("D", "Fixed amount per lot")]
+    text = flashed(html)
+    for old in ("(A, B)", "(D)", "type B", "type C", "A - per piece", "Add-ons", "Flat amount"):
+        assert old not in text, old
+    assert "js/reveal.js" in html and chosen(html, "rate_type") == "A"
+    for name in ("party", "process", "rate_type", "effective_from", "base_rate", "flat_amount", "rework_rate"):
+        assert f'<label for="{name}">' in html, name
+
+
+def test_the_labour_rate_shows_only_the_fields_of_the_chosen_type(job, owner_c):
+    s = Size.objects.get(code="S")
+    for rate_type, shown in RATE_FIELDS.items():
+        html = html_of(owner_c.post(reverse("rate_new"), {"party": "", "process": "", "rate_type": rate_type,
+                                                          "effective_from": "2026-06-01", "addon_name": ["", "", ""],
+                                                          "addon_amount": ["", "", ""]}))
+        assert chosen(html, "rate_type") == rate_type
+        for name in ("base_rate", "addon_name", "flat_amount", f"size_{s.pk}"):
+            wanted = any(name.startswith(prefix) for prefix in shown)
+            assert hidden_for_choice(html, name) is (not wanted), (rate_type, name)
+            block = re.search(rf'<div[^>]*data-show-when="[^"]*"[^>]*>(?:(?!data-show-when).)*?name="{name}"', html, re.S).group(0)
+            assert "data-off-when-hidden" in block.split(">", 1)[0]        # a rate typed for another type is never sent
+        assert folded(html, "rework_rate")
+    html = html_of(owner_c.post(reverse("rate_new"), {"party": "", "process": "", "rate_type": "A", "rework_rate": "4"}))
+    assert folded(html, "rework_rate", is_open=True)
+
+
+def test_each_labour_rate_type_saves_what_it_always_did(job, owner_c):
+    wash, s, m = Process.objects.get(code="WASH"), Size.objects.get(code="S"), Size.objects.get(code="M")
+    base = {"party": job.fab.pk, "process": wash.pk}
+    # the fields of the other types are not sent at all, as when the browser has switched them off
+    assert owner_c.post(reverse("rate_new"), {**base, "rate_type": "A", "effective_from": "2026-05-01", "base_rate": "12"}).status_code == 302
+    assert owner_c.post(reverse("rate_new"), {**base, "rate_type": "B", "effective_from": "2026-05-02", "base_rate": "12",
+                                              "addon_name": ["Print", ""], "addon_amount": ["2", ""]}).status_code == 302
+    assert owner_c.post(reverse("rate_new"), {**base, "rate_type": "C", "effective_from": "2026-05-03",
+                                              f"size_{s.pk}": "10", f"size_{m.pk}": "11"}).status_code == 302
+    assert owner_c.post(reverse("rate_new"), {**base, "rate_type": "D", "effective_from": "2026-05-04", "flat_amount": "900",
+                                              "rework_rate": "3"}).status_code == 302
+    got = {r.rate_type: r for r in LabourRate.objects.filter(process=wash)}
+    assert (got["A"].base_rate, got["A"].flat_amount, got["A"].rework_rate, got["A"].addons.count()) == (D("12"), D("0"), D("0"), 0)
+    assert (got["B"].base_rate, got["B"].addons.get().name, got["B"].addons.get().amount) == (D("12"), "Print", D("2"))
+    assert (got["C"].base_rate, sorted(x.amount for x in got["C"].sizes.all())) == (D("0"), [D("10"), D("11")])
+    assert (got["D"].flat_amount, got["D"].base_rate, got["D"].rework_rate) == (D("900"), D("0"), D("3"))
+    # and sent blank, as a browser without the script would send them: the same rates
+    r = owner_c.post(reverse("rate_new"), {**base, "rate_type": "D", "effective_from": "2026-05-05", "flat_amount": "950",
+                                           "base_rate": "", "rework_rate": "", "addon_name": ["", "", ""],
+                                           "addon_amount": ["", "", ""], f"size_{s.pk}": ""})
+    again = LabourRate.objects.get(process=wash, effective_from=date(2026, 5, 5))
+    assert r.status_code == 302 and (again.flat_amount, again.base_rate, again.addons.count(), again.sizes.count()) == (D("950"), D("0"), 0, 0)
+    listing = flashed(html_of(owner_c.get(reverse("rate_list"))))
+    assert "Per piece plus extras" in listing and "Fixed amount per lot" in listing and "A - per piece" not in listing
+
+
+def test_a_labour_rate_is_refused_in_plain_words(job, owner_c):
+    wash = Process.objects.get(code="WASH")
+    base = {"party": job.fab.pk, "process": wash.pk, "effective_from": "2026-05-01"}
+    for rate_type, message in (("A", "Enter the rate per piece."), ("B", "Enter the rate per piece and at least one extra."),
+                               ("C", "Enter the rate for each size."), ("D", "Enter the fixed amount per lot.")):
+        text = flashed(html_of(owner_c.post(reverse("rate_new"), {**base, "rate_type": rate_type})))
+        assert message in text and "Type " not in text, rate_type

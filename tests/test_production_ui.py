@@ -196,7 +196,7 @@ def test_rate_screens(company, factory, owner):
     assert r.status_code == 302
     assert b"Bar tack 2.50" in c.get(reverse("rate_list")).content
     bad = c.post(reverse("rate_new"), {"party": fab.pk, "process": step(ns, "STITCH").process.pk, "rate_type": "B", "effective_from": "2026-06-01", "base_rate": "20"})
-    assert bad.status_code == 200 and b"add-on" in bad.content
+    assert bad.status_code == 200 and b"at least one extra" in bad.content
 
 
 # ---------------- dashboard, tracking, permissions ----------------

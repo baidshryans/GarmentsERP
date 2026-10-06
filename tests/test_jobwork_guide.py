@@ -586,7 +586,7 @@ def new_form(user, ns):
 def test_save_and_issue_makes_the_challan_and_hands_the_bundles_over_in_one_step(ns):
     html = new_form(ns.owner, ns)
     assert '<button class="btn primary" name="then" value="issue">Save and issue</button>' in html
-    assert '<button class="btn" name="then" value="draft">Save challan</button>' in html
+    assert '<button class="btn" name="then" value="draft">Save</button>' in html
     r = login(ns.owner).post(reverse("challan_new"), form(ns, ns.bundles[:2], then="issue"), follow=True)
     ch = ns.lot.challans.get()
     assert r.redirect_chain == [(reverse("challan_detail", args=[ch.pk]), 302)]
@@ -612,7 +612,7 @@ def test_the_draft_button_still_saves_a_draft(ns):
 def test_without_edit_only_the_draft_button_shows_and_a_forged_issue_is_refused(ns):
     clerk = role_user("draft_only", {"jobwork.challan": ["view", "create"], "production.lot": ["view"]}, ns.factory)
     html = new_form(clerk, ns)
-    assert "Save and issue" not in html and '<button class="btn primary">Save challan</button>' in html
+    assert "Save and issue" not in html and '<button class="btn primary">Save</button>' in html
     r = login(clerk).post(reverse("challan_new"), form(ns, ns.bundles[:1], then="issue"))
     assert r.status_code == 403 and not ns.lot.challans.exists()
     assert login(clerk).post(reverse("challan_new"), form(ns, ns.bundles[:1])).status_code == 302
@@ -641,7 +641,7 @@ def test_if_issuing_fails_nothing_is_saved_and_the_form_comes_back(ns, monkeypat
     assert step(ns, "STITCH").status == "pending"
     # the form comes back with both buttons and the bundles still ticked; no button grabs the focus past the message
     assert '<button class="btn primary" name="then" value="issue">Save and issue</button>' in html
-    assert '<button class="btn" name="then" value="draft">Save challan</button>' in html
+    assert '<button class="btn" name="then" value="draft">Save</button>' in html
     for b in ns.bundles[:2]:
         assert f'name="bundle" value="{b.pk}" checked' in html
     assert f'name="bundle" value="{ns.bundles[2].pk}" checked' not in html and "autofocus" not in form_of(html)

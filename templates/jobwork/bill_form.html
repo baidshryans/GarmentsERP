@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load forms_ui %}
 {% block title %}New labour bill{% endblock %}
 {% block content %}
   <div class="page-head"><h1 class="page-title">New labour bill</h1></div>
@@ -18,9 +19,11 @@
     {% if deductions %}<div class="island"><h2>Deductions</h2><div class="table-scroll"><table><tbody>
       {% for d in deductions %}<tr><td><input type="checkbox" name="ded_{% if d.5 %}{{ d.5.pk }}{% else %}t{{ d.6.pk }}{% endif %}" checked aria-label="Deduct this"></td><td>{{ d.3 }}</td><td class="muted">{{ d.1.number }}</td><td class="num">- {{ d.4 }}</td></tr>{% endfor %}</tbody></table></div></div>{% endif %}
     {% if rows %}<div class="island"><div class="field-row">
-      <div class="field"><label for="date">Bill date</label><input id="date" name="date" type="date" value="{{ d.date|default:today }}"></div>
-      <div class="field"><label for="tds">TDS</label><select id="tds" name="tds_template"><option value="">No TDS</option>{% for t in tds %}<option value="{{ t.pk }}">{{ t.name }}</option>{% endfor %}</select></div>
-      <div class="field"><label for="notes">Notes</label><input id="notes" name="notes" type="text"></div></div>
+      <div class="field"><label for="date">Bill date</label><input id="date" name="date" type="date" value="{{ vals.date|default:today }}"></div></div>
+      {% more_open vals "tds_template notes" as more_is_open %}
+      {% more "TDS, notes" open=more_is_open %}<div class="field-row">
+        <div class="field"><label for="tds">TDS</label><select id="tds" name="tds_template"><option value="">No TDS</option>{% for t in tds %}<option value="{{ t.pk }}" {% if vals.tds_template == t.pk|stringformat:"s" %}selected{% endif %}>{{ t.name }}</option>{% endfor %}</select></div>
+        <div class="field"><label for="notes">Notes</label><input id="notes" name="notes" type="text" value="{{ vals.notes }}"></div></div>{% endmore %}
       <div class="form-actions"><button class="btn primary">Save draft and review</button></div></div>{% endif %}
   </form>
   {% endif %}

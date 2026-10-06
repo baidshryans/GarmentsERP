@@ -11,7 +11,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.views import View
 
-from core import viewutils as vu
+from core import forms_ui, viewutils as vu
 from core.exceptions import BusinessRuleError
 from core.models import Factory, Location
 from core.scoping import ScreenPermissionMixin
@@ -87,11 +87,13 @@ class OrderSave(LoginRequiredMixin, ScreenPermissionMixin, View):
                 for l in order.lines.select_related("style", "colour").prefetch_related("sizes__size"):
                     rows.append({"style": str(l.style_id), "colour": str(l.colour_id), "qty": l.total_qty,
                                  "ratios": ", ".join(f"{s.size.code}:{s.ratio}" for s in l.sizes.all())})
+        vals = {k: (d or {}).get(k, "") or (getattr(order, k, "") if order and k != "factory" else "")
+                for k in ("date", "due_date", "purpose", "order_reference", "remarks")}
+        vals["purpose"] = vals["purpose"] or "stock"
         return {"order": order, "rows": rows + [{}, {}], "d": d or {}, "factory": order.factory if order else request.factory,
                 "styles": Style.objects.filter(is_archived=False).prefetch_related("style_sizes__size"),
-                "colours": Colour.objects.filter(is_active=True),
-                "vals": {k: (d or {}).get(k, "") or (getattr(order, k, "") if order and k != "factory" else "")
-                         for k in ("date", "due_date", "purpose", "order_reference", "remarks")}}
+                "colours": Colour.objects.filter(is_active=True), "vals": vals,
+                "more_is_open": forms_ui.more_open(vals, {"purpose": "stock", "order_reference": "", "remarks": ""})}
 
     def get(self, request, pk=None):
         order = get_object_or_404(ProductionOrder.objects.for_user(request.user), pk=pk) if pk else None

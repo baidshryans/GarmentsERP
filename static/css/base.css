@@ -320,6 +320,7 @@ html[data-drawer] .btn.nav-layout { display: none; }
 
 /* ---- manual voucher rows ---- */
 #voucher-rows { min-width: 900px; }
+#voucher-rows:has(th.bill-col[hidden]) { min-width: 620px; }   /* Money paid / received before a ledger that keeps bills is chosen */
 #voucher-rows select[name="row_ledger"] { min-width: 230px; }
 #voucher-rows input.num { min-width: 120px; }
 #voucher-rows select.bill-cell, #voucher-rows input[name="row_reference"] { min-width: 130px; }

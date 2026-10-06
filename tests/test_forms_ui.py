@@ -825,3 +825,123 @@ def test_a_labour_rate_is_refused_in_plain_words(job, owner_c):
                                ("C", "Enter the rate for each size."), ("D", "Enter the fixed amount per lot.")):
         text = flashed(html_of(owner_c.post(reverse("rate_new"), {**base, "rate_type": rate_type})))
         assert message in text and "Type " not in text, rate_type
+
+
+# ================================================================ selling and money
+
+def test_the_sale_order_shows_customer_dates_type_and_styles(ns, owner, owner_c):
+    from sales.services import orders as so_service
+
+    html = html_of(owner_c.get(reverse("saleorder_new")))
+    assert in_view(html, "customer", "date", "due_date", "order_type", "style_pick") and folded(html, "remarks")
+    assert '<label for="remarks">Notes</label>' in html and '<label for="due_date">Due by</label>' in html
+    assert "Remarks" not in flashed(html)
+    assert html.index('value="draft">Save draft') < html.index('value="confirm">Save and confirm')        # the safe button first
+    order = so_service.create_order(company=ns.company, factory=ns.factory, customer=ns.local, date=DAY, user=owner,
+                                    remarks="ring before sending", lines=[so_service.OrderLineSpec(ns.sku("Black", "M"), D("1"), D("500"))])
+    assert folded(html_of(owner_c.get(reverse("saleorder_edit", args=[order.pk]))), "remarks", is_open=True)
+    plain = so_service.create_order(company=ns.company, factory=ns.factory, customer=ns.local, date=DAY, user=owner,
+                                    lines=[so_service.OrderLineSpec(ns.sku("Black", "L"), D("1"), D("500"))])
+    assert folded(html_of(owner_c.get(reverse("saleorder_edit", args=[plain.pk]))), "remarks")
+
+
+@pytest.fixture
+def to_pack(ns, owner):
+    from sales.services import orders as so_service
+
+    order = so_service.create_order(company=ns.company, factory=ns.factory, customer=ns.local, date=DAY, user=owner,
+                                    lines=[so_service.OrderLineSpec(ns.sku("Black", "M"), D("10"), D("500"))])
+    return so_service.confirm_order(order, user=owner)
+
+
+TRANSPORT = ("transporter", "lr_no", "lr_date", "vehicle_no", "remarks")
+
+
+def test_packing_folds_the_transport_details(ns, to_pack, owner_c):
+    from sales.models import PackingList
+
+    url = reverse("packing_new", args=[to_pack.pk])
+    html = html_of(owner_c.get(url))
+    sku = ns.sku("Black", "M")
+    assert in_view(html, "location", "date", f"c1_{sku.pk}") and folded(html, *TRANSPORT, title="Transport details")
+    text = flashed(html)
+    assert "LR / docket no." in text and "Vehicle no." in text and "Notes" in text and "Remarks" not in text
+    for name in ("transporter", "lr_no", "lr_date", "vehicle_no", "remarks"):
+        assert f'<label for="{name}">' in html, name
+    # "Add a carton" brings the form back: what was typed in the fold is kept, and the fold is open
+    html = html_of(owner_c.post(url, {"n": "2", "location": ns.godown.pk, "date": DAY.isoformat(), "vehicle_no": "PB10 AB 1234",
+                                      f"c1_{sku.pk}": "4", "add_carton": "1"}))
+    assert folded(html, *TRANSPORT, title="Transport details", is_open=True) and 'value="PB10 AB 1234"' in html
+    html = html_of(owner_c.post(url, {"n": "2", "location": ns.godown.pk, "date": DAY.isoformat(), f"c1_{sku.pk}": "4",
+                                      "add_carton": "1"}))
+    assert folded(html, *TRANSPORT, title="Transport details")
+    r = owner_c.post(url, {"n": "1", "location": ns.godown.pk, "date": DAY.isoformat(), "transporter": "", "lr_no": "",
+                           "lr_date": "", "vehicle_no": "", "remarks": "", f"c1_{sku.pk}": "4"})
+    p = PackingList.objects.get()
+    assert r.status_code == 302 and (p.transporter, p.lr_no, p.lr_date, p.vehicle_no, p.remarks) == (None, "", None, "", "")
+    p.lr_no = "LR-77"
+    p.save()
+    assert folded(html_of(owner_c.get(reverse("packing_edit", args=[p.pk]))), *TRANSPORT, title="Transport details", is_open=True)
+
+
+BILL_COLUMNS = ("row_ref_type", "row_reference", "row_due_date")
+
+
+def bill_columns_hidden(html):
+    """Do the Bill / Reference / Due columns take no space? (Every header and cell of them is hidden.)"""
+    cells = re.findall(r'<t[hd][^>]*class="bill-col"( hidden)?>', html)
+    assert cells and len(set(cells)) == 1, cells
+    return cells[0] == " hidden"
+
+
+def test_money_paid_and_received_show_date_account_and_rows(company, ledgers, owner_c):
+    for name, title, account_label, old in (("voucher_payment", "Money paid", "Paid from", "Payment voucher"),
+                                            ("voucher_receipt", "Money received", "Received in", "Receipt voucher")):
+        html = html_of(owner_c.get(reverse(name)))
+        assert in_view(html, "date", "account", "row_ledger", "row_amount", "row_narration") and folded(html, "narration")
+        text = flashed(html)
+        assert title in text and account_label in text and old not in text and "Narration" not in text
+        assert '<label for="narration">Notes</label>' in html
+        assert bill_columns_hidden(html) and all(f'name="{n}"' in html for n in BILL_COLUMNS)      # still sent, as before
+        assert 'colspan="2" class="bill-span"' in html
+
+
+def test_the_bill_columns_show_once_a_row_needs_them(company, factory, ledgers, owner_c):
+    party = parties.create_party(company=company, name="Bill Keeper", mobile="9800000111", is_vendor=True)
+    keeps_bills, cash = party.payable_ledger, ledgers("cash")
+    assert keeps_bills.bill_wise and not cash.bill_wise
+    # opened from a Pay button: the row is against a bill, so the columns are there
+    html = html_of(owner_c.get(reverse("voucher_payment"), {"ledger": keeps_bills.pk, "amount": "500", "ref": "INV-1"}))
+    assert not bill_columns_hidden(html) and 'colspan="5" class="bill-span"' in html
+    html = html_of(owner_c.get(reverse("voucher_payment"), {"ledger": keeps_bills.pk, "amount": "500"}))
+    assert not bill_columns_hidden(html)
+    # a form that comes back keeps the columns when a row uses a ledger that keeps bills, and not otherwise
+    rows = {"row_ledger": [keeps_bills.pk], "row_amount": [""], "row_debit": [""], "row_credit": [""], "row_ref_type": ["on_account"],
+            "row_reference": [""], "row_due_date": [""], "row_narration": [""]}
+    html = html_of(owner_c.post(reverse("voucher_payment"), {"date": DAY.isoformat(), "account": "", "narration": "advance", **rows}))
+    assert not bill_columns_hidden(html) and folded(html, "narration", is_open=True) and 'value="advance"' in html
+    html = html_of(owner_c.post(reverse("voucher_payment"), {"date": DAY.isoformat(), "account": "", "narration": "",
+                                                             **rows, "row_ledger": [ledgers("sales_stock").pk]}))
+    assert bill_columns_hidden(html) and folded(html, "narration")
+
+
+def test_journal_and_contra_change_only_the_word_notes(company, ledgers, owner_c):
+    html = html_of(owner_c.get(reverse("voucher_journal")))
+    assert in_view(html, "date", "vendor_invoice_no", "row_ledger", "row_debit", "row_credit", "narration", *BILL_COLUMNS)
+    assert not folds(html) and not bill_columns_hidden(html) and "Journal voucher" in flashed(html)
+    assert '<label for="narration">Notes</label>' in html and "Post journal voucher" in html
+    html = html_of(owner_c.get(reverse("voucher_contra")))
+    assert in_view(html, "date", "row_ledger", "row_to_ledger", "row_amount", "narration") and not folds(html)
+    assert '<label for="narration">Notes</label>' in html and "Post contra voucher" in html and "Narration" not in flashed(html)
+
+
+def test_money_paid_posts_the_same_voucher_as_before(company, factory, ledgers, owner_c):
+    from ledger.models import Voucher
+
+    bank = ledgers("cash")
+    r = owner_c.post(reverse("voucher_payment"), {
+        "date": DAY.isoformat(), "account": bank.pk, "narration": "", "row_ledger": [ledgers("sales_stock").pk],
+        "row_amount": ["250"], "row_debit": [""], "row_credit": [""], "row_ref_type": ["on_account"], "row_reference": [""],
+        "row_due_date": [""], "row_narration": [""]})
+    v = Voucher.objects.get()
+    assert r.status_code == 302 and v.total == D("250.00") and v.narration == "" and v.status == "posted"

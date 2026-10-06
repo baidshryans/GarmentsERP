@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% load static %}
+{% load static forms_ui %}
 {% block title %}Packing list{% endblock %}
 {% block content %}
   <link rel="stylesheet" href="{% static 'css/sales.css' %}?v={{ asset_v }}">
@@ -10,11 +10,15 @@
     <div class="island"><div class="field-row">
       <div class="field"><label for="location">Pack from</label><select id="location" name="location">{% for l in locations %}<option value="{{ l.pk }}" {% if vals.location == l.pk|stringformat:"s" %}selected{% endif %}>{{ l.name }}</option>{% endfor %}</select></div>
       <div class="field"><label for="date">Date</label><input id="date" name="date" type="date" value="{{ vals.date|default:today }}"></div>
+    </div>
+    {% more_open vals "transporter lr_no lr_date vehicle_no remarks" as transport_open %}
+    {% more "transporter, LR / docket no., LR date, vehicle no., notes" open=transport_open title="Transport details" %}<div class="field-row">
       <div class="field"><label for="transporter">Transporter</label><select id="transporter" name="transporter"><option value="">—</option>{% for t in transporters %}<option value="{{ t.pk }}" {% if vals.transporter == t.pk|stringformat:"s" %}selected{% endif %}>{{ t.name }}</option>{% endfor %}</select></div>
-      <div class="field"><label for="lr_no">LR / docket no</label><input id="lr_no" name="lr_no" type="text" value="{{ vals.lr_no }}"></div>
+      <div class="field"><label for="lr_no">LR / docket no.</label><input id="lr_no" name="lr_no" type="text" value="{{ vals.lr_no }}"></div>
       <div class="field"><label for="lr_date">LR date</label><input id="lr_date" name="lr_date" type="date" value="{{ vals.lr_date }}"></div>
-      <div class="field"><label for="vehicle_no">Vehicle no</label><input id="vehicle_no" name="vehicle_no" type="text" value="{{ vals.vehicle_no }}"></div>
-    </div><div class="field"><label for="remarks">Remarks</label><input id="remarks" name="remarks" type="text" value="{{ vals.remarks }}"></div></div>
+      <div class="field"><label for="vehicle_no">Vehicle no.</label><input id="vehicle_no" name="vehicle_no" type="text" value="{{ vals.vehicle_no }}"></div>
+      <div class="field"><label for="remarks">Notes</label><input id="remarks" name="remarks" type="text" value="{{ vals.remarks }}"></div>
+    </div>{% endmore %}</div>
     <div class="island"><h2>Pieces in each carton</h2>
       <div class="table-scroll"><table>
         <thead><tr><th scope="col">Style</th><th scope="col">Colour</th><th scope="col">Size</th><th scope="col" class="num">Left to pack</th>{% for c in cartons %}<th scope="col" class="num">Carton {{ c }}</th>{% endfor %}</tr></thead>

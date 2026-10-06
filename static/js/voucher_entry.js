@@ -53,12 +53,23 @@
     }).catch(function () { /* the field still accepts typed references */ });
   }
 
+  function syncCols() {                           // Money paid / received: the bill columns take no space until a row needs them
+    if (journal) { return; }
+    var any = Array.prototype.some.call(body.querySelectorAll("tr"), function (row) {
+      if (billWise(row)) { return true; }
+      return Array.prototype.some.call(row.querySelectorAll("input.bill-cell"), function (c) { return c.value.trim() !== ""; });
+    });
+    table.querySelectorAll(".bill-col").forEach(function (c) { c.hidden = !any; });
+    table.querySelectorAll(".bill-span").forEach(function (c) { c.colSpan = any ? 5 : 2; });
+  }
+
   function syncRow(row) {                         // bill cells only matter for bill-wise ledgers
     var on = billWise(row);
     row.querySelectorAll(".bill-cell").forEach(function (c) {
       c.style.visibility = on ? "visible" : "hidden";
       c.tabIndex = on ? 0 : -1;
     });
+    syncCols();
     loadBills(row);
   }
 
@@ -87,7 +98,7 @@
     else { row.querySelectorAll("input[type=text],input[type=date]").forEach(function (i) { i.value = ""; }); row.querySelectorAll("select").forEach(function (x) { x.selectedIndex = 0; }); }
     totals();
   });
-  form.addEventListener("input", totals);
+  form.addEventListener("input", function () { totals(); syncCols(); });   // also after a line is removed
   document.getElementById("add-row").addEventListener("click", function () {
     var copy = body.querySelector("tr:last-child").cloneNode(true);
     copy._bills = {};

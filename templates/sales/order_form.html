@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% load static %}
+{% load static forms_ui %}
 {% block title %}Sale order{% endblock %}
 {% block content %}
   <link rel="stylesheet" href="{% static 'css/sales.css' %}?v={{ asset_v }}">
@@ -11,7 +11,9 @@
       <div class="field"><label for="date">Date</label><input id="date" name="date" type="date" value="{{ vals.date|default:today }}" required></div>
       <div class="field"><label for="due_date">Due by</label><input id="due_date" name="due_date" type="date" value="{{ vals.due_date }}"></div>
       <div class="field"><label for="order_type">Type</label><select id="order_type" name="order_type">{% for v, l in types %}<option value="{{ v }}" {% if vals.order_type == v %}selected{% endif %}>{{ l }}</option>{% endfor %}</select><div class="help">Made to order raises a production requirement without the customer's name.</div></div>
-    </div><div class="field"><label for="remarks">Remarks</label><input id="remarks" name="remarks" type="text" value="{{ vals.remarks }}"></div></div>
+    </div>
+    {% more_open vals "remarks" as notes_open %}
+    {% more "notes" open=notes_open %}<div class="field"><label for="remarks">Notes</label><input id="remarks" name="remarks" type="text" value="{{ vals.remarks }}"></div>{% endmore %}</div>
 
     <div class="island"><div class="field-row" style="align-items:end">
       <div class="field"><label for="add-style">Add a style</label>

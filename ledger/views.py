@@ -250,13 +250,14 @@ class VoucherDetail(LoginRequiredMixin, ScreenPermissionMixin, View):
 # ---------------- manual vouchers: payment, receipt, contra, journal (E9.2, E9.3) ----------------
 
 ENTRY_TITLES = {
-    "payment": ("Payment voucher", "Money going out of cash or bank. Choose where it was paid from, then who or what it was paid to."),
-    "receipt": ("Receipt voucher", "Money coming into cash or bank. Choose where it was received, then who or what it came from."),
+    "payment": ("Money paid", "Money going out of cash or bank. Choose where it was paid from, then who or what it was paid to."),
+    "receipt": ("Money received", "Money coming into cash or bank. Choose where it was received, then who or what it came from."),
     "contra": ("Contra voucher", "Money moved between your own cash and bank accounts, e.g. cash deposited in the bank."),
     "journal": ("Journal voucher", "Any other adjustment. Every row is a debit or a credit, and the two sides must be equal. "
                                    "Add GST or TDS ledgers as rows if the entry carries tax; nothing is added for you."),
 }
 ENTRY_ROWS = {"payment": 5, "receipt": 5, "journal": 6, "contra": 3}
+POST_LABELS = {"payment": "Post payment", "receipt": "Post receipt", "contra": "Post contra voucher", "journal": "Post journal voucher"}
 
 
 class VoucherEntry(LoginRequiredMixin, ScreenPermissionMixin, View):
@@ -265,13 +266,20 @@ class VoucherEntry(LoginRequiredMixin, ScreenPermissionMixin, View):
 
     def _context(self, request, vtype, rows=None, values=None):
         company = _company()
-        groups = {}
+        groups, keeps_bills = {}, set()
         for l in Ledger.objects.filter(company=company, is_active=True).exclude(system_key="opening_difference").select_related("group"):
             groups.setdefault(l.group.name, []).append(l)
+            if l.bill_wise:
+                keeps_bills.add(str(l.pk))
         title, intro = ENTRY_TITLES[vtype]
         values = values or {"date": timezone.localdate().isoformat()}
+        # Money paid / received: the Bill, Reference and Due columns take no space until a row needs them
+        # (a ledger that keeps bills, or something already entered in them). The journal always shows them.
+        show_bills = vtype == "journal" or any(
+            str(r.get("ledger") or "") in keeps_bills or r.get("reference") or r.get("due_date")
+            or (r.get("ref_type") or "on_account") != "on_account" for r in rows or [])
         return {
-            "vtype": vtype, "title": title, "intro": intro, "v": values,
+            "vtype": vtype, "title": title, "intro": intro, "v": values, "show_bills": show_bills, "post_label": POST_LABELS[vtype],
             "factory": request.factory,
             "ledger_groups": sorted(groups.items()), "cash_bank": cash_bank_ledgers(company).order_by("name"),
             "rows": rows or [{} for _ in range(ENTRY_ROWS[vtype])],

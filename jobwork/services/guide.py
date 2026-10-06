@@ -78,7 +78,7 @@ def bill_action(challan, pieces):
     """Accepted pieces of this challan that no labour bill has taken yet (the bill screen lists them by fabricator).
     `factory` and `challan` only let the bill screen say so when another factory is active; they choose nothing."""
     return {"kind": "bill", "label": f"Make labour bill for {challan.party.name}",
-            "hint": "QC accepted these pieces and no labour bill has them yet.",
+            "hint": "These pieces are checked and payable, and no labour bill has them yet.",
             "url": reverse("bill_new") + f"?party={challan.party_id}&factory={challan.factory_id}&challan={challan.pk}",
             "perm": (("jobwork.bill", "create"), ("jobwork.bill", "view")), "pieces": pieces}
 
@@ -86,15 +86,15 @@ def bill_action(challan, pieces):
 def post_bill_action(bill_id, pieces):
     """Accepted pieces sitting on a draft labour bill: nothing is owed until it is posted (posting needs `edit`)."""
     return {"kind": "post_bill", "label": "Post labour bill",
-            "hint": "These accepted pieces are on a draft labour bill. Check it, then post it.",
+            "hint": "These pieces are on a draft labour bill. Check it, then post it.",
             "url": reverse("bill_detail", args=[bill_id]),
             "perm": (("jobwork.bill", "edit"), ("jobwork.bill", "view")), "pieces": pieces}
 
 
 def unbilled_pieces(challan):
-    """Accepted pieces of the challan not yet on a labour bill: the same test `bills.unbilled_qc` applies."""
-    return QcResult.objects.filter(line__challan_bundle__challan=challan, bill_line__isnull=True, accepted__gt=0
-                                   ).aggregate(n=Sum("accepted"))["n"] or 0
+    """Payable pieces of the challan not yet on a labour bill: the same test `bills.unbilled_qc` applies."""
+    return QcResult.objects.filter(line__challan_bundle__challan=challan, bill_line__isnull=True, pay_qty__gt=0
+                                   ).aggregate(n=Sum("pay_qty"))["n"] or 0
 
 
 # ---------------------------------------------------------------- one challan
@@ -119,7 +119,7 @@ def _actions(challan, lines, receipts):
         pieces = sum(b.rework_qty or b.qty for b in back if b.pk not in drafted)
         if pieces:
             found.append(rework_action(challan.lot_id, challan.step_id, pieces))
-    if any(l.qty_accepted for l in lines):
+    if any(l.qty_accepted for l in lines) or (challan.pay_basis == "received" and any(l.qty_received for l in lines)):
         pieces = unbilled_pieces(challan)
         if pieces:
             found.append(bill_action(challan, pieces))
@@ -157,13 +157,15 @@ def _journey(challan, lines, receipts, finished):
         all_in, any_in = len(came) == len(lines), bool(came) or bool(receipts)
         checked = all_in and all(r.status == Receipt.Status.QC_DONE for r in receipts)
         accepted = sum(l.qty_accepted for l in lines)
-        billed = status in (S.BILLED, S.CLOSED) or (finished and accepted)   # every accepted piece is paid
+        # what the fabricator is paid for: the accepted pieces, or every piece that came back
+        payable = sum(l.qty_received for l in lines) if challan.pay_basis == "received" else accepted
+        billed = status in (S.BILLED, S.CLOSED) or (finished and payable)   # every payable piece is paid
         stages = [
             stage("Draft", "done"),
             stage("Issued", "done" if all_in else "now", sum(l.qty_issued for l in lines)),
             stage("Received", "done" if all_in else ("now" if any_in else "todo"), sum(l.qty_received for l in lines)),
             stage("Checked", "done" if checked else ("now" if any_in else "todo"), accepted, "accepted" if accepted else ""),
-            stage("Billed", "done" if billed else ("now" if accepted else "todo")),
+            stage("Billed", "done" if billed else ("now" if payable and checked else ("now" if accepted else "todo"))),
         ]
     # several stages can be in progress at once; the earliest is where the challan is
     first_now = next((s for s in stages if s["state"] == "now"), None)

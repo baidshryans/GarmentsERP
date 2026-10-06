@@ -2,7 +2,8 @@
 
 The supervisor counts bundles back from the fabricator. A fabricator marking a bundle "Done" is not a receipt (MOB-03).
 A count above what was issued needs approval (BR-03). Pieces not returned are a shortage recorded against the
-fabricator. QC then accepts, rejects or sends a bundle back for rework; only accepted pieces are ever paid.
+fabricator. QC then accepts, rejects or sends pieces back for rework. What is paid follows the challan's pay basis:
+the accepted pieces, or every piece received.
 """
 from dataclasses import dataclass
 from decimal import Decimal
@@ -16,7 +17,7 @@ from core.services.factories import godown_location, process_location
 from core.services.numbering import next_document_number
 from inventory.models import StockMovement
 from inventory.services import stock
-from jobwork.models import ChallanBundle, ChallanTrim, JobWorkChallan, QcResult, Receipt, ReceiptLine, ReceiptTrim
+from jobwork.models import ChallanBundle, ChallanTrim, JobWorkChallan, PayBasis, QcResult, Receipt, ReceiptLine, ReceiptTrim
 from ledger.services.posting import LineSpec, post_voucher
 from production.models import Bundle, LotCostEntry, LotStep
 from production.services import bundles as bundle_service
@@ -167,6 +168,15 @@ def _refresh_challan(challan):
     return challan
 
 
+def pay_qty_for(challan, challan_bundle, accepted, rejected, rework) -> int:
+    """Pieces a QC result pays for (JOB-07). On accepted pieces: the accepted ones. On pieces received: all of
+    them, as long as there is something to pay (a rework pass with no rework charge pays nothing)."""
+    if challan.pay_basis != PayBasis.RECEIVED:
+        return accepted
+    flat = challan.rate_type == "D" and challan.kind == JobWorkChallan.Kind.ISSUE
+    return accepted + rejected + rework if (flat or challan_bundle.rate > 0) else 0
+
+
 @transaction.atomic
 def record_qc(*, receipt_line, accepted, rejected=0, rework=0, user, reject_reason="", destination="rejects") -> QcResult:
     """QC of one received bundle. accepted + rejected + rework must equal the pieces received.
@@ -205,7 +215,8 @@ def record_qc(*, receipt_line, accepted, rejected=0, rework=0, user, reject_reas
     Bundle.objects.filter(pk=bundle.pk).update(rework_qty=rework)
     result = QcResult.objects.create(
         line=line, accepted=accepted, rejected=rejected, rework=rework, reject_reason=reject_reason.strip(),
-        destination=destination, rate=cb.rate, is_rework_pass=challan.kind == JobWorkChallan.Kind.REWORK, checked_by=user)
+        destination=destination, rate=cb.rate, is_rework_pass=challan.kind == JobWorkChallan.Kind.REWORK, checked_by=user,
+        pay_qty=pay_qty_for(challan, cb, accepted, rejected, rework))
     line.qc_done = True
     line.save(update_fields=["qc_done"])
     cb.qty_accepted += accepted

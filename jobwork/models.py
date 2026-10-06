@@ -10,6 +10,13 @@ ZERO = Decimal("0.00")
 QZERO = Decimal("0.000")
 
 
+class PayBasis(models.TextChoices):
+    """Which pieces a fabricator is paid for (JOB-07). Set on the labour rate and fixed on the challan."""
+
+    ACCEPTED = "accepted", "Pieces accepted at QC"
+    RECEIVED = "received", "Pieces received back"
+
+
 class LabourRate(models.Model):
     """What a fabricator is paid for a process (JOB-06). Dated, so a change applies only to later challans (BR-12).
 
@@ -28,6 +35,10 @@ class LabourRate(models.Model):
     base_rate = models.DecimalField("Rate per piece", max_digits=10, decimal_places=2, default=ZERO)
     flat_amount = models.DecimalField("Flat amount per lot", max_digits=12, decimal_places=2, default=ZERO)
     rework_rate = models.DecimalField("Rework rate per piece", max_digits=10, decimal_places=2, default=ZERO)
+    pay_basis = models.CharField(
+        "Pay on", max_length=8, choices=PayBasis.choices, default=PayBasis.ACCEPTED,
+        help_text="Accepted: only pieces that pass QC are paid. Received: every piece that comes back is paid, "
+                  "rejected or not, and rework is paid at the rework rate alone.")
     effective_from = models.DateField()
     is_active = models.BooleanField(default=True)
 
@@ -94,6 +105,8 @@ class JobWorkChallan(FactoryScopedModel):
     status = models.CharField(max_length=16, choices=Status.choices, default=Status.DRAFT)
     rate_type = models.CharField(max_length=1, choices=LabourRate.Type.choices, default="A")
     flat_amount = models.DecimalField(max_digits=12, decimal_places=2, default=ZERO)
+    pay_basis = models.CharField(max_length=8, choices=PayBasis.choices, default=PayBasis.ACCEPTED,
+                                 help_text="Fixed from the labour rate when the challan is made")
     remarks = models.CharField(max_length=255, blank=True)
     second_fabricator_ack = models.BooleanField(default=False, help_text="The user was warned another fabricator holds this lot (BR-05)")
     voucher = models.ForeignKey("ledger.Voucher", on_delete=models.PROTECT, null=True, blank=True, related_name="+")
@@ -207,7 +220,8 @@ class ReceiptTrim(models.Model):
 
 
 class QcResult(models.Model):
-    """Accepted, rejected and rework pieces of one received line (E8.3). Only accepted pieces are ever paid."""
+    """Accepted, rejected and rework pieces of one received line (E8.3). `pay_qty` is how many of them are paid,
+    by the challan's pay basis: the accepted pieces, or every piece received."""
 
     class Destination(models.TextChoices):
         REJECTS = "rejects", "Rejects stock"
@@ -219,7 +233,8 @@ class QcResult(models.Model):
     rework = models.PositiveIntegerField(default=0)
     reject_reason = models.CharField(max_length=255, blank=True)
     destination = models.CharField(max_length=8, choices=Destination.choices, default=Destination.REJECTS)
-    rate = models.DecimalField(max_digits=10, decimal_places=2, default=ZERO, help_text="Rate that applies to these accepted pieces")
+    rate = models.DecimalField(max_digits=10, decimal_places=2, default=ZERO, help_text="Rate that applies to the pieces paid")
+    pay_qty = models.PositiveIntegerField(default=0, help_text="Pieces to pay for, fixed at QC from the challan's pay basis")
     is_rework_pass = models.BooleanField(default=False)
     checked_by = models.ForeignKey("core.User", on_delete=models.PROTECT, null=True, related_name="+")
     checked_at = models.DateTimeField(auto_now_add=True)
@@ -234,7 +249,7 @@ class QcResult(models.Model):
 
 
 class JobWorkBill(FactoryScopedModel):
-    """The fabricator's labour statement, built only from QC-accepted pieces (E8.4, JOB-07, BR-17)."""
+    """The fabricator's labour statement, built from checked pieces that are payable and not yet paid (E8.4, JOB-07, BR-17)."""
 
     class Status(models.TextChoices):
         DRAFT = "draft", "Draft"
@@ -302,6 +317,27 @@ class JobWorkBillDeduction(models.Model):
         constraints = [models.CheckConstraint(condition=Q(amount__gt=0), name="deduction_positive")]
 
 
+class JobWorkDeductionWaiver(models.Model):
+    """A shortage or missing trims the owner chose to bear. It is never offered as a deduction again; the cost
+    stays in the lot."""
+
+    receipt_line = models.OneToOneField(ReceiptLine, on_delete=models.PROTECT, null=True, blank=True, related_name="waiver")
+    receipt_trim = models.OneToOneField(ReceiptTrim, on_delete=models.PROTECT, null=True, blank=True, related_name="waiver")
+    reason = models.CharField(max_length=255)
+    waived_by = models.ForeignKey("core.User", on_delete=models.PROTECT, related_name="+")
+    waived_at = models.DateTimeField(auto_now_add=True)
+
+    history = HistoricalRecords()
+
+    class Meta:
+        constraints = [
+            models.CheckConstraint(
+                condition=(Q(receipt_line__isnull=False) & Q(receipt_trim__isnull=True))
+                | (Q(receipt_line__isnull=True) & Q(receipt_trim__isnull=False)),
+                name="waiver_has_one_source"),
+        ]
+
+
 class DailySummary(FactoryScopedModel):
     """The owner's end-of-day picture of each fabricator for one factory and one day (E8.8). Built by the
     `daily_summary` command at the configured time and kept, so a past day can be read exactly as it was."""
@@ -328,7 +364,7 @@ class DailySummaryRow(models.Model):
     accepted_pcs = models.PositiveIntegerField(default=0)
     pending_pcs = models.PositiveIntegerField(default=0, help_text="Still with the fabricator at the end of the day")
     overdue_pcs = models.PositiveIntegerField(default=0, help_text="Pending on challans past their expected date")
-    earnings = models.DecimalField(max_digits=16, decimal_places=2, default=ZERO, help_text="Accepted pieces x rate, today")
+    earnings = models.DecimalField(max_digits=16, decimal_places=2, default=ZERO, help_text="What the pieces checked today pay")
 
     history = HistoricalRecords()
 

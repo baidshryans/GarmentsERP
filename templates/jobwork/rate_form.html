@@ -19,6 +19,9 @@
         <div class="field-row">{% for r in size_rows %}<div class="field"><label for="size_{{ r.size.pk }}">{{ r.size.code }}</label><input id="size_{{ r.size.pk }}" type="text" inputmode="decimal" name="size_{{ r.size.pk }}" value="{{ r.value }}"></div>{% endfor %}</div></div>
       <div class="field-row" {% show_when "rate_type" rate_type "D" "off" %}>
         <div class="field"><label for="flat_amount">Fixed amount per lot</label><input id="flat_amount" name="flat_amount" type="text" inputmode="decimal" value="{{ d.flat_amount }}"></div></div>
+      <div class="field-row">
+        <div class="field"><label for="pay_basis">Pay on</label><select id="pay_basis" name="pay_basis">{% for v, l in pay_bases %}<option value="{{ v }}" {% if pay_basis == v %}selected{% endif %}>{{ l }}</option>{% endfor %}</select>
+          <span class="muted">Accepted: only pieces that pass QC are paid. Received: every piece that comes back is paid, and rework earns the rework rate alone.</span></div></div>
       {% more_open d "rework_rate" as rework_open %}
       {% more "rework rate" open=rework_open %}<div class="field-row">
         <div class="field"><label for="rework_rate">Rework rate per piece</label><input id="rework_rate" name="rework_rate" type="text" inputmode="decimal" value="{{ d.rework_rate }}"></div></div>{% endmore %}

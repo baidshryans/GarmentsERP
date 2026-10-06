@@ -3,21 +3,24 @@
 {% block title %}New labour bill{% endblock %}
 {% block content %}
   <div class="page-head"><h1 class="page-title">New labour bill</h1></div>
-  <p class="muted" style="max-width:740px">A fabricator is paid only for pieces QC has accepted, and never twice. Shortages and missing trims are taken off. TDS is deducted only if you choose it.</p>
+  <p class="muted" style="max-width:740px">A fabricator is paid for checked pieces, by the terms of the labour rate: the pieces QC accepted, or every piece received back. No piece is paid twice. Shortages and missing trims are taken off unless you leave them unticked. TDS is deducted only if you choose it.</p>
   <form method="get" class="island"><div class="field-row">
     <div class="field"><label for="party">Fabricator</label><select id="party" name="party"><option value="">Choose…</option>{% for f in fabricators %}<option value="{{ f.pk }}" {% if party and party.pk == f.pk %}selected{% endif %}>{{ f.name }}</option>{% endfor %}</select></div>
     <div class="field"><label>Factory</label><div class="static-value">{{ factory.code }} — {{ factory.name }}</div></div>
     <div style="align-self:end"><button class="btn">Show what is payable</button></div></div></form>
   {% if party and factory %}
   <form method="post" novalidate>{% csrf_token %}<input type="hidden" name="party" value="{{ party.pk }}">
-    <div class="island"><h2>Accepted pieces to pay</h2>
+    <div class="island"><h2>Pieces to pay</h2>
       {% if rows %}<div class="table-wrap"><table>
-        <thead><tr><th scope="col"></th><th scope="col">Challan</th><th scope="col">Lot</th><th scope="col">Bundle</th><th scope="col" class="num">Accepted</th><th scope="col" class="num">Rate</th><th scope="col" class="num">Amount</th></tr></thead>
+        <thead><tr><th scope="col"></th><th scope="col">Challan</th><th scope="col">Lot</th><th scope="col">Bundle</th><th scope="col" class="num">Accepted</th><th scope="col" class="num">Pieces paid</th><th scope="col" class="num">Rate</th><th scope="col" class="num">Amount</th></tr></thead>
         <tbody>{% for r in rows %}<tr><td><input type="checkbox" name="qc_{{ r.r.pk }}" checked aria-label="Pay this"></td><td>{{ r.r.line.challan_bundle.challan.number }}</td><td>{{ r.r.line.challan_bundle.challan.lot.lot_no }}</td>
-          <td>{{ r.r.line.challan_bundle.bundle.bundle_no }}{% if r.r.is_rework_pass %} <span class="pill warning">Rework</span>{% endif %}</td><td class="num">{{ r.r.accepted }}</td><td class="num">{% if r.rate %}{{ r.rate }}{% else %}flat{% endif %}</td><td class="num">{{ r.amount }}</td></tr>{% endfor %}</tbody></table></div>
-      {% else %}<div class="empty"><div class="hand">Nothing to pay</div><p>No accepted pieces are waiting for this fabricator.</p></div>{% endif %}</div>
+          <td>{{ r.r.line.challan_bundle.bundle.bundle_no }}{% if r.r.is_rework_pass %} <span class="pill warning">Rework</span>{% endif %}</td><td class="num">{{ r.r.accepted }}</td><td class="num">{{ r.r.pay_qty }}{% if r.on_received %} <span class="pill">received</span>{% endif %}</td><td class="num">{% if r.rate %}{{ r.rate }}{% else %}flat{% endif %}</td><td class="num">{{ r.amount }}</td></tr>{% endfor %}</tbody></table></div>
+      {% else %}<div class="empty"><div class="hand">Nothing to pay</div><p>No checked pieces are waiting to be paid for this fabricator.</p></div>{% endif %}</div>
     {% if deductions %}<div class="island"><h2>Deductions</h2><div class="table-scroll"><table><tbody>
-      {% for d in deductions %}<tr><td><input type="checkbox" name="ded_{% if d.5 %}{{ d.5.pk }}{% else %}t{{ d.6.pk }}{% endif %}" checked aria-label="Deduct this"></td><td>{{ d.3 }}</td><td class="muted">{{ d.1.number }}</td><td class="num">- {{ d.4 }}</td></tr>{% endfor %}</tbody></table></div></div>{% endif %}
+      {% for x in deductions %}<tr><td><input type="checkbox" name="ded_{{ x.key }}" {% if x.ticked %}checked{% endif %} aria-label="Deduct this"></td><td>{{ x.d.3 }}</td><td class="muted">{{ x.d.1.number }}</td><td class="num">- {{ x.d.4 }}</td>
+        {% if can_waive %}<td><details><summary>We bear this…</summary><div class="field-row" style="margin-top:8px"><div class="field"><label for="reason_{{ x.key }}">Reason</label><input id="reason_{{ x.key }}" type="text" name="reason_{{ x.key }}"></div>
+          <div style="align-self:end"><button class="btn" name="waive" value="{{ x.key }}">Waive for good</button></div></div></details></td>{% endif %}</tr>{% endfor %}</tbody></table></div>
+      <p class="muted">A ticked line is taken off this bill. An unticked line stays pending for the next bill. Waiving removes it for good: the loss stays in the lot's cost.</p></div>{% endif %}
     {% if rows %}<div class="island"><div class="field-row">
       <div class="field"><label for="date">Bill date</label><input id="date" name="date" type="date" value="{{ vals.date|default:today }}"></div></div>
       {% more_open vals "tds_template notes" as more_is_open %}

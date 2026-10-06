@@ -10,6 +10,7 @@ from django.db import transaction
 
 from core.scoping import assert_factory_access
 from jobwork.models import ChallanBundle, DailySummary, DailySummaryRow, QcResult, ReceiptLine
+from jobwork.services import bills
 
 ZERO = Decimal("0.00")
 POSTED = ("issued", "partly_received", "fully_received", "billed", "closed")
@@ -39,7 +40,7 @@ def build_summary(factory, on_date: date, *, user=None) -> DailySummary:
             "line__receipt__challan__party"):
         r = row(qc.line.receipt.challan.party)
         r["accepted_pcs"] += qc.accepted
-        r["earnings"] += (qc.accepted * qc.rate).quantize(Decimal("0.01"))
+        r["earnings"] += bills.amount_for(qc)[0]
     for cb in ChallanBundle.objects.filter(challan__factory=factory, challan__status__in=OPEN).select_related("challan__party"):
         left = max(0, cb.qty_issued - cb.qty_received - cb.qty_shortage)
         if left:

@@ -157,7 +157,7 @@ def test_challan_receipt_qc_and_bill_through_the_screens(company, factory, owner
     acct.save()
     a = login(acct)
     page = a.get(reverse("bill_new"), {"party": fab.pk, "factory": factory.pk}).content.decode()
-    assert "Accepted pieces to pay" in page and "425.00" in page and "550.00" in page  # 17 x 25 and 22 x 25
+    assert "Pieces to pay" in page and "425.00" in page and "550.00" in page  # 17 x 25 and 22 x 25
     qcs = list(QcResult.objects.all())
     r = a.post(reverse("bill_new"), {"party": fab.pk, "factory": factory.pk, "date": "2026-06-30", "tds_template": "",
                                      **{f"qc_{x.pk}": "on" for x in qcs}})
@@ -348,3 +348,52 @@ def test_the_move_screen_takes_no_loss_at_a_no_loss_stage(company, factory, owne
     bad = c.post(reverse("move_bundles"), {"lot": ns.lot.pk, "bundle": [bundles[0].pk], "to_step": step(ns, "FINISH").pk,
                                            f"loss_{bundles[0].pk}": "1"})
     assert bad.status_code == 200 and b"allows no loss" in bad.content
+
+
+# ---------------- pay basis on the screens ----------------
+
+def test_pay_on_pieces_received_through_the_rate_bill_and_waive_screens(company, factory, owner):
+    from jobwork.models import JobWorkDeductionWaiver, LabourRate
+    from jobwork.services import challans, receipts
+    from jobwork.services.receipts import Counted
+
+    ns = build(company, factory, owner)
+    bundles = cut(ns)
+    fab = fabricator(company)
+    c = login(owner)
+    r = c.post(reverse("rate_new"), {"party": fab.pk, "process": step(ns, "STITCH").process.pk, "rate_type": "A",
+                                     "effective_from": "2026-05-01", "base_rate": "25", "rework_rate": "5", "pay_basis": "received"})
+    assert r.status_code == 302 and LabourRate.objects.get().pay_basis == "received"
+    assert b"Pieces received back" in c.get(reverse("rate_list")).content
+
+    ch = challans.create_and_issue(company=company, factory=factory, party=fab, lot=ns.lot, step=step(ns, "STITCH"),
+                                   bundles=bundles[:2], date=DAY, user=owner)
+    assert b"Paid on: pieces received back" in c.get(reverse("challan_detail", args=[ch.pk])).content
+    cb1, cb2 = list(ch.bundles.order_by("id"))
+    rec = receipts.create_receipt(challan=ch, user=owner, date=DAY, counts=[Counted(cb1, 17), Counted(cb2, 23)])   # 2 short
+    l1, l2 = list(rec.lines.order_by("id"))
+    receipts.record_qc(receipt_line=l1, accepted=17, user=owner)
+    receipts.record_qc(receipt_line=l2, accepted=20, rejected=3, reject_reason="Open seams", user=owner)
+
+    page = c.get(reverse("bill_new"), {"party": fab.pk}).content.decode()
+    assert "Pieces to pay" in page and "575.00" in page                      # 23 received x 25, rejected ones included
+    assert f'name="ded_{l2.pk}"  aria-label' in page and "We bear this" in page     # the shortage starts unticked
+
+    acct = make_user("acct")
+    acct.roles.add(Role.objects.get(name="Accountant"))
+    acct.allowed_factories.add(factory)
+    a = login(acct)
+    assert "We bear this" not in a.get(reverse("bill_new"), {"party": fab.pk}).content.decode()
+    assert a.post(reverse("bill_new"), {"party": fab.pk, "waive": str(l2.pk), f"reason_{l2.pk}": "x"}).status_code == 403
+    assert not JobWorkDeductionWaiver.objects.exists()
+
+    bad = c.post(reverse("bill_new"), {"party": fab.pk, "waive": str(l2.pk), f"reason_{l2.pk}": ""})
+    assert bad.status_code == 200 and b"Give a reason" in bad.content
+    ok = c.post(reverse("bill_new"), {"party": fab.pk, "waive": str(l2.pk), f"reason_{l2.pk}": "Ours to bear"}, follow=True)
+    assert b"Deduction waived" in ok.content and JobWorkDeductionWaiver.objects.get().receipt_line == l2
+    assert "Shortage of 2 pieces" not in ok.content.decode()
+
+    qcs = list(QcResult.objects.all())
+    c.post(reverse("bill_new"), {"party": fab.pk, "date": "2026-06-30", "tds_template": "", **{f"qc_{x.pk}": "on" for x in qcs}})
+    bill = JobWorkBill.objects.get()
+    assert bill.gross == D("1000.00") and bill.deductions == D("0.00")        # 40 received x 25, nothing taken off

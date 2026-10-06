@@ -22,7 +22,7 @@ from tax.models import TaxTemplate
 
 from . import selectors
 from .models import (
-    ChallanBundle, DailySummary, JobWorkBill, JobWorkChallan, LabourRate, QcResult, Receipt, ReceiptLine,
+    ChallanBundle, DailySummary, JobWorkBill, JobWorkChallan, LabourRate, PayBasis, QcResult, Receipt, ReceiptLine,
 )
 from .services import bills, challans, rates, receipts
 from .services import guide as guide_service
@@ -347,7 +347,8 @@ class RateNew(LoginRequiredMixin, ScreenPermissionMixin, View):
                 # what was typed comes back with the form: the add-on rows and each size's rate
                 "addons": (addons + [{}, {}, {}])[:max(3, len(addons))],
                 "size_rows": [{"size": s, "value": d.get(f"size_{s.pk}", "")} for s in sizes],
-                "types": RATE_TYPE_WORDS, "rate_type": d.get("rate_type") or LabourRate.Type.PER_PIECE, "d": d}
+                "types": RATE_TYPE_WORDS, "rate_type": d.get("rate_type") or LabourRate.Type.PER_PIECE, "d": d,
+                "pay_bases": PayBasis.choices, "pay_basis": d.get("pay_basis") or PayBasis.ACCEPTED}
 
     def get(self, request):
         return render(request, "jobwork/rate_form.html", self._ctx(request.GET))
@@ -362,7 +363,8 @@ class RateNew(LoginRequiredMixin, ScreenPermissionMixin, View):
                 process=vu.chosen(Process.objects.all(), p.get("process"), "process"),
                 rate_type=p.get("rate_type"), effective_from=vu.day(p.get("effective_from")),
                 base_rate=vu.dec(p.get("base_rate"), "Rate", Decimal("0")), flat_amount=vu.dec(p.get("flat_amount"), "Flat amount", Decimal("0")),
-                rework_rate=vu.dec(p.get("rework_rate"), "Rework rate", Decimal("0")), addons=addons, size_rates=size_rates)
+                rework_rate=vu.dec(p.get("rework_rate"), "Rework rate", Decimal("0")), addons=addons, size_rates=size_rates,
+                pay_basis=p.get("pay_basis") or PayBasis.ACCEPTED)
         except (ValueError, BusinessRuleError) as exc:
             vu.report(request, exc)
             return render(request, "jobwork/rate_form.html", self._ctx(p))
@@ -393,11 +395,28 @@ class BillNew(LoginRequiredMixin, ScreenPermissionMixin, View):
         if party and factory:
             rows = []
             for r in bills.unbilled_qc(party, factory):
-                amount, rate = bills._amount_for(r)
-                rows.append({"r": r, "amount": amount, "rate": rate})
+                amount, rate = bills.amount_for(r)
+                rows.append({"r": r, "amount": amount, "rate": rate,
+                             "on_received": r.line.challan_bundle.challan.pay_basis == PayBasis.RECEIVED})
             ctx["rows"] = rows
-            ctx["deductions"] = bills.pending_deductions(party, factory)
+            posted = hasattr(d, "getlist") and d.get("csrfmiddlewaretoken")       # a form that came back keeps its ticks
+            ctx["deductions"] = [
+                {"d": x, "key": bills.deduction_key(x),
+                 "ticked": f"ded_{bills.deduction_key(x)}" in d if posted else bills.takes_by_default(x)}
+                for x in bills.pending_deductions(party, factory)]
+            ctx["can_waive"] = request.user.has_screen_perm("jobwork.bill", "approve")
         return ctx
+
+    def _waive(self, request, party, factory):
+        """The owner bears one pending deduction for good, then the form is shown again."""
+        key = request.POST.get("waive", "")
+        found = next((x for x in bills.pending_deductions(party, factory) if bills.deduction_key(x) == key), None)
+        if found is None:
+            raise BusinessRuleError("That deduction is no longer pending.")
+        if not request.user.has_screen_perm("jobwork.bill", "approve"):
+            raise PermissionDenied
+        bills.waive_deduction(user=request.user, reason=request.POST.get(f"reason_{key}", ""),
+                              receipt_line=found[5], receipt_trim=found[6])
 
     def _other_factory(self, request):
         """Opened from a challan's Next button while another factory (or all of them) is active: the bill would be
@@ -424,10 +443,14 @@ class BillNew(LoginRequiredMixin, ScreenPermissionMixin, View):
         try:
             party = get_object_or_404(Party, pk=p.get("party"))
             factory = require_active_factory(request)
+            if p.get("waive"):
+                self._waive(request, party, factory)
+                messages.success(request, "Deduction waived: it will not be offered again.")
+                return redirect(f"{reverse('bill_new')}?party={party.pk}")
             picked = [get_object_or_404(QcResult, pk=k[3:]) for k in p if k.startswith("qc_")]
             all_pending = bills.pending_deductions(party, factory)
             wanted = {k[4:] for k in p if k.startswith("ded_")}
-            chosen = [d for d in all_pending if (str(d[5].pk) if d[5] else f"t{d[6].pk}") in wanted]
+            chosen = [d for d in all_pending if bills.deduction_key(d) in wanted]
             bill = bills.create_bill(
                 company=vu.company(), factory=factory, party=party, date=vu.day(p.get("date"), default=timezone.localdate()), user=request.user,
                 qc_results=picked, deductions=chosen,

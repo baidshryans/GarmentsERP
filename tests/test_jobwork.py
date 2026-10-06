@@ -386,7 +386,7 @@ def test_a_bill_pays_only_accepted_pieces_at_the_rate_on_the_challan(ns, company
 def test_accepted_pieces_can_never_be_paid_twice(ns, company, factory):
     accepted_challan(ns)
     first = bills.post_bill(bills.create_bill(company=company, factory=factory, party=ns.fab, date=DAY, user=ns.owner), user=ns.owner)
-    with pytest.raises(BusinessRuleError, match="no accepted pieces waiting"):
+    with pytest.raises(BusinessRuleError, match="no checked pieces waiting"):
         bills.create_bill(company=company, factory=factory, party=ns.fab, date=DAY, user=ns.owner)
     with pytest.raises(BusinessRuleError, match="not been paid before"):
         bills.create_bill(company=company, factory=factory, party=ns.fab, date=DAY, user=ns.owner,
@@ -398,7 +398,7 @@ def test_accepted_pieces_can_never_be_paid_twice(ns, company, factory):
 def test_nothing_is_billable_before_qc_accepts_it(ns, company, factory):
     ch = issue(ns, ns.fab, ns.bundles[:2])
     receive(ns, ch)  # received but not QC'd
-    with pytest.raises(BusinessRuleError, match="no accepted pieces"):
+    with pytest.raises(BusinessRuleError, match="no checked pieces"):
         bills.create_bill(company=company, factory=factory, party=ns.fab, date=DAY, user=ns.owner)
 
 
@@ -526,3 +526,168 @@ def test_fabricator_ledger_shortage_report_and_ageing(ns, company, factory, owne
     assert short[0]["party"] == ns.fab and short[0]["pieces"] == 2 and short[0]["trims"] == [("Zipper", D("2.000"))]
     ageing = selectors.ageing(owner, today=date(2026, 7, 20))  # the other challan has been out for 35 days
     assert ageing["buckets"]["31+"] == 33 and ageing["parties"][0]["party"] == ns.fab2
+
+
+# ---------------- pay basis: pieces received or pieces accepted (JOB-07) ----------------
+
+def on_received(ns, party=None, **kw):
+    """From May the fabricator is paid on every piece received back: 25 a piece, 5 for rework."""
+    details = dict(rate_type="A", base_rate=D("25"), rework_rate=D("5"))
+    details.update(kw)
+    return rates.save_rate(party=party or ns.fab, process=step(ns, "STITCH").process, effective_from=date(2026, 5, 1),
+                           pay_basis="received", **details)
+
+
+def test_the_pay_basis_comes_from_the_rate_and_is_fixed_on_the_challan(ns):
+    assert issue(ns, ns.fab, ns.bundles[:1]).pay_basis == "accepted"        # the April rate: the default
+    rate = on_received(ns, party=ns.fab2)
+    ch = issue(ns, ns.fab2, ns.bundles[1:2], confirm_second_fabricator=True)
+    assert ch.pay_basis == "received"
+    rate.pay_basis = "accepted"
+    rate.save()
+    assert JobWorkChallan.objects.get(pk=ch.pk).pay_basis == "received"     # a later change leaves the challan alone
+    with pytest.raises(BusinessRuleError, match="accepted or pieces received"):
+        rates.save_rate(party=ns.fab, process=step(ns, "STITCH").process, rate_type="A", base_rate=D("25"),
+                        effective_from=date(2026, 6, 1), pay_basis="done")
+
+
+def test_on_pieces_received_rejected_pieces_are_paid_too(ns, company, factory):
+    on_received(ns)
+    ch = issue(ns, ns.fab, ns.bundles[:3])
+    l1, l2, l3 = list(receive(ns, ch).lines.order_by("id"))
+    assert qc(ns, l1, accepted=17).pay_qty == 17
+    assert qc(ns, l2, accepted=22, rejected=3, reject_reason="Open seams").pay_qty == 25
+    assert qc(ns, l3, accepted=0, rejected=8, reject_reason="Wrong thread").pay_qty == 8    # nothing accepted, still stitched
+    bill = bills.create_bill(company=company, factory=factory, party=ns.fab, date=DAY, user=ns.owner)
+    assert bill.gross == D("1250.00") and bill.lines.get().qty == 50                        # (17 + 25 + 8) x 25
+    bill = bills.post_bill(bill, user=ns.owner)
+    assert costing.cost_breakdown(ns.lot)["jobwork"] == D("1250.00")       # the owner bears the rejects: it is lot cost
+    assert JobWorkChallan.objects.get(pk=ch.pk).status == "billed"
+    with pytest.raises(BusinessRuleError, match="no checked pieces waiting"):
+        bills.create_bill(company=company, factory=factory, party=ns.fab, date=DAY, user=ns.owner)
+    assert not costing.check_wip_reconciles(company)
+
+
+def test_on_pieces_received_rework_earns_the_rework_charge_alone(ns, company, factory):
+    on_received(ns)
+    ch = issue(ns, ns.fab, ns.bundles[2:3])                                 # B003, 8 pieces
+    first = qc(ns, receive(ns, ch).lines.get(), accepted=0, rework=8)
+    assert first.pay_qty == 8                                               # stitched once: paid once, at 25
+    b = Bundle.objects.get(pk=ns.bundles[2].pk)
+    rw = challans.issue_challan(challans.create_challan(
+        company=ns.company, factory=ns.factory, party=ns.fab, lot=ns.lot, step=step(ns, "STITCH"), bundles=[b], date=DAY,
+        user=ns.owner, kind="rework"), user=ns.owner)
+    assert rw.pay_basis == "received" and rw.bundles.get().rate == D("5.00")       # not 25 + 5: the 25 is already earned
+    second = qc(ns, receive(ns, rw).lines.get(), accepted=8)
+    assert second.pay_qty == 8
+    bill = bills.create_bill(company=company, factory=factory, party=ns.fab, date=DAY, user=ns.owner)
+    assert bill.gross == D("240.00")                                        # 8 x 25 + 8 x 5
+
+
+def test_on_pieces_received_rework_with_no_rework_charge_pays_nothing_more(ns, company, factory):
+    on_received(ns, rework_rate=D("0"))
+    ch = issue(ns, ns.fab, ns.bundles[2:3])
+    qc(ns, receive(ns, ch).lines.get(), accepted=0, rework=8)
+    rw = challans.issue_challan(challans.create_challan(
+        company=ns.company, factory=ns.factory, party=ns.fab, lot=ns.lot, step=step(ns, "STITCH"),
+        bundles=[Bundle.objects.get(pk=ns.bundles[2].pk)], date=DAY, user=ns.owner, kind="rework"), user=ns.owner)
+    assert qc(ns, receive(ns, rw).lines.get(), accepted=8).pay_qty == 0
+    bill = bills.post_bill(bills.create_bill(company=company, factory=factory, party=ns.fab, date=DAY, user=ns.owner), user=ns.owner)
+    assert bill.gross == D("200.00")
+    assert JobWorkChallan.objects.get(pk=rw.pk).status == "fully_received"  # nothing to bill on it
+
+
+def test_a_rework_challan_follows_the_terms_the_bundle_first_went_out_on(ns):
+    ch = issue(ns, ns.fab, ns.bundles[2:3])                                 # April rate: paid on accepted pieces
+    qc(ns, receive(ns, ch).lines.get(), accepted=0, rework=8)
+    on_received(ns)                                                         # the terms change afterwards
+    rw = challans.create_challan(company=ns.company, factory=ns.factory, party=ns.fab, lot=ns.lot, step=step(ns, "STITCH"),
+                                 bundles=[Bundle.objects.get(pk=ns.bundles[2].pk)], date=DAY, user=ns.owner, kind="rework")
+    assert rw.pay_basis == "accepted" and rw.bundles.get().rate == D("30.00")      # the first pass paid nothing
+
+
+def test_a_flat_rate_on_pieces_received_is_paid_pro_rata_on_what_came_back(ns, company, factory):
+    on_received(ns, party=ns.fab2, rate_type="D", base_rate=D("0"), flat_amount=D("1000"), rework_rate=D("0"))
+    ch = issue(ns, ns.fab2, ns.bundles[:2])                                 # 42 pieces for a flat 1,000
+    cb1, cb2 = list(ch.bundles.order_by("id"))
+    l1, l2 = list(receive(ns, ch, {cb1: 17, cb2: 23}).lines.order_by("id"))        # two short
+    qc(ns, l1, accepted=17)
+    qc(ns, l2, accepted=18, rejected=5, reject_reason="Stains")
+    bill = bills.create_bill(company=company, factory=factory, party=ns.fab2, date=DAY, user=ns.owner)
+    assert bill.gross == costing.r2(D("1000") * 17 / 42) + costing.r2(D("1000") * 23 / 42)
+    assert bill.deductions == D("0.00")                                     # the shortage is not taken off by default
+
+
+def short_receipt(ns):
+    ch = issue(ns, ns.fab, ns.bundles[:2])                                  # S17 + M25
+    cb1, cb2 = list(ch.bundles.order_by("id"))
+    trims = ch.trims.get()
+    r = receive(ns, ch, {cb1: 17, cb2: 23}, trims={trims: (D("0"), D("3"))})       # two pieces and three zippers missing
+    for line in r.lines.order_by("id"):
+        qc(ns, line, accepted=line.qty_received)
+    return ch, r
+
+
+def test_on_pieces_received_a_shortage_is_not_deducted_unless_asked_for(ns, company, factory):
+    on_received(ns)
+    short_receipt(ns)
+    pending = bills.pending_deductions(ns.fab, factory)
+    assert [d[0] for d in pending] == ["shortage", "missing_trims"]
+    assert [bills.takes_by_default(d) for d in pending] == [False, True]    # lost pieces are ours; lost trims are not
+    bill = bills.create_bill(company=company, factory=factory, party=ns.fab, date=DAY, user=ns.owner)
+    assert bill.gross == D("1000.00") and bill.deductions == D("6.00")      # 40 received x 25, less 3 zippers at 2
+    assert [d[0] for d in bills.pending_deductions(ns.fab, factory)] == ["shortage"]       # still there to be decided
+    bills.cancel_bill(bill, user=ns.owner, reason="Redo")
+    asked = bills.create_bill(company=company, factory=factory, party=ns.fab, date=DAY, user=ns.owner, deductions=pending)
+    assert asked.deductions == pending[0][4] + D("6.00")                    # ticked by hand, it is taken
+
+
+def test_on_accepted_pieces_a_shortage_is_still_deducted_by_default(ns, factory):
+    short_receipt(ns)
+    assert all(bills.takes_by_default(d) for d in bills.pending_deductions(ns.fab, factory))
+
+
+def test_the_owner_can_waive_a_deduction_for_good(ns, company, factory, accountant):
+    from jobwork.models import JobWorkDeductionWaiver
+
+    on_received(ns)
+    ch, r = short_receipt(ns)
+    line = r.lines.get(shortage_qty__gt=0)
+    trim = r.trims.get()
+    cost = costing.lot_cost(ns.lot, factory)
+    with pytest.raises(BusinessRuleError, match="Only the owner"):
+        bills.waive_deduction(user=accountant, reason="Agreed", receipt_line=line)
+    with pytest.raises(BusinessRuleError, match="reason"):
+        bills.waive_deduction(user=ns.owner, reason=" ", receipt_line=line)
+    with pytest.raises(BusinessRuleError, match="one shortage or one line"):
+        bills.waive_deduction(user=ns.owner, reason="x", receipt_line=line, receipt_trim=trim)
+    w = bills.waive_deduction(user=ns.owner, reason="Lost in transit, ours to bear", receipt_line=line)
+    assert w.waived_by == ns.owner and JobWorkDeductionWaiver.objects.count() == 1
+    assert [d[0] for d in bills.pending_deductions(ns.fab, factory)] == ["missing_trims"]
+    assert costing.lot_cost(ns.lot, factory) == cost                        # nothing is posted: the loss stays in the lot
+    with pytest.raises(BusinessRuleError, match="already been waived"):
+        bills.waive_deduction(user=ns.owner, reason="Again", receipt_line=line)
+    bills.create_bill(company=company, factory=factory, party=ns.fab, date=DAY, user=ns.owner)      # takes the trims
+    with pytest.raises(BusinessRuleError, match="already on a labour bill"):
+        bills.waive_deduction(user=ns.owner, reason="Too late", receipt_trim=trim)
+
+
+def test_a_waiver_needs_exactly_one_source_in_the_database_too(ns):
+    from django.db import IntegrityError, transaction
+
+    from jobwork.models import JobWorkDeductionWaiver
+
+    with pytest.raises(IntegrityError), transaction.atomic():
+        JobWorkDeductionWaiver.objects.create(reason="x", waived_by=ns.owner)
+
+
+def test_waiving_is_scoped_to_the_users_factories(ns, company, factory2):
+    from core.models import Role
+
+    on_received(ns)
+    ch, r = short_receipt(ns)
+    other = make_user("owner2")
+    other.roles.add(Role.objects.get(name="Owner"))
+    other.allowed_factories.add(factory2)
+    with pytest.raises(FactoryNotAllowed):
+        bills.waive_deduction(user=other, reason="Not mine", receipt_line=r.lines.get(shortage_qty__gt=0))

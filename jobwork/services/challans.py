@@ -16,7 +16,7 @@ from core.services.factories import fabricator_location, godown_location
 from core.services.numbering import next_document_number
 from inventory.models import StockMovement
 from inventory.services import stock
-from jobwork.models import ChallanBundle, ChallanTrim, JobWorkChallan
+from jobwork.models import ChallanBundle, ChallanTrim, JobWorkChallan, PayBasis
 from jobwork.services import rates
 from ledger.services.posting import LineSpec, post_voucher
 from masters.services import boms
@@ -50,6 +50,12 @@ def _trim_needs(lot, bundles):
             if material.kind == "trim":
                 needs[material] = needs.get(material, Decimal("0")) + qty * (1 + wastage / 100) * b.qty
     return {m: q.quantize(Decimal("0.001")) for m, q in needs.items()}
+
+
+def first_pass_line(bundle, step):
+    """The line a bundle first went out on for this step. A rework challan builds on its rate and pay basis."""
+    return (ChallanBundle.objects.filter(bundle=bundle, challan__kind="issue", challan__step=step)
+            .select_related("challan").order_by("-id").first())
 
 
 @transaction.atomic
@@ -86,6 +92,7 @@ def create_challan(*, company, factory, party, lot, step, bundles, date, user, e
 
     rate = rates.resolve(party, step, date)
     lines = []
+    bases = set() if kind == JobWorkChallan.Kind.REWORK else {rate.pay_basis}
     for b in bundles:
         if kind == JobWorkChallan.Kind.REWORK:
             if b.status != Bundle.Status.REWORK or not b.rework_qty:
@@ -96,8 +103,11 @@ def create_challan(*, company, factory, party, lot, step, bundles, date, user, e
                 raise BusinessRuleError(
                     f"Bundle {b.bundle_no} is waiting for rework at {where}, not {step.process.name}. "
                     f"Make the rework challan for {where}.")
-            base = (ChallanBundle.objects.filter(bundle=b, challan__kind="issue").order_by("-id").first())
-            price = (base.rate if base else ZERO) + rate.rework
+            base = first_pass_line(b, step)
+            basis = base.challan.pay_basis if base else rate.pay_basis
+            bases.add(basis)
+            # paid on pieces received, the first pass already paid for these pieces: rework earns the rework charge alone
+            price = rate.rework if basis == PayBasis.RECEIVED else (base.rate if base else ZERO) + rate.rework
             qty = b.qty
         else:
             bundle_service.check_entry(b, step, "")
@@ -107,8 +117,10 @@ def create_challan(*, company, factory, party, lot, step, bundles, date, user, e
     if kind == JobWorkChallan.Kind.ISSUE and rate.rate_type != "D" and all(p <= 0 for _, _, p in lines):
         raise BusinessRuleError(f"There is no labour rate for {party.name} on {step.process.name}. Add one under Labour rates, or set a rate on the step.")
 
+    if len(bases) > 1:
+        raise BusinessRuleError("These bundles first went out on different pay terms. Make a separate rework challan for each.")
     challan = JobWorkChallan.objects.create(
-        company=company, factory=factory, party=party, lot=lot, step=step, kind=kind, date=date,
+        company=company, factory=factory, party=party, lot=lot, step=step, kind=kind, date=date, pay_basis=bases.pop(),
         expected_date=expected_date, rate_type=rate.rate_type, flat_amount=rate.flat if kind == "issue" else ZERO,
         remarks=remarks, second_fabricator_ack=bool(others.exists()), created_by=user)
     for b, qty, price in lines:

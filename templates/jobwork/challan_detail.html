@@ -11,7 +11,8 @@
     <div><div class="label muted">Step</div>{{ ch.step.process.name }}</div><div><div class="label muted">Date</div>{{ ch.date|date:"d M Y" }}</div>
     <div><div class="label muted">Expected back</div>{{ ch.expected_date|date:"d M Y"|default:"—" }}</div><div><div class="label muted">Pieces</div><strong>{{ total_pieces }}</strong></div></div>
     {% if ch.second_fabricator_ack %}<p class="pill warning">This lot was already open with another fabricator.</p>{% endif %}
-    {% if ch.rate_type == "D" %}<p class="muted">Flat rate per lot: {{ ch.flat_amount }}</p>{% endif %}</div>
+    {% if ch.rate_type == "D" %}<p class="muted">Flat rate per lot: {{ ch.flat_amount }}</p>{% endif %}
+    <p class="muted">Paid on: {{ ch.get_pay_basis_display|lower }}</p></div>
   <div class="island"><div class="table-scroll"><table>
     <thead><tr><th scope="col">Bundle</th><th scope="col">Size</th><th scope="col" class="num">Issued</th><th scope="col" class="num">Rate</th><th scope="col" class="num">Received</th><th scope="col" class="num">Short</th><th scope="col" class="num">Accepted</th><th scope="col" class="num">Rejected</th></tr></thead>
     <tbody>{% for l in lines %}<tr><td>{{ l.bundle.bundle_no }}</td><td>{{ l.bundle.sku.size.code }}</td><td class="num">{{ l.qty_issued }}</td><td class="num">{{ l.rate }}</td><td class="num">{{ l.qty_received }}</td><td class="num">{{ l.qty_shortage }}</td><td class="num">{{ l.qty_accepted }}</td><td class="num">{{ l.qty_rejected }}</td></tr>{% endfor %}</tbody></table></div></div>

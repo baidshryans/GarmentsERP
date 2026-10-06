@@ -309,3 +309,42 @@ def test_the_dashboard_lists_orders_waiting_for_release_and_releases_them_there(
     assert r.status_code == 302 and order.status == "released" and order.lines.get().lot
     assert "SO-77" not in c.get(reverse("production_dashboard")).content.decode()
     assert "Nothing is waiting for release" in c.get(reverse("production_dashboard")).content.decode()
+
+
+# ---------------- pieces expected from fabric, loss in cutting, no-loss stages ----------------
+
+def test_fabric_and_cutting_screens_show_expected_pieces_and_take_cutting_loss(company, factory, owner):
+    ns = build(company, factory, owner)
+    c = login(user_with("cutter", "Cutting Master", factory))
+    c.post(reverse("lot_fabric", args=[ns.lot.pk]), {f"qty_{ns.roll_a.pk}": "30"})
+    page = c.get(reverse("lot_fabric", args=[ns.lot.pk])).content.decode()
+    assert "Should give about" in page and ">75<" in page and "25 pieces short of the plan" in page    # 30 kg at 0.4 kg
+    c.post(reverse("lot_cutting", args=[ns.lot.pk]), {
+        f"pieces_{ns.sizes['M'].pk}": "70", f"used_{ns.roll_a.pk}": "28", f"remnant_{ns.roll_a.pk}": "2"})
+    entry = ns.lot.cuttings.get()
+    assert "should give about 70 pieces" in c.get(reverse("lot_cutting", args=[ns.lot.pk])).content.decode()
+    bad = c.post(reverse("lot_cutting", args=[ns.lot.pk]), {
+        "action": "bundles", "entry": entry.pk, "bundle_size": "25", f"loss_{ns.sizes['M'].pk}": "71"})
+    assert bad.status_code == 200 and b"cannot be more than" in bad.content and not ns.lot.bundles.exists()
+    r = c.post(reverse("lot_cutting", args=[ns.lot.pk]), {
+        "action": "bundles", "entry": entry.pk, "bundle_size": "25", f"loss_{ns.sizes['M'].pk}": "3"}, follow=True)
+    assert b"3 pieces lost in cutting left out" in r.content
+    assert sum(b.qty for b in ns.lot.bundles.all()) == 67
+    page = login(owner).get(reverse("lot_detail", args=[ns.lot.pk])).content.decode()
+    assert "Expected from fabric" in page and "Lost in cutting" in page
+
+
+def test_the_move_screen_takes_no_loss_at_a_no_loss_stage(company, factory, owner):
+    ns = build(company, factory, owner)
+    routes.reassign_step(step(ns, "STITCH"), user=owner, reason="in-house", assignment="in_house", rate=D("10"))
+    for code in ("EMB", "PRINT", "WASH"):
+        routes.skip_step(step(ns, code), user=owner, reason="n/a")
+    bundles = cut(ns)
+    c = login(user_with("sup", "Production Supervisor", factory))
+    for code in ("STITCH", "IRON"):
+        c.post(reverse("move_bundles"), {"lot": ns.lot.pk, "bundle": [b.pk for b in bundles], "to_step": step(ns, code).pk})
+    page = c.get(reverse("move_bundles"), {"lot": ns.lot.pk}).content.decode()
+    assert "No loss allowed at this stage" in page and f"loss_{bundles[0].pk}" not in page
+    bad = c.post(reverse("move_bundles"), {"lot": ns.lot.pk, "bundle": [bundles[0].pk], "to_step": step(ns, "FINISH").pk,
+                                           f"loss_{bundles[0].pk}": "1"})
+    assert bad.status_code == 200 and b"allows no loss" in bad.content

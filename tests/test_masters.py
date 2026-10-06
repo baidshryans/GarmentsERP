@@ -45,6 +45,22 @@ def test_wizard_seeds_default_masters_and_hsn(company):
     assert HSN.objects.filter(code="6103").exists()
 
 
+def test_wizard_seeds_the_print_first_route_and_seeding_again_changes_nothing(company):
+    from masters.seeding import seed_masters
+
+    def codes():
+        return list(RouteStep.objects.filter(template__name="Print first, stitch outside route").order_by("sequence")
+                    .values_list("process__code", "assignment", "is_mandatory"))
+
+    expected = [("CUT", "in_house", True), ("PRINTEMB", "in_house", True), ("STITCH", "subcontract", True),
+                ("IRON", "in_house", True), ("PACK", "in_house", True)]
+    assert codes() == expected
+    assert Process.objects.get(code="PRINTEMB").kind == "value_add"
+    assert Process.objects.get(code="IRON").no_loss and not Process.objects.get(code="STITCH").no_loss
+    seed_masters(company)
+    assert codes() == expected and RouteStep.objects.filter(template__name="Standard track pant route").count() == 9
+
+
 def test_hsn_slabs_pick_rate_by_value_and_date(company):
     hsn = HSN.objects.get(code="6103")
     assert gst_rate_for(hsn, D("800"), date(2026, 6, 1)) == D("5.00")

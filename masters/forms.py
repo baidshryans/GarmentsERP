@@ -138,6 +138,6 @@ ProductForm = simple_form(Product, ["code", "name", "is_active"])
 MaterialForm = simple_form(Material, ["code", "name", "kind", "unit", "composition", "gsm", "width_cm", "is_active"],
                            labels={"gsm": "GSM", "width_cm": "Width (cm)"},
                            more=("composition", "gsm", "width_cm", "is_active"), more_label="composition, GSM, width")
-ProcessForm = simple_form(Process, ["code", "name", "kind", "is_active"])
+ProcessForm = simple_form(Process, ["code", "name", "kind", "no_loss", "is_active"])
 PriceListForm = simple_form(PriceList, ["name", "kind", "is_active"])
 HsnForm = simple_form(HSN, ["code", "description", "is_active"])

@@ -90,15 +90,20 @@ def refresh_steps(lot):
     orders.refresh_status(lot.order)
 
 
-def cutting_done_seq(lot) -> int:
-    """Highest sequence of the cutting steps at the head of the route: bundles exist only once cutting is done."""
-    seq = 0
-    for step in lot.steps.order_by("sequence"):
-        if step.process.kind == "cutting":
-            seq = step.sequence
-        else:
+def cutting_steps(lot) -> list:
+    """The cutting steps at the head of the route: bundles exist only once these are done."""
+    out = []
+    for step in lot.steps.select_related("process").order_by("sequence"):
+        if step.process.kind != "cutting":
             break
-    return seq
+        out.append(step)
+    return out
+
+
+def cutting_done_seq(lot) -> int:
+    """Highest sequence of the cutting steps at the head of the route."""
+    steps = cutting_steps(lot)
+    return steps[-1].sequence if steps else 0
 
 
 def apply_move(*, bundle, kind, to_location, user, date, new_status, to_step=None, completed_seq=None, loss=0,
@@ -167,8 +172,8 @@ def apply_move(*, bundle, kind, to_location, user, date, new_status, to_step=Non
         bundle.current_step = to_step
     if completed_seq is not None:
         bundle.completed_seq = completed_seq
-    if is_rework:
-        bundle.is_rework = True
+    if to_step is not None:
+        bundle.is_rework = is_rework          # rework lasts for the stage gone back to; moving on clears it
     if bundle.rework_qty > bundle.qty:
         bundle.rework_qty = bundle.qty
     bundle.save()
@@ -225,7 +230,7 @@ def move_bundles(*, bundles, to_step, user, date=None, factory=None, location=No
     job work challan instead."""
     date = date or timezone.localdate()
     bundles = [Bundle.objects.select_related("lot", "lot__factory", "lot__company", "location", "location__factory",
-                                             "current_step", "sku").get(pk=b.pk) for b in bundles]
+                                             "current_step", "current_step__process", "sku").get(pk=b.pk) for b in bundles]
     if not bundles:
         raise BusinessRuleError("Scan or choose at least one bundle.")
     _check_same_lot(bundles)
@@ -249,6 +254,9 @@ def move_bundles(*, bundles, to_step, user, date=None, factory=None, location=No
         assert_factory_access(user, b.location.factory)
         in_step, done, backwards = check_entry(b, to_step, reason)
         c = counts.get(b.pk) or Count()
+        if in_step is not None and in_step.process.no_loss and (c.loss or c.rejection or c.shortage):
+            raise BusinessRuleError(
+                f"{in_step.process.name} allows no loss: bundle {b.bundle_no} must leave with the {b.qty} pieces it came in with.")
         plan.append((b, in_step, done, backwards, c))
 
     # in-house labour for the stage each bundle is leaving (on the pieces that pass)

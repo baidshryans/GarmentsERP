@@ -4,6 +4,11 @@
   <div class="page-head"><h1 class="page-title">Issue fabric to cutting</h1><span class="muted">{{ lot.lot_no }} · {{ lot.style.style_no }} {{ lot.colour }}</span>
     <div class="actions">{% if perms_lot %}<a class="btn" href="{% url 'lot_detail' lot.pk %}">Back to lot</a>{% endif %}</div></div>
   <p class="muted" style="max-width:740px">Choose the rolls and how much of each goes to the cutting floor. You cannot issue more than a roll holds, and you are warned if rolls of different shade lots end up in one lot.</p>
+  {% if expected_pieces is not None %}<div class="island"><div class="field-row">
+      <div><div class="label muted">Planned pieces</div><span class="stat">{{ planned }}</span></div>
+      <div><div class="label muted">Fabric with the lot</div><span class="stat">{{ with_lot|floatformat:"-3" }}</span></div>
+      <div><div class="label muted">Should give about</div><span class="stat">{{ expected_pieces }}</span> <span class="muted">pieces</span></div></div>
+      <p class="muted">By the BOM, 100 of fabric gives about {{ per_unit }} pieces in the planned sizes.{% if short_by %} <span class="pill warning">{{ short_by }} pieces short of the plan</span>{% endif %}</p></div>{% endif %}
   {% if can_create %}
   <form method="post" class="island" novalidate>{% csrf_token %}
     <div class="field" style="max-width:220px"><label for="date">Date</label><input id="date" name="date" type="date" value="{{ vals.date|default:today }}"></div>
@@ -14,5 +19,5 @@
     </table></div><div class="form-actions"><button class="btn primary">Issue to cutting floor</button></div>
     {% else %}<div class="empty"><div class="hand">No fabric rolls in the store</div></div>{% endif %}
   </form>{% endif %}
-  {% if issues %}<div class="island"><h2>Issued so far</h2>{% for i in issues %}<p>{{ i.date|date:"d M Y" }}: {% for l in i.lines.all %}{{ l.roll.label_code }} {{ l.qty|floatformat:"-3" }}{% if not forloop.last %}, {% endif %}{% endfor %}{% if i.mixed_shades %} <span class="pill warning">Mixed shade lots</span>{% endif %}</p>{% endfor %}</div>{% endif %}
+  {% if issues %}<div class="island"><h2>Issued so far</h2>{% for i in issues %}<p>{{ i.date|date:"d M Y" }}: {% for l in i.lines.all %}{{ l.roll.label_code }} {{ l.qty|floatformat:"-3" }}{% if not forloop.last %}, {% endif %}{% endfor %}{% if i.expected_pieces is not None %} <span class="muted">≈ {{ i.expected_pieces }} pieces</span>{% endif %}{% if i.mixed_shades %} <span class="pill warning">Mixed shade lots</span>{% endif %}</p>{% endfor %}</div>{% endif %}
 {% endblock %}

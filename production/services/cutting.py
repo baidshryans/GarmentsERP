@@ -21,7 +21,7 @@ from ledger.services.posting import LineSpec, post_voucher
 from masters.models import SKU
 from masters.services import boms
 from production.models import (
-    Bundle, CuttingEntry, CuttingRollUse, CuttingSize, FabricIssue, FabricIssueLine, Lot, LotCostEntry,
+    Bundle, CuttingEntry, CuttingRollUse, CuttingSize, FabricIssue, FabricIssueLine, Lot, LotCostEntry, LotStep,
 )
 from production.services import bundles as bundles_module
 from production.services import costing
@@ -65,6 +65,8 @@ def issue_fabric(*, lot, lines, user, date, from_location=None) -> FabricIssue:
             factory=factory, location=cutting, item=roll.material, qty=qty, roll=roll, value=-out.value,
             movement_type=T.TRANSFER_IN, date=date, user=user, source=issue, lot=lot, notes=f"Issued to lot {lot.lot_no}")
         FabricIssueLine.objects.create(issue=issue, roll=roll, qty=qty, value=-out.value)
+    issue.expected_pieces = expected_pieces(lot, sum((qty for _, qty in lines), Decimal("0")))
+    issue.save(update_fields=["expected_pieces"])
     shades = {l.roll.lot_no for i in lot.fabric_issues.all() for l in i.lines.select_related("roll") if l.roll.lot_no}
     if len(shades) > 1:
         issue.mixed_shades = True
@@ -88,6 +90,38 @@ def expected_fabric(lot, pieces) -> Decimal:
     return total.quantize(THREE)
 
 
+def planned_mix(lot) -> dict:
+    """The pieces planned per size on the lot's order line: {Size: pieces}."""
+    return {s.size: s.qty for s in lot.order_line.sizes.select_related("size")}
+
+
+def expected_pieces(lot, fabric, mix=None):
+    """Whole pieces the BOM says `fabric` should give, cut in the size mix given ({Size: pieces}; the planned mix
+    when left out). None when the BOM has no fabric to go by."""
+    mix = {s: n for s, n in (mix or planned_mix(lot)).items() if n}
+    total = sum(mix.values())
+    need = expected_fabric(lot, mix) if total else Decimal("0")
+    if need <= 0:
+        return None
+    return int(Decimal(fabric) * total / need)
+
+
+def fabric_with_lot(lot) -> Decimal:
+    """Fabric issued to the lot so far, less remnants sent back to the store."""
+    issued = FabricIssueLine.objects.filter(issue__lot=lot).aggregate(s=Sum("qty"))["s"] or Decimal("0")
+    back = CuttingRollUse.objects.filter(entry__lot=lot).aggregate(s=Sum("remnant_qty"))["s"] or Decimal("0")
+    return issued - back
+
+
+def _check_loss(pieces, loss):
+    """Loss per size ({Size: n}) can be no more than the pieces cut of that size."""
+    loss = {s: n for s, n in (loss or {}).items() if n}
+    for size, n in loss.items():
+        if n < 0 or n > pieces.get(size, 0):
+            raise BusinessRuleError(f"Size {size.code}: the pieces lost cannot be more than the {pieces.get(size, 0)} cut.")
+    return loss
+
+
 @dataclass
 class RollUseSpec:
     roll: object
@@ -97,8 +131,9 @@ class RollUseSpec:
 
 
 @transaction.atomic
-def record_cutting(*, lot, pieces, rolls, user, date, notes="") -> CuttingEntry:
-    """Record a lay. pieces = {Size: count}; rolls = [RollUseSpec]. Returns the entry with its BOM variance."""
+def record_cutting(*, lot, pieces, rolls, user, date, notes="", loss=None) -> CuttingEntry:
+    """Record a lay. pieces = {Size: count}; rolls = [RollUseSpec]; loss = {Size: pieces cut but lost}, which can
+    also be given when the bundles are made. Returns the entry with its BOM variance."""
     lot = _open_lot(lot, user)
     pieces = {s: n for s, n in pieces.items() if n}
     if not pieces or any(n < 0 for n in pieces.values()):
@@ -114,8 +149,14 @@ def record_cutting(*, lot, pieces, rolls, user, date, notes="") -> CuttingEntry:
     cutting, godown = cutting_location(factory), godown_location(factory)
     lay_no = (lot.cuttings.aggregate(m=Max("lay_no"))["m"] or 0) + 1
     entry = CuttingEntry.objects.create(company=company, factory=factory, lot=lot, lay_no=lay_no, date=date, notes=notes, created_by=user)
+    loss = _check_loss(pieces, loss)
     for size, n in pieces.items():
-        CuttingSize.objects.create(entry=entry, size=size, pieces=n)
+        CuttingSize.objects.create(entry=entry, size=size, pieces=n, loss=loss.get(size, 0))
+    cut_total = sum(pieces.values())
+    for cut_step in bundles_module.cutting_steps(lot):   # in-house cutting is paid on the pieces cut
+        if cut_step.status != LotStep.Status.SKIPPED and cut_step.assignment == LotStep.Assignment.IN_HOUSE:
+            costing.accrue_labour(lot=lot, factory=factory, amount=cut_step.rate * cut_total, date=date, user=user,
+                                  note=f"Cutting, lay {lay_no}: {cut_total} pieces", source=entry)
 
     consumed = []
     actual = Decimal("0")
@@ -158,6 +199,7 @@ def record_cutting(*, lot, pieces, rolls, user, date, notes="") -> CuttingEntry:
     expected = expected_fabric(lot, pieces)
     entry.fabric_value = costing.r2(total_value)
     entry.expected_fabric = expected
+    entry.expected_pieces = expected_pieces(lot, actual, pieces)
     if expected > 0:
         pct = ((actual - expected) / expected * 100).quantize(Decimal("0.01"))
         entry.variance_pct = pct
@@ -170,8 +212,9 @@ def record_cutting(*, lot, pieces, rolls, user, date, notes="") -> CuttingEntry:
 
 
 @transaction.atomic
-def create_bundles(entry, *, bundle_size, user) -> list:
-    """Make bundles from a lay's pieces per size, `bundle_size` pieces each (the last of a size may be smaller)."""
+def create_bundles(entry, *, bundle_size, user, loss=None) -> list:
+    """Make bundles from a lay's good pieces per size, `bundle_size` pieces each (the last of a size may be smaller).
+    loss = {Size: pieces lost in cutting}, known at the end of cutting: those pieces are never bundled."""
     entry = CuttingEntry.objects.select_related("lot", "lot__style", "lot__colour", "factory").get(pk=entry.pk)
     lot = _open_lot(entry.lot, user)
     if entry.bundled:
@@ -179,13 +222,19 @@ def create_bundles(entry, *, bundle_size, user) -> list:
     if bundle_size <= 0:
         raise BusinessRuleError("The bundle size must be more than zero.")
     cutting = cutting_location(lot.factory)
+    sizes = list(entry.sizes.select_related("size").order_by("size__sort_order"))
+    if loss is not None:
+        loss = _check_loss({cs.size: cs.pieces for cs in sizes}, loss)
+        for cs in sizes:
+            cs.loss = loss.get(cs.size, 0)
+            cs.save(update_fields=["loss"])
     seq = lot.bundles.count()
     made = []
-    for cs in entry.sizes.select_related("size").order_by("size__sort_order"):
+    for cs in sizes:
         sku = SKU.objects.filter(style=lot.style, colour=lot.colour, size=cs.size, is_active=True).first()
         if sku is None:
             raise BusinessRuleError(f"There is no SKU for {lot.style.style_no} / {lot.colour} / {cs.size}.")
-        remaining = cs.pieces
+        remaining = cs.good
         while remaining > 0:
             n = min(bundle_size, remaining)
             remaining -= n

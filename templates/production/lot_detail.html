@@ -7,7 +7,7 @@
       {% if can_open_order %}<a class="btn ghost" href="{% url 'order_detail' lot.order_line.order.pk %}">{{ lot.order_line.order.number }}</a>{% endif %}</div></div>
   {% include "production/_lot_guide.html" %}
   <div class="island"><div class="field-row">
-      <div><div class="label muted">Planned</div><span class="stat">{{ planned }}</span></div><div><div class="label muted">Cut</div><span class="stat">{{ cut_pieces }}</span></div>
+      <div><div class="label muted">Planned</div><span class="stat">{{ planned }}</span></div>{% if expected_from_fabric is not None %}<div><div class="label muted">Expected from fabric</div><span class="stat">{{ expected_from_fabric }}</span></div>{% endif %}<div><div class="label muted">Cut</div><span class="stat">{{ cut_pieces }}</span></div>{% if cutting_loss %}<div><div class="label muted">Lost in cutting</div><span class="stat">{{ cutting_loss }}</span></div>{% endif %}
       <div><div class="label muted">In progress</div><span class="stat">{{ live_pieces }}</span></div></div>
       <p class="muted">Factory {{ lot.factory.code }} · BOM version {{ lot.bom_version.version_no|default:"—" }}</p></div>
   <div class="island"><h2>Bundles</h2>

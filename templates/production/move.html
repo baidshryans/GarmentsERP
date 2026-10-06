@@ -15,9 +15,10 @@
       <tbody>{% for b in bundles %}<tr data-scan="{{ b.scan }}" data-token="{{ b.qr_token }}" data-no="{{ b.bundle_no }}">
         <td><input type="checkbox" name="bundle" value="{{ b.pk }}" aria-label="Move {{ b.bundle_no }}"></td><td><strong>{{ b.bundle_no }}</strong></td><td>{{ b.sku.size.code }}</td><td class="num">{{ b.qty }}</td>
         <td>{{ b.current_step.process.name|default:"Cut" }} · {{ b.location.name }}</td><td>{{ b.next_label|default:"—" }}</td>
+        {% if b.no_loss %}<td colspan="3" class="muted">No loss allowed at this stage</td></tr>{% else %}
         <td class="num"><input type="text" inputmode="numeric" name="loss_{{ b.pk }}" style="width:70px"></td>
         <td class="num"><input type="text" inputmode="numeric" name="rejection_{{ b.pk }}" style="width:70px"></td>
-        <td class="num"><input type="text" inputmode="numeric" name="shortage_{{ b.pk }}" style="width:70px"></td></tr>
+        <td class="num"><input type="text" inputmode="numeric" name="shortage_{{ b.pk }}" style="width:70px"></td></tr>{% endif %}
       {% empty %}<tr><td colspan="9" class="muted">No bundles are ready to move.</td></tr>{% endfor %}</tbody>
     </table></div>
     <p class="muted">Loss, rejected and short pieces are taken out of the count, so every move balances. Bundles with a fabricator are received on the job work screens, not moved here.</p>

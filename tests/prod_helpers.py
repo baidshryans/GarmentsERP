@@ -51,7 +51,7 @@ def build(company, factory, owner, qty=100, ratios=None, with_stock=True):
     return ns
 
 
-def cut(ns, bundle_size=25, burnt=("41", "2"), remnant="17"):
+def cut(ns, bundle_size=25, burnt=("41", "2"), remnant="17", loss=None):
     """Issue 60 kg of roll A, cut 100 pieces (17/33/33/17) and make bundles. Returns the bundles."""
     cutting.issue_fabric(lot=ns.lot, lines=[(ns.roll_a, D("60"))], user=ns.owner, date=DAY)
     entry = cutting.record_cutting(
@@ -59,7 +59,7 @@ def cut(ns, bundle_size=25, burnt=("41", "2"), remnant="17"):
         pieces={ns.sizes["S"]: 17, ns.sizes["M"]: 33, ns.sizes["L"]: 33, ns.sizes["XL"]: 17},
         rolls=[cutting.RollUseSpec(ns.roll_a, used=D(burnt[0]), waste=D(burnt[1]), remnant=D(remnant))])
     ns.entry = entry
-    return cutting.create_bundles(entry, bundle_size=bundle_size, user=ns.owner)
+    return cutting.create_bundles(entry, bundle_size=bundle_size, user=ns.owner, loss=loss)
 
 
 def step(ns, code):

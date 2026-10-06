@@ -177,6 +177,7 @@ class FabricIssue(FactoryScopedModel):
     to_location = models.ForeignKey("core.Location", on_delete=models.PROTECT, related_name="+")
     date = models.DateField()
     mixed_shades = models.BooleanField(default=False, help_text="Rolls of different shade lots went into one lot")
+    expected_pieces = models.PositiveIntegerField(null=True, blank=True, help_text="Pieces the BOM says this fabric should give")
     created_by = models.ForeignKey("core.User", on_delete=models.PROTECT, null=True, related_name="+")
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -204,6 +205,7 @@ class CuttingEntry(FactoryScopedModel):
     fabric_value = models.DecimalField(max_digits=16, decimal_places=2, default=ZERO)
     expected_fabric = models.DecimalField(max_digits=14, decimal_places=3, null=True, blank=True,
                                           help_text="What the BOM says these pieces should use")
+    expected_pieces = models.PositiveIntegerField(null=True, blank=True, help_text="Pieces the BOM says the fabric burnt should give")
     variance_pct = models.DecimalField(max_digits=7, decimal_places=2, null=True, blank=True)
     over_tolerance = models.BooleanField(default=False)
     bundled = models.BooleanField(default=False, help_text="Bundles and QR tags have been made from this lay")
@@ -220,9 +222,17 @@ class CuttingSize(models.Model):
     entry = models.ForeignKey(CuttingEntry, on_delete=models.CASCADE, related_name="sizes")
     size = models.ForeignKey("masters.Size", on_delete=models.PROTECT, related_name="+")
     pieces = models.PositiveIntegerField()
+    loss = models.PositiveIntegerField(default=0, help_text="Pieces cut but lost or spoiled before bundling")
 
     class Meta:
-        constraints = [models.UniqueConstraint(fields=["entry", "size"], name="uniq_cutting_size")]
+        constraints = [
+            models.UniqueConstraint(fields=["entry", "size"], name="uniq_cutting_size"),
+            models.CheckConstraint(condition=Q(loss__lte=F("pieces")), name="cutting_loss_within_pieces"),
+        ]
+
+    @property
+    def good(self):
+        return self.pieces - self.loss
 
 
 class CuttingRollUse(models.Model):

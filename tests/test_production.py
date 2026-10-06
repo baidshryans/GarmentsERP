@@ -481,3 +481,118 @@ def test_production_data_is_scoped_to_the_users_factories(company, factory, fact
     assert Lot.objects.for_user(accountant).count() == 0 and ProductionOrder.objects.for_user(accountant).count() == 0
     with pytest.raises(FactoryNotAllowed):
         orders.release_order(draft, user=accountant)
+
+
+# ---------------- no-loss stages ----------------
+
+def test_a_no_loss_stage_refuses_loss_rejection_and_shortage_when_pieces_leave_it(company, factory, owner):
+    ns = build(company, factory, owner)
+    all_in_house(ns)
+    bundles = cut(ns)
+    go(ns, bundles, "STITCH")
+    go(ns, bundles, "IRON", counts={bundles[0].pk: bundle_service.Count(loss=1)})   # a loss leaving stitching is fine
+    assert Process.objects.get(code="IRON").no_loss
+    for count in (bundle_service.Count(loss=1), bundle_service.Count(rejection=1), bundle_service.Count(shortage=1)):
+        with pytest.raises(BusinessRuleError, match="allows no loss"):
+            go(ns, bundles, "FINISH", counts={bundles[1].pk: count})
+    assert all(b.current_step == step(ns, "IRON") for b in Bundle.objects.filter(lot=ns.lot))   # nothing moved
+    go(ns, bundles, "FINISH")
+    Process.objects.filter(code="FINISH").update(no_loss=True)      # the flag is a setting on the process
+    with pytest.raises(BusinessRuleError, match="allows no loss"):
+        go(ns, bundles, "QC", counts={bundles[1].pk: bundle_service.Count(rejection=2)})
+
+
+# ---------------- in-house cutting labour, rework flag ----------------
+
+def test_in_house_cutting_labour_is_added_to_lot_cost_on_the_pieces_cut(company, factory, owner):
+    ns = build(company, factory, owner)
+    routes.reassign_step(step(ns, "CUT"), user=owner, reason="Cutting rate", assignment="in_house", rate=D("2"))
+    cut(ns)
+    assert costing.cost_breakdown(ns.lot)["labour"] == D("200.00")     # 100 pieces cut x 2
+    assert gl(company, "labour_absorbed", factory) == D("-200.00") and gl(company, "stock_wip", factory) == D("9230.00")
+    assert not costing.check_wip_reconciles(company)
+
+
+def test_cutting_with_no_rate_adds_no_labour(company, factory, owner):
+    ns = build(company, factory, owner)
+    cut(ns)
+    assert costing.cost_breakdown(ns.lot)["labour"] == D("0.00") and gl(company, "labour_absorbed", factory) == D("0.00")
+
+
+def test_a_reworked_bundle_goes_back_to_the_normal_rate_once_it_moves_on(company, factory, owner):
+    ns = build(company, factory, owner)
+    all_in_house(ns, stitch_rate="10")
+    routes.reassign_step(step(ns, "IRON"), user=owner, reason="Ironing rate", assignment="in_house", rate=D("3"), rework_rate=D("1"))
+    bundles = cut(ns)
+    go(ns, bundles, "STITCH")
+    go(ns, bundles, "IRON")
+    go(ns, bundles[:1], "STITCH", reason="Redo")
+    go(ns, bundles[:1], "IRON")                         # the redone stitching: rework rate
+    assert not Bundle.objects.get(pk=bundles[0].pk).is_rework
+    before = costing.cost_breakdown(ns.lot)["labour"]
+    go(ns, bundles[:1], "FINISH")                       # ironing after it: the normal rate again
+    assert costing.cost_breakdown(ns.lot)["labour"] - before == D("51.00")   # 17 pieces x 3
+
+
+# ---------------- pieces expected from fabric, loss in cutting ----------------
+
+def test_fabric_issued_says_how_many_pieces_it_should_give(company, factory, owner):
+    ns = build(company, factory, owner)
+    issue = cutting.issue_fabric(lot=ns.lot, lines=[(ns.roll_a, D("60"))], user=owner, date=DAY)
+    assert issue.expected_pieces == 150                      # 60 kg at 0.4 kg a piece
+    assert cutting.fabric_with_lot(ns.lot) == D("60") and cutting.expected_pieces(ns.lot, D("60")) == 150
+    entry = cutting.record_cutting(
+        lot=ns.lot, user=owner, date=DAY, pieces={ns.sizes["M"]: 50, ns.sizes["L"]: 50},
+        rolls=[cutting.RollUseSpec(ns.roll_a, used=D("41"), waste=D("2"), remnant=D("17"))])
+    assert entry.expected_pieces == 107                      # 43 kg burnt at 0.4 kg a piece
+    assert cutting.fabric_with_lot(ns.lot) == D("43")        # the remnant went back to the store
+
+
+def test_the_estimate_follows_size_wise_consumption_and_wastage(company, factory, owner):
+    ns = build(company, factory, owner, with_stock=False)
+    boms.save_bom(ns.style, user=owner, lines=[
+        boms.BomLineSpec(ns.fabric, D("0.4"), wastage_pct=D("25"), size_qty={ns.sizes["XL"]: D("0.8")})])
+    ns.lot.bom_version = ns.style.bom_versions.get(is_current=True)
+    ns.lot.save()
+    # planned 17 S, 33 M, 33 L, 17 XL: (83 x 0.4 + 17 x 0.8) x 1.25 = 58.5 kg for 100 pieces
+    assert cutting.expected_pieces(ns.lot, D("58.5")) == 100 and cutting.expected_pieces(ns.lot, D("29.25")) == 50
+    assert cutting.expected_pieces(ns.lot, D("40"), {ns.sizes["XL"]: 1}) == 40      # all XL: 1 kg a piece
+
+
+def test_a_lot_with_no_fabric_on_its_bom_has_no_estimate(company, factory, owner):
+    ns = build(company, factory, owner, with_stock=False)
+    boms.save_bom(ns.style, user=owner, lines=[boms.BomLineSpec(ns.zipper, D("1"))])
+    ns.lot.bom_version = ns.style.bom_versions.get(is_current=True)
+    ns.lot.save()
+    assert cutting.expected_pieces(ns.lot, D("60")) is None
+
+
+def test_pieces_lost_in_cutting_are_left_out_of_the_bundles(company, factory, owner):
+    ns = build(company, factory, owner)
+    routes.reassign_step(step(ns, "CUT"), user=owner, reason="Cutting rate", assignment="in_house", rate=D("2"))
+    bundles = cut(ns, loss={ns.sizes["M"]: 2})
+    assert sum(b.qty for b in bundles) == 98 and wip_qty(ns, "Cutting Floor") == 98
+    assert sorted(b.qty for b in bundles if b.sku.size == ns.sizes["M"]) == [6, 25]      # 33 cut, 2 lost
+    m = ns.entry.sizes.get(size=ns.sizes["M"])
+    assert (m.pieces, m.loss, m.good) == (33, 2, 31)
+    assert costing.cost_breakdown(ns.lot)["fabric"] == D("9030.00")     # the lost pieces' fabric stays in the lot
+    assert costing.cost_breakdown(ns.lot)["labour"] == D("200.00")      # cutters are paid on the 100 pieces cut
+    assert not costing.check_wip_reconciles(company)
+
+
+def test_cutting_loss_can_be_given_with_the_lay_and_cannot_exceed_the_pieces_cut(company, factory, owner):
+    from django.db import IntegrityError, transaction
+
+    ns = build(company, factory, owner)
+    cutting.issue_fabric(lot=ns.lot, lines=[(ns.roll_a, D("60"))], user=owner, date=DAY)
+    rolls = [cutting.RollUseSpec(ns.roll_a, used=D("41"), waste=D("2"), remnant=D("17"))]
+    with pytest.raises(BusinessRuleError, match="cannot be more than"):
+        cutting.record_cutting(lot=ns.lot, user=owner, date=DAY, pieces={ns.sizes["M"]: 10}, rolls=rolls, loss={ns.sizes["M"]: 11})
+    with pytest.raises(BusinessRuleError, match="cannot be more than"):
+        cutting.record_cutting(lot=ns.lot, user=owner, date=DAY, pieces={ns.sizes["M"]: 10}, rolls=rolls, loss={ns.sizes["L"]: 1})
+    entry = cutting.record_cutting(lot=ns.lot, user=owner, date=DAY, pieces={ns.sizes["M"]: 10}, rolls=rolls, loss={ns.sizes["M"]: 10})
+    with pytest.raises(BusinessRuleError, match="cannot be more than"):
+        cutting.create_bundles(entry, bundle_size=25, user=owner, loss={ns.sizes["M"]: 12})
+    assert cutting.create_bundles(entry, bundle_size=25, user=owner) == []     # every piece was lost: nothing to bundle
+    with pytest.raises(IntegrityError), transaction.atomic():
+        entry.sizes.update(loss=11)                                            # the database refuses it too

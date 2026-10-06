@@ -199,6 +199,8 @@ class LotDetail(LoginRequiredMixin, ScreenPermissionMixin, View):
             "lot": lot, "guide": guide.lot_guide(lot, request.user),
             "steps": steps, "bundles": bundles, "cuttings": cuts, "planned": planned,
             "cut_pieces": sum(b.original_qty for b in bundles), "live_pieces": sum(b.qty for b in live),
+            "expected_from_fabric": cutting.expected_pieces(lot, cutting.fabric_with_lot(lot)) if lot.fabric_issues.exists() else None,
+            "cutting_loss": sum(cs.loss for c in cuts for cs in c.sizes.all()),
             "breakdown": breakdown if can_cost else None, "total_cost": costing.lot_cost(lot) if can_cost else None,
             "expected_charges": expected_charges, "can_cost": can_cost,
             "changes": lot.route_changes.select_related("user")[:20],
@@ -274,7 +276,13 @@ class FabricIssueView(LoginRequiredMixin, ScreenPermissionMixin, View):
     def _ctx(self, request, lot, vals=None):
         godown = godown_location(lot.factory)
         rolls = RollBalance.objects.for_user(request.user).filter(location=godown, qty__gt=0).select_related("roll__material")
+        with_lot = cutting.fabric_with_lot(lot)
+        expected = cutting.expected_pieces(lot, with_lot)
+        planned = sum(s.qty for s in lot.order_line.sizes.all())
         return {"lot": lot, "rolls": rolls, "vals": vals or {}, "issues": lot.fabric_issues.prefetch_related("lines__roll")[:10],
+                "with_lot": with_lot, "expected_pieces": expected, "planned": planned,
+                "short_by": max(0, planned - expected) if expected is not None and with_lot > 0 else 0,
+                "per_unit": cutting.expected_pieces(lot, Decimal("100")),     # pieces from 100 of fabric, for the hint
                 "can_create": request.user.has_screen_perm("production.cutting", "create"),
                 "perms_lot": request.user.has_screen_perm("production.lot", "view")}
 
@@ -310,7 +318,12 @@ class CuttingView(LoginRequiredMixin, ScreenPermissionMixin, View):
         floor = cutting_location(lot.factory)
         rolls = RollBalance.objects.for_user(request.user).filter(location=floor, qty__gt=0).select_related("roll__material")
         sizes = [ss.size for ss in lot.style.style_sizes.select_related("size").order_by("size__sort_order")]
-        return {"lot": lot, "rolls": rolls, "sizes": sizes, "vals": vals or {}, "entries": lot.cuttings.prefetch_related("sizes__size", "rolls__roll"),
+        entries = list(lot.cuttings.prefetch_related("sizes__size", "rolls__roll"))
+        for e in entries:
+            e.cut_total = sum(cs.pieces for cs in e.sizes.all())
+            e.loss_total = sum(cs.loss for cs in e.sizes.all())
+            e.good_total = e.cut_total - e.loss_total
+        return {"lot": lot, "rolls": rolls, "sizes": sizes, "vals": vals or {}, "entries": entries,
                 "planned": {s.size_id: s.qty for s in lot.order_line.sizes.all()},
                 "can_create": request.user.has_screen_perm("production.cutting", "create"),
                 "perms_lot": request.user.has_screen_perm("production.lot", "view")}
@@ -329,8 +342,12 @@ class CuttingView(LoginRequiredMixin, ScreenPermissionMixin, View):
         try:
             if p.get("action") == "bundles":
                 entry = get_object_or_404(CuttingEntry, pk=p.get("entry"), lot=lot)
-                made = cutting.create_bundles(entry, bundle_size=vu.whole(p.get("bundle_size"), "Bundle size"), user=request.user)
-                messages.success(request, f"{len(made)} bundles made. Print their QR tags now.")
+                loss = {cs.size: vu.whole(p.get(f"loss_{cs.size_id}"), f"Lost pieces of {cs.size.code}", 0)
+                        for cs in entry.sizes.select_related("size")}
+                made = cutting.create_bundles(entry, bundle_size=vu.whole(p.get("bundle_size"), "Bundle size"), user=request.user, loss=loss)
+                lost = sum(loss.values())
+                messages.success(request, f"{len(made)} bundles made" + (f" ({lost} pieces lost in cutting left out)" if lost else "")
+                                 + ". Print their QR tags now.")
                 return redirect("lot_tags", pk=pk)
             pieces = {}
             for size in lot.style.style_sizes.select_related("size"):
@@ -409,6 +426,7 @@ class MoveView(LoginRequiredMixin, ScreenPermissionMixin, View):
             for b in bundles:
                 b.next_label = bundle_service.next_stage_label(b, steps)
                 b.scan = labels.scan_text(b)
+                b.no_loss = b.status == "at_stage" and b.current_step_id and b.current_step.process.no_loss
             ctx.update(bundles=bundles, steps=steps, factories=_factories(request.user))
         return ctx
 

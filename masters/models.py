@@ -134,6 +134,9 @@ class Process(models.Model):
     code = models.CharField(max_length=15, unique=True)
     name = models.CharField(max_length=60)
     kind = models.CharField(max_length=10, choices=Kind.choices)
+    no_loss = models.BooleanField(
+        "No loss allowed", default=False,
+        help_text="Pieces out must equal pieces in when this is done in-house (e.g. ironing)")
     is_active = models.BooleanField(default=True)
 
     history = HistoricalRecords()

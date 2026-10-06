@@ -38,13 +38,7 @@
   });
   document.querySelectorAll(".order-grid").forEach(recalcGrid);
 
-  // ---- GST choice: the template and the note fields show only when they are needed
-  var mode = document.getElementById("tax_mode");
-  function taxFields() {
-    var v = mode ? mode.value : "";
-    document.querySelectorAll("[data-tax-show]").forEach(function (el) { el.hidden = el.getAttribute("data-tax-show").split(" ").indexOf(v) < 0; });
-  }
-  if (mode) { mode.addEventListener("change", taxFields); taxFields(); }
+  // (the GST template and note fields that show for one choice only are handled by reveal.js)
 
   // ---- barcode billing
   var box = document.getElementById("scan");

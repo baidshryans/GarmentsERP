@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% load static %}
+{% load static forms_ui %}
 {% block title %}Quick billing{% endblock %}
 {% block content %}
   <link rel="stylesheet" href="{% static 'css/sales.css' %}?v={{ asset_v }}">
@@ -34,14 +34,16 @@
       {% if gst %}
       <div class="field-row">
         <div class="field"><label for="tax_mode">GST on this bill</label><select id="tax_mode" name="tax_mode"><option value="auto" {% if p.tax_mode == "auto" or not p.tax_mode %}selected{% endif %}>From the HSN slab and place of supply (suggested)</option><option value="template" {% if p.tax_mode == "template" %}selected{% endif %}>One GST template for all items</option><option value="none" {% if p.tax_mode == "none" %}selected{% endif %}>No GST on this bill</option></select></div>
-        <div class="field" data-tax-show="template" hidden><label for="gst_template">GST template</label><select id="gst_template" name="gst_template">{% for t in gst_templates %}<option value="{{ t.pk }}" {% if p.gst_template == t.pk|stringformat:"s" %}selected{% endif %}>{{ t.name }}</option>{% endfor %}</select></div>
-        <div class="field" data-tax-show="template none" hidden><label for="tax_note">Reason for changing the GST</label><input id="tax_note" name="tax_note" type="text" value="{{ p.tax_note }}"></div>
+        <div class="field" {% show_when "tax_mode" p.tax_mode|default:"auto" "template" %}><label for="gst_template">GST template</label><select id="gst_template" name="gst_template">{% for t in gst_templates %}<option value="{{ t.pk }}" {% if p.gst_template == t.pk|stringformat:"s" %}selected{% endif %}>{{ t.name }}</option>{% endfor %}</select></div>
+        <div class="field" {% show_when "tax_mode" p.tax_mode|default:"auto" "template none" %}><label for="tax_note">Reason for changing the GST</label><input id="tax_note" name="tax_note" type="text" value="{{ p.tax_note }}"></div>
       </div>
       <p class="muted">GST is worked out when you save, from the style's HSN code, the value per piece, and the customer's state.</p>
       {% else %}<p class="muted">GST is not switched on for this factory, so no tax is charged.</p>{% endif %}
-      <div class="field"><label for="notes">Notes</label><input id="notes" name="notes" type="text" value="{{ p.notes }}"></div>
+      {% more_open p "notes" as notes_open %}
+      {% more "notes" open=notes_open %}<div class="field"><label for="notes">Notes</label><input id="notes" name="notes" type="text" value="{{ p.notes }}"></div>{% endmore %}
     </div>
     <div class="form-actions"><button class="btn primary" name="action" value="post">Post bill</button><button class="btn" name="action" value="draft">Save as draft</button></div>
   </form>
+  <script src="{% static 'js/reveal.js' %}?v={{ asset_v }}" defer></script>
   <script src="{% static 'js/sales.js' %}?v={{ asset_v }}" defer></script>
 {% endblock %}

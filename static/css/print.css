@@ -29,3 +29,9 @@
   tr { break-inside: avoid; }
   .lb-open td { color: black; }
 }
+
+/* a "More options" section is closed only while everything inside is empty: leave it off the paper then */
+@media print {
+  details.more:not([open]) { display: none !important; }
+  details.more > summary { color: black; }
+}

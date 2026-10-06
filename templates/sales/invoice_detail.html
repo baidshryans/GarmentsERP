@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% load static %}
+{% load static forms_ui %}
 {% block title %}{{ inv }}{% endblock %}
 {% block content %}
   <div class="page-head"><h1 class="page-title">{{ inv.number|default:"Draft bill" }}</h1>
@@ -35,8 +35,8 @@
       {% if inv.status == "draft" and can_edit and gst %}
       <form method="post" style="margin-top:16px">{% csrf_token %}<input type="hidden" name="action" value="tax">
         <div class="field"><label for="tax_mode">Change the GST on this bill</label><select id="tax_mode" name="tax_mode"><option value="auto" {% if inv.tax_mode == "auto" %}selected{% endif %}>From the HSN slab and place of supply (suggested)</option><option value="template" {% if inv.tax_mode == "template" %}selected{% endif %}>One GST template for all items</option><option value="none" {% if inv.tax_mode == "none" %}selected{% endif %}>No GST on this bill</option></select></div>
-        <div class="field" data-tax-show="template" hidden><label for="gst_template">GST template</label><select id="gst_template" name="gst_template">{% for t in gst_templates %}<option value="{{ t.pk }}" {% if inv.gst_template_id == t.pk %}selected{% endif %}>{{ t.name }}</option>{% endfor %}</select></div>
-        <div class="field" data-tax-show="template none" hidden><label for="tax_note">Reason</label><input id="tax_note" name="tax_note" type="text" value="{{ inv.tax_note }}"></div>
+        <div class="field" {% show_when "tax_mode" inv.tax_mode "template" %}><label for="gst_template">GST template</label><select id="gst_template" name="gst_template">{% for t in gst_templates %}<option value="{{ t.pk }}" {% if inv.gst_template_id == t.pk %}selected{% endif %}>{{ t.name }}</option>{% endfor %}</select></div>
+        <div class="field" {% show_when "tax_mode" inv.tax_mode "template none" %}><label for="tax_note">Reason</label><input id="tax_note" name="tax_note" type="text" value="{{ inv.tax_note }}"></div>
         <button class="btn">Update GST</button></form>{% elif inv.status == "draft" and not gst %}<p class="muted">GST is not switched on, so this bill carries no tax.</p>{% endif %}
     </div>
     <div class="island"><h2>Actions</h2>
@@ -61,5 +61,6 @@
     <p class="muted">The e-way bill is made when the bill value needs one, or when a vehicle number is given.</p>{% endif %}
     {% if inv.irn and can_cancel %}<form method="post" style="max-width:420px;margin-top:12px">{% csrf_token %}<input type="hidden" name="action" value="einvoice_cancel"><div class="field"><label for="ewhy">Cancel the e-invoice with a reason</label><input id="ewhy" name="reason" type="text" required></div><button class="btn danger">Cancel e-invoice</button></form>{% endif %}
   </div>{% endif %}
+  <script src="{% static 'js/reveal.js' %}?v={{ asset_v }}" defer></script>
   <script src="{% static 'js/sales.js' %}?v={{ asset_v }}" defer></script>
 {% endblock %}

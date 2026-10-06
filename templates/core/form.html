@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load forms_ui %}
 {% block title %}{{ title }}{% endblock %}
 {% block content %}
   <div class="page-head"><h1 class="page-title">{{ title }}</h1></div>
@@ -7,7 +8,9 @@
     <form method="post" novalidate>
       {% csrf_token %}
       {% include "partials/form_errors.html" %}
-      {% for field in form %}{% include "partials/field.html" %}{% endfor %}
+      {% more_fields form as more %}
+      {% for field in form %}{% if field.name not in more.names %}{% include "partials/field.html" %}{% endif %}{% endfor %}
+      {% if more.fields %}{% more more.label open=more.open %}{% for field in more.fields %}{% include "partials/field.html" %}{% endfor %}{% endmore %}{% endif %}
       <div class="form-actions">
         <button class="btn primary">Save</button>
         {% if cancel_url and cancel_args %}<a class="btn ghost" href="{% url cancel_url cancel_args.0 %}">Cancel</a>{% elif cancel_url %}<a class="btn ghost" href="{% url cancel_url %}">Cancel</a>{% else %}<a class="btn ghost" href="javascript:history.back()">Cancel</a>{% endif %}

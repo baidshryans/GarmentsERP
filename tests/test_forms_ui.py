@@ -889,10 +889,25 @@ BILL_COLUMNS = ("row_ref_type", "row_reference", "row_due_date")
 
 
 def bill_columns_hidden(html):
-    """Do the Bill / Reference / Due columns take no space? (Every header and cell of them is hidden.)"""
+    """Has the server hidden the Bill / Reference / Due columns? It never does: they are in the page so the form works
+    without JavaScript, and voucher_entry.js hides them on Money paid / received while no row needs them."""
     cells = re.findall(r'<t[hd][^>]*class="bill-col"( hidden)?>', html)
     assert cells and len(set(cells)) == 1, cells
     return cells[0] == " hidden"
+
+
+def _script(name):
+    from django.conf import settings
+    from pathlib import Path
+
+    return (Path(settings.BASE_DIR) / "static" / "js" / name).read_text(encoding="utf-8")
+
+
+def test_the_money_columns_are_hidden_by_the_script_not_by_the_server():
+    js = _script("voucher_entry.js")
+    assert 'kind.value !== "on_account"' in js              # a bill option other than On account needs the columns
+    assert 'e.target.name === "row_ref_type"' in js and "totals(); syncCols();" in js      # and after a row is removed
+    assert "pageshow" in js and "pageshow" in _script("reveal.js")
 
 
 def test_money_paid_and_received_show_date_account_and_rows(company, ledgers, owner_c):
@@ -903,11 +918,11 @@ def test_money_paid_and_received_show_date_account_and_rows(company, ledgers, ow
         text = flashed(html)
         assert title in text and account_label in text and old not in text and "Narration" not in text
         assert '<label for="narration">Notes</label>' in html
-        assert bill_columns_hidden(html) and all(f'name="{n}"' in html for n in BILL_COLUMNS)      # still sent, as before
-        assert 'colspan="2" class="bill-span"' in html
+        assert not bill_columns_hidden(html) and all(f'name="{n}"' in html for n in BILL_COLUMNS)  # usable without JavaScript
+        assert 'colspan="5" class="bill-span"' in html and "js/voucher_entry.js" in html
 
 
-def test_the_bill_columns_show_once_a_row_needs_them(company, factory, ledgers, owner_c):
+def test_the_bill_columns_are_always_in_the_page(company, factory, ledgers, owner_c):
     party = parties.create_party(company=company, name="Bill Keeper", mobile="9800000111", is_vendor=True)
     keeps_bills, cash = party.payable_ledger, ledgers("cash")
     assert keeps_bills.bill_wise and not cash.bill_wise
@@ -923,7 +938,7 @@ def test_the_bill_columns_show_once_a_row_needs_them(company, factory, ledgers, 
     assert not bill_columns_hidden(html) and folded(html, "narration", is_open=True) and 'value="advance"' in html
     html = html_of(owner_c.post(reverse("voucher_payment"), {"date": DAY.isoformat(), "account": "", "narration": "",
                                                              **rows, "row_ledger": [ledgers("sales_stock").pk]}))
-    assert bill_columns_hidden(html) and folded(html, "narration")
+    assert not bill_columns_hidden(html) and folded(html, "narration")
 
 
 def test_journal_and_contra_change_only_the_word_notes(company, ledgers, owner_c):

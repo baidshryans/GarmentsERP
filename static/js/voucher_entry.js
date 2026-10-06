@@ -53,22 +53,30 @@
     }).catch(function () { /* the field still accepts typed references */ });
   }
 
+  function needsBillCols(row) {                   // the same test the page would make: a ledger that keeps bills, a bill
+    if (billWise(row)) { return true; }           // option other than "On account", or something typed in the cells
+    var kind = row.querySelector("select[name=row_ref_type]");
+    if (kind && kind.value && kind.value !== "on_account") { return true; }
+    return Array.prototype.some.call(row.querySelectorAll("input.bill-cell"), function (c) { return c.value.trim() !== ""; });
+  }
+
   function syncCols() {                           // Money paid / received: the bill columns take no space until a row needs them
-    if (journal) { return; }
-    var any = Array.prototype.some.call(body.querySelectorAll("tr"), function (row) {
-      if (billWise(row)) { return true; }
-      return Array.prototype.some.call(row.querySelectorAll("input.bill-cell"), function (c) { return c.value.trim() !== ""; });
-    });
+    if (journal) { return; }                      // (the server always sends them, so the form works without this script)
+    var any = Array.prototype.some.call(body.querySelectorAll("tr"), needsBillCols);
     table.querySelectorAll(".bill-col").forEach(function (c) { c.hidden = !any; });
     table.querySelectorAll(".bill-span").forEach(function (c) { c.colSpan = any ? 5 : 2; });
   }
 
-  function syncRow(row) {                         // bill cells only matter for bill-wise ledgers
+  function showCells(row) {                       // bill cells only matter for bill-wise ledgers
     var on = billWise(row);
     row.querySelectorAll(".bill-cell").forEach(function (c) {
       c.style.visibility = on ? "visible" : "hidden";
       c.tabIndex = on ? 0 : -1;
     });
+  }
+
+  function syncRow(row) {
+    showCells(row);
     syncCols();
     loadBills(row);
   }
@@ -89,6 +97,7 @@
   body.addEventListener("change", function (e) {
     if (e.target.name === "row_ledger") { syncRow(e.target.closest("tr")); }
     if (e.target.name === "row_reference") { pickBill(e.target.closest("tr")); }
+    if (e.target.name === "row_ref_type") { syncCols(); }
   });
   body.addEventListener("click", function (e) {
     var btn = e.target.closest(".remove-row");
@@ -96,9 +105,9 @@
     var row = btn.closest("tr");
     if (body.querySelectorAll("tr").length > 1) { row.remove(); }
     else { row.querySelectorAll("input[type=text],input[type=date]").forEach(function (i) { i.value = ""; }); row.querySelectorAll("select").forEach(function (x) { x.selectedIndex = 0; }); }
-    totals();
+    totals(); syncCols();
   });
-  form.addEventListener("input", function () { totals(); syncCols(); });   // also after a line is removed
+  form.addEventListener("input", function () { totals(); syncCols(); });   // also after entry_table.js removes a line
   document.getElementById("add-row").addEventListener("click", function () {
     var copy = body.querySelector("tr:last-child").cloneNode(true);
     copy._bills = {};
@@ -112,4 +121,6 @@
   table.addEventListener("entry:added", function (e) { syncRow(e.detail.row); });   // a new entry line from entry_table.js
   body.querySelectorAll("tr").forEach(syncRow);
   totals();
+  // coming back with the Back button, the browser may restore other choices than the page was drawn with
+  window.addEventListener("pageshow", function () { body.querySelectorAll("tr").forEach(showCells); syncCols(); totals(); });
 })();

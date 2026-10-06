@@ -33,4 +33,6 @@
 
   document.addEventListener("change", function (e) { if (e.target && e.target.name) { sync(e.target.name); } });
   sync();
+  // coming back with the Back button, the browser may restore another choice than the page was drawn with
+  window.addEventListener("pageshow", function () { sync(); });
 })();

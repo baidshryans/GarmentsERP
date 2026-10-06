@@ -266,20 +266,15 @@ class VoucherEntry(LoginRequiredMixin, ScreenPermissionMixin, View):
 
     def _context(self, request, vtype, rows=None, values=None):
         company = _company()
-        groups, keeps_bills = {}, set()
+        groups = {}
         for l in Ledger.objects.filter(company=company, is_active=True).exclude(system_key="opening_difference").select_related("group"):
             groups.setdefault(l.group.name, []).append(l)
-            if l.bill_wise:
-                keeps_bills.add(str(l.pk))
         title, intro = ENTRY_TITLES[vtype]
         values = values or {"date": timezone.localdate().isoformat()}
-        # Money paid / received: the Bill, Reference and Due columns take no space until a row needs them
-        # (a ledger that keeps bills, or something already entered in them). The journal always shows them.
-        show_bills = vtype == "journal" or any(
-            str(r.get("ledger") or "") in keeps_bills or r.get("reference") or r.get("due_date")
-            or (r.get("ref_type") or "on_account") != "on_account" for r in rows or [])
+        # The Bill, Reference and Due columns are always in the page, so the form works without JavaScript. On Money
+        # paid / received voucher_entry.js hides them while no row needs them.
         return {
-            "vtype": vtype, "title": title, "intro": intro, "v": values, "show_bills": show_bills, "post_label": POST_LABELS[vtype],
+            "vtype": vtype, "title": title, "intro": intro, "v": values, "post_label": POST_LABELS[vtype],
             "factory": request.factory,
             "ledger_groups": sorted(groups.items()), "cash_bank": cash_bank_ledgers(company).order_by("name"),
             "rows": rows or [{} for _ in range(ENTRY_ROWS[vtype])],

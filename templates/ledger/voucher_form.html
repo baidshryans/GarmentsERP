@@ -52,7 +52,7 @@
       <thead><tr>
         <th scope="col" style="min-width:240px">{% if vtype == "payment" %}Paid to{% elif vtype == "receipt" %}Received from{% else %}Ledger{% endif %}</th>
         {% if vtype == "journal" %}<th scope="col" class="num">Debit</th><th scope="col" class="num">Credit</th>{% else %}<th scope="col" class="num">Amount</th>{% endif %}
-        <th scope="col" class="bill-col"{% if not show_bills %} hidden{% endif %}>Bill</th><th scope="col" class="bill-col"{% if not show_bills %} hidden{% endif %}>Reference</th><th scope="col" class="bill-col"{% if not show_bills %} hidden{% endif %}>Due</th><th scope="col">Note</th><th scope="col"></th>
+        <th scope="col" class="bill-col">Bill</th><th scope="col" class="bill-col">Reference</th><th scope="col" class="bill-col">Due</th><th scope="col">Note</th><th scope="col"></th>
       </tr></thead>
       <tbody>{% for r in rows %}
         <tr>
@@ -65,16 +65,16 @@
           {% else %}
             <td class="num"><input type="text" inputmode="decimal" name="row_amount" aria-label="Amount" class="num" value="{{ r.amount|default:'' }}"><input type="hidden" name="row_debit" value=""><input type="hidden" name="row_credit" value=""></td>
           {% endif %}
-          <td class="bill-col"{% if not show_bills %} hidden{% endif %}><select name="row_ref_type" class="bill-cell" aria-label="Bill option">{% for k, label in ref_types %}<option value="{{ k }}" {% if r.ref_type == k %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></td>
-          <td class="bill-col"{% if not show_bills %} hidden{% endif %}><input type="text" name="row_reference" class="bill-cell" aria-label="Bill reference" autocomplete="off" value="{{ r.reference|default:'' }}"></td>
-          <td class="bill-col"{% if not show_bills %} hidden{% endif %}><input type="date" name="row_due_date" class="bill-cell" aria-label="Due date" value="{{ r.due_date|default:'' }}"></td>
+          <td class="bill-col"><select name="row_ref_type" class="bill-cell" aria-label="Bill option">{% for k, label in ref_types %}<option value="{{ k }}" {% if r.ref_type == k %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></td>
+          <td class="bill-col"><input type="text" name="row_reference" class="bill-cell" aria-label="Bill reference" autocomplete="off" value="{{ r.reference|default:'' }}"></td>
+          <td class="bill-col"><input type="date" name="row_due_date" class="bill-cell" aria-label="Due date" value="{{ r.due_date|default:'' }}"></td>
           <td><input type="text" name="row_narration" aria-label="Note for this row" value="{{ r.narration|default:'' }}"></td>
           <td><button type="button" class="btn ghost remove-row" aria-label="Remove row" title="Remove row">&times;</button></td>
         </tr>
       {% endfor %}</tbody>
       <tfoot><tr><td>Total <span class="muted" id="diff"></span></td>
         {% if vtype == "journal" %}<td class="num" id="tot-dr">0.00</td><td class="num" id="tot-cr">0.00</td>{% else %}<td class="num" id="tot">0.00</td>{% endif %}
-        <td colspan="{% if show_bills %}5{% else %}2{% endif %}" class="bill-span"></td></tr></tfoot>
+        <td colspan="5" class="bill-span"></td></tr></tfoot>
     </table></div>
     <p class="muted small">{% if vtype == "journal" %}Bill options appear for ledgers that track bills (customers, suppliers, fabricators).{% else %}Bill, Reference and Due appear once you choose a ledger that keeps bills (customers, suppliers, fabricators).{% endif %} Choose <em>Against bill</em> to pay or receive against an invoice: pick the reference and its outstanding amount fills in. A bill that is fully settled cannot be paid again, and you cannot settle more than is outstanding.</p>
     <div style="margin-top:8px"><button type="button" class="btn" id="add-row"><svg width="16" height="16"><use href="#i-plus"/></svg> Add row</button></div>

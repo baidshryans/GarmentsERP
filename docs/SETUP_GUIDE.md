@@ -857,8 +857,8 @@ Part A prepared the masters. This part follows one lot from the production order
 | 6 | Repeat 4–5 down the route | |
 | 7 | Lot → Next button **Pack into finished goods** | Pieces become saleable stock |
 | 8 | Challan → Next button **Make labour bill for …** (or Labour bills → **New labour bill**), then **Pay fabricator** on the posted bill | Fabricator paid for accepted pieces |
-| 9 | Sale order → Packing list → **Invoice** (or Quick billing) | Stock leaves, customer owes money |
-| 10 | Posted invoice → **Receive payment** (or Money → Money received) | Customer's bill settled |
+| 9 | Sell → Sale orders → New order → **Save and confirm**, then the Next button on each page: **Pack goods** → **Finish packing and make bill** → **Post bill** (or Quick billing for a counter sale) | Stock leaves, customer owes money |
+| 10 | Posted bill → Next button **Receive money from …** (or Money → Money received) | Customer's bill settled |
 
 **Rules the system enforces for you**
 
@@ -878,8 +878,8 @@ Part A prepared the masters. This part follows one lot from the production order
 | QC | QC Checker |
 | Labour bills and payments | Accountant |
 | Over-receipt approval, closing an order | Owner |
-| Sale orders, packing, invoices | Billing Clerk / Salesperson |
-| Credit notes, receipts, cancelling invoices | Accountant |
+| Sale orders, packing, bills, returns from customers | Billing Clerk / Salesperson (orders only) |
+| Receipts, cancelling bills and returns | Accountant |
 
 Lot pages, fabric issue, cutting and tags are **not** menu items. Open the production order, then click the lot ("Lot … — status"). Releasing an order that has one lot opens that lot directly.
 
@@ -913,6 +913,29 @@ Challans and receipts guide you the same way (section 23.2). On Home, **Receive 
 - A short-closed order asks for no more goods, but what it did receive is still billed and paid from its Next button.
 - If the next step belongs to another role the page says **Waiting for:** and the step. The default roles: Purchase Officer orders, Store Keeper receives and checks, Accountant enters bills and pays, Owner approves.
 - **Enter supplier bill** makes the bill in the factory chosen in the top bar. If another factory is chosen, you are sent back to the goods received page with a message; choose the right factory and press the button again.
+
+**Selling guides you the same way.** The sale order, packing list, bill and return pages open with one journey strip, **Ordered → Confirmed → Packed → Billed → Paid**, and one violet Next button. A bill made by Quick billing has no order and starts at Billed. The strip shows the pieces ordered, how many are packed ("20 of 60"; a draft packing list does not count yet), the amount billed and the amount still to receive. The lists *Sell → Sale orders*, *Packing and dispatch* and *Bills* have a **Next step** column with the same button on every row. Section 26 has the details of each screen.
+
+| Where the sale is | Next button | What it opens |
+| --- | --- | --- |
+| New order | **Save and confirm** on the form (or **Save draft**, then **Confirm order**) | The order gets its number; a made-to-order order also raises its production requirement |
+| Order confirmed, pieces still to pack | **Pack goods** | A new packing list for that order, showing what is left to pack |
+| Packing list saved as a draft | **Finish packing** | The packing list. **Finish packing and make bill** finishes the list and drafts its bill in one step, then opens the bill; **Finish packing** alone only finishes the list |
+| Packing list finished, no bill yet | **Make bill** | The packing list; the button drafts the bill for the packed pieces and opens it |
+| Bill saved as a draft | **Post bill** | The bill. Choose or waive GST first if you need to (**Change the GST on this bill** → **Update GST**), then post |
+| Bill posted, money still to come | **Receive money from** and the customer's name | *Money received* with the customer, the amount still to receive and the bill reference filled in. Choose **Received in** and post. A part payment leaves the rest on the button |
+| A return saved as a draft | **Post return** | The return (*Sell → Returns from customer*). Posting it reduces what is to be received on its bill |
+| Nothing left | Order page: "This sale is complete." Packing list: "This packing list is billed and paid." Bill: "This bill is settled." Return: "This return is posted." | |
+
+- The order page shows the steps of all its packing lists and bills; the packing list shows its own and its bill's; the bill shows its own and its draft returns'. The same step has the same name and opens the same screen wherever you see it.
+- What is furthest behind comes first: with pieces still to pack and a finished list waiting for its bill, the Next button is **Pack goods** and **Make bill** is listed under **Also waiting**.
+- While a packing list of an order is a draft, the order's Next button points at that one. A second packing list can still be started: the order page keeps a plain **Pack goods** button in its header for as long as pieces are on no packing list.
+- **Made to order.** Until some of the ordered pieces are in finished stock at the factory, the order page says **Waiting for: goods from production** and gives no button; the Sale orders list says the same on that row. The pills under "Where the pieces are in production" show how far they are. Once production packs them into finished goods (section 24) the Next button becomes **Pack goods**. Production screens never show the customer.
+- **What a return does to the bill.** A posted return is set against its bill: the **Outstanding** figure in the bill's header and the Receive money button both show the bill less the return (bill 30,000, return 2,000: 28,000 to receive). If the bill was already paid, the credit goes on the customer's account instead and the bill asks for nothing more.
+- The amount on the Receive money button is the same figure as **Outstanding** in the bill's header. The header also has a plain **Receive money** button that opens the same voucher.
+- On the new order form **Save draft** comes first, so pressing Enter in a field saves a draft; **Save and confirm** is the violet button and is offered only to roles that may confirm orders. Editing a draft has **Save draft** only.
+- An order closed with **Close the balance** asks for no more packing, but what was sent is still billed and collected from its Next button.
+- If the next step belongs to another role the page says **Waiting for:** and the step, and names of documents you may not open are shown as plain text instead of links. The default roles: Salesperson takes and confirms orders, Billing Clerk packs, bills and posts returns, Accountant receives the money.
 
 ---
 
@@ -1268,21 +1291,23 @@ Leave **Rate** on "auto". It is found in this order, and the source is shown bes
 
 Discount defaults to the customer's standing discount. Above the discount limit it is refused unless you have the permission.
 
-Press **Save draft**, review, then **Confirm order**. Confirming gives the order its number. For **Made to order** it also raises a draft production order (section 20) with the sale order number as reference and no customer name.
+Press **Save and confirm** to take the order and confirm it in one step, or **Save draft**, review, then **Confirm order** on the order page. Confirming gives the order its number. For **Made to order** it also raises a draft production order (section 20) with the sale order number as reference and no customer name. If confirming fails, nothing is saved and the form comes back with what you typed.
+
+The order page then shows the journey strip and its Next button (section 19): **Pack goods**, or for a made-to-order order whose pieces are not in stock yet, **Waiting for: goods from production**.
 
 Order statuses: Draft → Confirmed → Partly dispatched → Fully invoiced. Also Closed and Cancelled.
 
 - Only a Draft can be edited.
 - **Close the balance** short-closes an order, with a reason, when a customer will not take the rest.
-- **Cancel order** needs a reason once confirmed, and is blocked while a live packing list or invoice exists.
+- **Cancel order** needs a reason once confirmed, and is blocked while a live packing list or bill exists.
 - **Credit limit:** it is stored on the customer but is **not enforced**; nothing is blocked. To see what a customer already owes, choose them on a **Sales voucher** or **Journal voucher** (section 28): the outstanding amount appears beside the choice. The receivables ageing (section 29) shows it for every customer.
-- Ready-stock orders reserve nothing at order time. Stock is checked when you finalise the packing list.
+- Ready-stock orders reserve nothing at order time. Stock is checked when you finish the packing list.
 
 *Sell → Sale orders → Order book* shows open orders with their pending balance.
 
 ### 26.3 Packing and dispatch
 
-*Sell → Packing and dispatch*, then **Pack** beside the order (or **Pack and dispatch** on the order).
+The order's Next button **Pack goods** (also a plain button in the order's header), or *Sell → Packing and dispatch*, then **Pack** beside the order.
 
 | Field | Example |
 | --- | --- |
@@ -1294,13 +1319,17 @@ Order statuses: Draft → Confirmed → Partly dispatched → Fully invoiced. Al
 
 In the **Pieces in each carton** grid, rows are order lines with "Left to pack" and columns are cartons (two to start; **Add a carton** up to 30). Fill what goes in each carton. No carton may be empty, and you cannot pack more than is left on the order.
 
-**Save draft**, then **Finalise the list**. Finalising checks stock at that location (less pieces on other packed-but-not-invoiced lists) and numbers the list. Status: Draft → Packed → Invoiced.
+**Save draft** opens the packing list. There, **Finish packing and make bill** finishes the list and drafts the bill for the packed pieces in one step, then opens the bill (26.4). **Finish packing** only finishes the list; its Next button is then **Make bill**. Finishing checks stock at that location (less pieces on other packed lists that are not billed yet) and numbers the list. If the pieces are not in stock, or the bill cannot be drafted, nothing changes: the list stays a draft and the message says why. Status: Draft → Packed → Invoiced.
 
-Then **Print list** and **Carton labels**. Carton codes look like `C000123-01`; scanning one at billing adds the whole carton. A finalised list cannot be reopened: cancel it (with a reason) and pack again.
+Then **Print list** and **Carton labels**. Carton codes look like `C000123-01`; scanning one at billing adds the whole carton. A finished list cannot be reopened: cancel it (with a reason) and pack again. **Discard** cancels a draft list.
+
+A role that packs but does not bill sees only **Finish packing**; the page then says **Waiting for: Make bill**.
 
 ### 26.4 Invoice
 
-**From a packing list:** on a Packed list press **Create invoice for the packed pieces**. A draft invoice is made at the order's rates and discounts. Transporter, LR and vehicle carry over.
+On screen a sale invoice is called a **bill**; the printed document is still the Tax Invoice.
+
+**From a packing list:** press **Finish packing and make bill** on a draft list, or **Make bill** on a Packed list. A draft bill is made for the packed pieces at the order's rates and discounts, with GST as suggested (below), and the bill opens. Transporter, LR and vehicle carry over. Check it, change or waive the GST if needed, then **Post bill**.
 
 **Counter sale by scanning:** *Sell → Quick billing (barcode).*
 
@@ -1308,25 +1337,25 @@ Then **Print list** and **Carton labels**. Carton codes look like `C000123-01`; 
 2. Scan each item's barcode in the scan box and press Enter. One scan adds one piece; a carton code adds the whole carton. "Unknown barcode" means the code is not a SKU or carton.
 3. The rate and discount fill from the pricing lookup. Check Rate, Disc % and Amount on every row; the footer shows Pieces and Before GST.
 4. Choose the GST option (below) and add notes.
-5. **Post invoice**, or **Save as draft** to check first.
+5. **Post bill**, or **Save as draft** to check first. Pressing Enter in a field saves a draft.
 
-**GST on the invoice** (only if GST is switched on for the factory and date; otherwise "no tax is charged"):
+**GST on the bill** (only if GST is switched on for the factory and date; otherwise "no tax is charged"):
 
 | Option | When to use |
 | --- | --- |
 | **From the HSN slab and place of supply (suggested)** | Normal. Each line's per-piece value picks the slab from the style's HSN (for example up to ₹2,500 → 5%, above → 18%). Customer's state against factory state decides CGST + SGST or IGST |
 | **One GST template for all items** | Special case; needs a reason if it differs from the suggestion |
-| **No GST on this invoice** | Needs a reason; the suggestion is kept in the invoice log |
+| **No GST on this bill** | Needs a reason; the suggestion is kept in the bill's log |
 
-If a style has no HSN or no slab you get an error naming the style. Fix it in the masters (section 4) and retry. On a draft, **Change the GST on this invoice** → **Update GST** re-works the tax.
+If a style has no HSN or no slab you get an error naming the style. Fix it in the masters (section 4) and retry; a bill from a packing list cannot be drafted until then. On a draft, **Change the GST on this bill** → **Update GST** re-works the tax.
 
-Amount per line = quantity × rate × (100 − disc%) ÷ 100. The due date = invoice date + the customer's credit days (Mehta Traders: 45).
+Amount per line = quantity × rate × (100 − disc%) ÷ 100. The due date = bill date + the customer's credit days (Mehta Traders: 45).
 
-**Post invoice** does all of this at once, or none of it:
+**Post bill** does all of this at once, or none of it:
 
-- Numbers the invoice.
+- Numbers the bill.
 - Takes the pieces out of stock at the chosen location.
-- Debits the customer as a **new bill** (reference = invoice number, due date as above).
+- Debits the customer as a **new bill** in the books (reference = the bill number, due date as above).
 - Credits sales and GST output, adjusts rounding, and books cost of goods sold against finished goods stock.
 - Updates the order and packing list status.
 
@@ -1339,36 +1368,38 @@ Example: Mehta Traders, 120 pieces.
 | Taxable value | ₹42,924.00 |
 | IGST 5% (Delhi customer, Punjab factory) | ₹2,146.20 |
 | Round off | − ₹0.20 |
-| **Invoice total** | **₹45,070.00** |
+| **Bill total** | **₹45,070.00** |
 
-**Invoice list and print.** *Sell → Bills* (the sale invoice list) has tabs All, Draft, Posted, Cancelled. Open an invoice → **Print** gives the tax invoice with QR, carton count and tax breakup. The invoice page links to its order, packing list and accounting voucher.
+After posting, the bill's Next button is **Receive money from** and the customer's name (section 27).
 
-**Discard draft** removes a draft. A posted invoice is never edited.
+**Bill list and print.** *Sell → Bills* has tabs All, Draft, Posted, Cancelled and a **Next step** column. Open a bill → **Print** gives the tax invoice with QR, carton count and tax breakup. The bill page names its order, packing list and accounting voucher, as links when your role may open them.
 
-**Cancel invoice** (Accountant; reason required) reverses the stock and the entries, rolls the order back and returns the packing list to Packed. It is blocked if a credit note exists on it or an e-invoice number was generated.
+**Discard draft** removes a draft. A posted bill is never edited.
 
-**E-invoice and e-way bill.** If switched on in Sales settings and the buyer has a GSTIN, a posted taxed invoice shows **Send e-invoice and e-way bill**. This version uses a **stand-in that makes test numbers only**; it does not contact the government portal. Do not use those numbers for real consignments until a real provider is connected.
+**Cancel bill** (Accountant; reason required) reverses the stock and the entries, rolls the order back and returns the packing list to Packed. It is blocked if a return has been posted against it or an e-invoice number was generated.
+
+**E-invoice and e-way bill.** If switched on in Sales settings and the buyer has a GSTIN, a posted taxed bill shows **Send e-invoice and e-way bill**. This version uses a **stand-in that makes test numbers only**; it does not contact the government portal. Do not use those numbers for real consignments until a real provider is connected.
 
 ### 26.5 Returns: credit note
 
-Open the posted invoice → **Credit note** (or *Sell → Returns from customer*).
+On screen a credit note is called a **return from customer**. Open the posted bill → **Return from customer**. *Sell → Returns from customer* lists them.
 
 | Field | Example |
 | --- | --- |
-| Date | Not before the invoice date |
+| Date | Not before the bill date |
 | Goods come back to | Main Godown |
 | Reason | Required. "6 pieces wrong colour" |
 | Returning | Quantity per line, up to "Can be returned" |
 
-**Save draft** → **Post credit note**. The pieces come back into stock at their original cost, sales returns and GST are reversed pro rata, and the customer is credited: first against that invoice's open bill, any excess **on account**. **Cancel credit note** needs a reason.
+**Save draft** → **Post return** (the return's Next button; the bill and the order show it as their Next button too). The pieces come back into stock at their original cost, sales returns and GST are reversed pro rata, and the customer is credited: first against that bill's open amount, any excess **on account**. So after a return the bill's **Outstanding** and its Receive money button show the bill less the return. **Cancel return** needs a reason.
 
 ---
 
 ## 27. Receive the customer's money
 
-**The quick way.** Open the posted sale invoice. It shows **Outstanding** and a **Receive payment** button. The button opens a **Receipt voucher** with the customer, the amount still open and the invoice reference already filled in. Choose **Received in** (cash or bank), check the amount, add a narration and press **Post receipt voucher**. The invoice then shows **Settled**. If the customer pays only part, enter that amount; the rest stays Outstanding.
+**The quick way.** Open the posted bill (or its order or packing list). The Next button is **Receive money from** and the customer's name; the bill's header shows **Outstanding** and a plain **Receive money** button that does the same. Either opens a **Receipt voucher** with the customer, the amount still to receive and the bill reference already filled in. Choose **Received in** (cash or bank), check the amount, add a narration and press **Post receipt voucher**. The bill then shows **Settled** and "This bill is settled." If the customer pays only part, enter that amount; the rest stays Outstanding and stays on the button. A role that may not enter vouchers sees **Waiting for: Receive money from …** instead.
 
-**Any time.** *Money → Money received.* Needs the Accountant role and a **single factory chosen in the top bar** (the form does not ask for it). Post it in the factory the invoice belongs to.
+**Any time.** *Money → Money received.* Needs the Accountant role and a **single factory chosen in the top bar** (the form does not ask for it). Post it in the factory the bill belongs to.
 
 | Field | Example |
 | --- | --- |

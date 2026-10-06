@@ -129,18 +129,29 @@ def create_grn(*, company, factory, location, vendor, date, lines, user, po=None
     return grn
 
 
+_KEEP = object()        # "leave this field as it is", for a field where None is a real value (no date)
+
+
 @transaction.atomic
-def update_grn(grn, *, lines, user, date=None, location=None, vendor_challan_no=None, remarks=None) -> Grn:
+def update_grn(grn, *, lines, user, date=None, location=None, vendor=None, vendor_challan_no=None,
+               vendor_challan_date=_KEEP, remarks=None) -> Grn:
+    """Replace the contents of a goods receipt that is not posted yet. Nothing has moved stock or reached the books,
+    so the supplier can still be put right; a receipt made against a purchase order keeps that order's supplier
+    (`_check_inputs` refuses another one)."""
     grn = Grn.objects.select_related("po", "factory", "vendor").get(pk=grn.pk)
     assert_factory_access(user, grn.factory)
     if grn.status not in (Grn.Status.DRAFT, Grn.Status.QC_DONE):
         raise BusinessRuleError("A posted GRN cannot be edited; cancel it instead.")
+    if vendor is not None:
+        grn.vendor = vendor
     _check_inputs(grn.po, grn.vendor, grn.factory, user, lines)
     grn.date = date or grn.date
     if location is not None:
         grn.location = location
     if vendor_challan_no is not None:
         grn.vendor_challan_no = vendor_challan_no
+    if vendor_challan_date is not _KEEP:
+        grn.vendor_challan_date = vendor_challan_date
     if remarks is not None:
         grn.remarks = remarks
     grn.status = Grn.Status.DRAFT

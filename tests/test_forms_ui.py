@@ -12,6 +12,7 @@ from django.test import Client
 from django.urls import reverse
 
 from core import forms_ui
+from core.exceptions import BusinessRuleError
 from core.models import Location
 from jobwork.models import JobWorkChallan, LabourRate
 from jobwork.services import rates
@@ -945,3 +946,101 @@ def test_money_paid_posts_the_same_voucher_as_before(company, factory, ledgers, 
         "row_due_date": [""], "row_narration": [""]})
     v = Voucher.objects.get()
     assert r.status_code == 302 and v.total == D("250.00") and v.narration == "" and v.status == "posted"
+
+
+# ================================================================ edits that were silently ignored
+
+def _grn_form(grn, trim, **changes):
+    return {"vendor": grn.vendor_id, "location": grn.location_id, "date": grn.date.isoformat(),
+            "vendor_challan_no": grn.vendor_challan_no, "vendor_challan_date": "", "remarks": grn.remarks,
+            "item": [f"m:{trim.pk}"], "rate": ["2"], "qty": ["40"], "po_line": [""], "rolls": [""], **changes}
+
+
+def test_editing_a_draft_goods_receipt_saves_the_supplier_and_the_challan_date(company, factory, owner, owner_c, vendor,
+                                                                               second_vendor, trim, godown):
+    from purchases.services import grn as grns
+
+    g = grns.create_grn(company=company, factory=factory, location=godown, vendor=vendor, date=DAY, user=owner,
+                        lines=[grns.GrnLineSpec(item=trim, rate=D("2"), qty_received=D("40"))])
+    url = reverse("grn_edit", args=[g.pk])
+    html = html_of(owner_c.get(url))
+    assert chosen(html, "vendor") == str(vendor.pk) and '<select id="vendor" name="vendor">' in html
+    r = owner_c.post(url, _grn_form(g, trim, vendor=second_vendor.pk, vendor_challan_date="2026-06-14"))
+    g.refresh_from_db()
+    assert r.status_code == 302 and g.vendor == second_vendor and g.vendor_challan_date == date(2026, 6, 14)
+    assert g.status == "draft" and g.lines.get().qty_received == D("40")
+    html = html_of(owner_c.get(url))
+    assert chosen(html, "vendor") == str(second_vendor.pk) and 'value="2026-06-14"' in html
+    assert folded(html, "vendor_challan_no", "vendor_challan_date", is_open=True)
+    owner_c.post(url, _grn_form(g, trim))                                   # the date cleared on the form is cleared
+    g.refresh_from_db()
+    assert g.vendor == second_vendor and g.vendor_challan_date is None
+    html = html_of(owner_c.post(url, _grn_form(g, trim, vendor="")))        # and a blank supplier is still refused
+    g.refresh_from_db()
+    assert "Choose the supplier." in flashed(html) and g.vendor == second_vendor
+
+
+def test_a_goods_receipt_against_a_purchase_order_keeps_that_orders_supplier(company, factory, owner, owner_c, vendor,
+                                                                            second_vendor, trim, godown):
+    from purchases.services import grn as grns
+
+    po = po_service.create_and_submit(company=company, factory=factory, vendor=vendor, date=DAY, user=owner,
+                                      lines=[po_service.POLineSpec(trim, D("100"), D("2"))])
+    g = grns.create_grn(company=company, factory=factory, location=godown, vendor=vendor, date=DAY, user=owner, po=po,
+                        lines=[grns.GrnLineSpec(item=trim, rate=D("2"), qty_received=D("40"), po_line=po.lines.get())])
+    url = reverse("grn_edit", args=[g.pk])
+    html = html_of(owner_c.get(url))
+    # the form no longer pretends: the supplier is fixed text, sent along unchanged
+    assert '<select id="vendor"' not in html and f'<input type="hidden" name="vendor" value="{vendor.pk}">' in html
+    assert f'<div class="static-value">{vendor.name}</div>' in html and po.number in flashed(html)
+    form = _grn_form(g, trim, po=po.pk, po_line=[po.lines.get().pk], vendor_challan_date="2026-06-13")
+    html = html_of(owner_c.post(url, {**form, "vendor": second_vendor.pk}))
+    g.refresh_from_db()
+    assert "The purchase order is for a different supplier or factory." in flashed(html) and g.vendor == vendor
+    assert g.vendor_challan_date is None                                    # refused whole: nothing was half-saved
+    assert owner_c.post(url, form).status_code == 302
+    g.refresh_from_db()
+    assert g.vendor == vendor and g.vendor_challan_date == date(2026, 6, 13) and g.po == po
+
+
+def test_updating_a_goods_receipt_without_naming_them_leaves_supplier_and_challan_date_alone(company, factory, owner, vendor,
+                                                                                            trim, godown):
+    from purchases.services import grn as grns
+
+    g = grns.create_grn(company=company, factory=factory, location=godown, vendor=vendor, date=DAY, user=owner,
+                        vendor_challan_date=date(2026, 6, 10), lines=[grns.GrnLineSpec(item=trim, rate=D("2"), qty_received=D("40"))])
+    g = grns.update_grn(g, user=owner, lines=[grns.GrnLineSpec(item=trim, rate=D("2"), qty_received=D("45"))])
+    assert g.vendor == vendor and g.vendor_challan_date == date(2026, 6, 10) and g.lines.get().qty_received == D("45")
+    posted = grns.post_grn(grns.finish_qc(g, user=owner), user=owner)
+    with pytest.raises(BusinessRuleError, match="cannot be edited"):
+        grns.update_grn(posted, user=owner, vendor=vendor, lines=[grns.GrnLineSpec(item=trim, rate=D("2"), qty_received=D("45"))])
+
+
+def test_editing_a_draft_production_order_saves_what_it_is_for(job, owner, owner_c):
+    from production.models import ProductionOrder
+    from production.services import orders as prod_orders
+
+    draft = prod_orders.create_order(company=job.company, factory=job.factory, date=DAY, user=owner,
+                                     lines=[prod_orders.OrderLineSpec(job.style, job.black, 60, {job.sizes["S"]: 1})])
+    url = reverse("order_edit", args=[draft.pk])
+    form = {"date": DAY.isoformat(), "due_date": "", "order_reference": "", "remarks": "",
+            "style": [job.style.pk], "colour": [job.black.pk], "qty": ["60"], "ratios": ["S:1"]}
+    assert chosen(html_of(owner_c.get(url)), "purpose") == "stock"
+    assert owner_c.post(url, {**form, "purpose": "mto", "order_reference": "SO-9"}).status_code == 302
+    draft.refresh_from_db()
+    assert (draft.purpose, draft.order_reference, draft.status) == ("mto", "SO-9", "draft")
+    html = html_of(owner_c.get(url))
+    assert chosen(html, "purpose") == "mto" and folded(html, "purpose", "order_reference", is_open=True)
+    assert owner_c.post(url, {**form, "purpose": "stock"}).status_code == 302
+    draft.refresh_from_db()
+    assert draft.purpose == "stock"
+    html = html_of(owner_c.post(url, {**form, "purpose": "export"}))
+    draft.refresh_from_db()
+    assert "for stock or made to order" in flashed(html) and draft.purpose == "stock"
+    # the service keeps what the order is for when it is not named, and still refuses a released order
+    prod_orders.update_order(draft, user=owner, purpose="mto", lines=[prod_orders.OrderLineSpec(job.style, job.black, 60, {job.sizes["S"]: 1})])
+    kept = prod_orders.update_order(draft, user=owner, lines=[prod_orders.OrderLineSpec(job.style, job.black, 60, {job.sizes["S"]: 1})])
+    assert kept.purpose == "mto"
+    with pytest.raises(BusinessRuleError, match="Only a draft order"):
+        prod_orders.update_order(job.order, user=owner, purpose="mto", lines=[])
+    assert ProductionOrder.objects.get(pk=job.order.pk).purpose == "stock"

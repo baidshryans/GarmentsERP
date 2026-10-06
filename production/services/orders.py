@@ -80,11 +80,15 @@ def create_order(*, company, factory, date, lines, user, due_date=None, purpose=
 
 
 @transaction.atomic
-def update_order(order, *, lines, user, date=None, due_date=None, order_reference=None, remarks=None) -> ProductionOrder:
+def update_order(order, *, lines, user, date=None, due_date=None, purpose=None, order_reference=None, remarks=None) -> ProductionOrder:
     order = ProductionOrder.objects.get(pk=order.pk)
     assert_factory_access(user, order.factory)
     if order.status != ProductionOrder.Status.DRAFT:
         raise BusinessRuleError("Only a draft order can be edited.")
+    if purpose is not None:              # "For": a label on the order; nothing is worked out from it, so a draft may change it
+        if purpose not in ProductionOrder.Purpose.values:
+            raise BusinessRuleError("Choose whether the order is for stock or made to order.")
+        order.purpose = purpose
     order.date = date or order.date
     order.due_date = due_date if due_date is not None else order.due_date
     if order_reference is not None:

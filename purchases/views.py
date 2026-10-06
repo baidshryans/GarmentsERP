@@ -341,7 +341,8 @@ class GrnSave(LoginRequiredMixin, ScreenPermissionMixin, View):
                     vendor_challan_no=p.get("vendor_challan_no", ""), vendor_challan_date=challan_date, remarks=p.get("remarks", ""))
             else:
                 grn_service.update_grn(grn, lines=specs, user=request.user, date=_date(p.get("date")), location=location,
-                                       vendor_challan_no=p.get("vendor_challan_no", ""), remarks=p.get("remarks", ""))
+                                       vendor=vendor, vendor_challan_no=p.get("vendor_challan_no", ""),
+                                       vendor_challan_date=challan_date, remarks=p.get("remarks", ""))
         except (ValueError, BusinessRuleError) as exc:
             _msgs(request, exc)
             return render(request, "purchases/grn_form.html", self._ctx(request, grn, po, rows, p))

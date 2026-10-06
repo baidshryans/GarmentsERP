@@ -126,6 +126,7 @@ class OrderSave(LoginRequiredMixin, ScreenPermissionMixin, View):
                     order_reference=p.get("order_reference", ""), remarks=p.get("remarks", ""))
             else:
                 orders.update_order(order, lines=specs, user=request.user, date=vu.day(p.get("date")), due_date=due,
+                                    purpose=p.get("purpose") or None,
                                     order_reference=p.get("order_reference", ""), remarks=p.get("remarks", ""))
         except (ValueError, BusinessRuleError) as exc:
             vu.report(request, exc)

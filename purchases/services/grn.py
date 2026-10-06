@@ -189,13 +189,15 @@ def finish_qc(grn, *, user) -> Grn:
 
 
 def untouched(grn) -> bool:
-    """Read-only: a draft on which no quality check result has been recorded yet, on any roll or line."""
+    """Read-only: a draft on which nothing about quality has been recorded yet, on any roll or line: no result,
+    no rejected quantity and no remark (a remark saved on a roll still marked pending counts)."""
     if grn.status != Grn.Status.DRAFT:
         return False
-    if GrnRoll.objects.filter(line__grn=grn).exclude(qc_status=Q.PENDING).exists():
-        return False
-    for line in grn.lines.select_related("material"):
-        if line.qc_status != Q.PENDING or (not line.is_fabric_rolls and (line.qty_rejected or line.remark.strip())):
+    for roll in GrnRoll.objects.filter(line__grn=grn):
+        if roll.qc_status != Q.PENDING or roll.remark.strip():
+            return False
+    for line in grn.lines.all():
+        if line.qc_status != Q.PENDING or line.qty_rejected or line.remark.strip():
             return False
     return True
 
@@ -203,8 +205,11 @@ def untouched(grn) -> bool:
 @transaction.atomic
 def accept_all_and_post(grn, *, user) -> Grn:
     """Accept everything on an unchecked GRN, finish its QC and post it (the page's "Accept all and post").
-    The three existing steps in one transaction: if any of them fails, nothing is saved and no number is used."""
+    The three existing steps in one transaction: if any of them fails, nothing is saved and no number is used.
+    Only for a receipt with nothing recorded (`untouched`), so no remark or rejection is ever overwritten."""
     grn = Grn.objects.get(pk=grn.pk)
+    if grn.status == Grn.Status.POSTED:
+        raise BusinessRuleError(f"{grn.number} is already posted.")
     if not untouched(grn):
         raise BusinessRuleError("Some of these goods already have a quality check result. Finish the check line by line, then post.")
     rolls = {pk: (Q.ACCEPTED, "") for pk in GrnRoll.objects.filter(line__grn=grn).values_list("pk", flat=True)}

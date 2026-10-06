@@ -374,8 +374,8 @@ class GrnDetail(LoginRequiredMixin, ScreenPermissionMixin, View):
             raise PermissionDenied
         p, action, user = request.POST, request.POST.get("action"), request.user
         try:
-            if action in ("save_qc", "finish_qc"):
-                rolls, lines = {}, {}
+            rolls, lines = {}, {}
+            if action in ("save_qc", "finish_qc", "accept_all"):
                 for key, val in p.items():
                     if key.startswith("roll_status_"):
                         rid = key[len("roll_status_"):]
@@ -383,6 +383,7 @@ class GrnDetail(LoginRequiredMixin, ScreenPermissionMixin, View):
                     elif key.startswith("rejected_"):
                         lid = key[len("rejected_"):]
                         lines[int(lid)] = (_decimal(val, "Rejected quantity", Decimal("0")), p.get(f"remark_{lid}", ""))
+            if action in ("save_qc", "finish_qc"):
                 grn_service.record_qc(grn, user=user, rolls=rolls, lines=lines)
                 if action == "finish_qc":
                     grn_service.finish_qc(grn, user=user)
@@ -390,6 +391,13 @@ class GrnDetail(LoginRequiredMixin, ScreenPermissionMixin, View):
                 else:
                     messages.success(request, "QC saved.")
             elif action == "accept_all":
+                typed = (any(status not in ("", "pending") or remark.strip() for status, remark in rolls.values())
+                         or any(rejected or remark.strip() for rejected, remark in lines.values()))
+                if typed and grn.status == Grn.Status.DRAFT:
+                    # the form came with a result on it: keep it exactly as Save QC would, and post nothing
+                    grn_service.record_qc(grn, user=user, rolls=rolls, lines=lines)
+                    raise BusinessRuleError("You entered a rejection or a remark. Press Finish QC to keep it, or clear it to "
+                                            "accept everything. What you typed is saved.")
                 grn = grn_service.accept_all_and_post(grn, user=user)
                 messages.success(request, f"{grn.number} posted with everything accepted. Stock and books are updated.")
             elif action == "post":

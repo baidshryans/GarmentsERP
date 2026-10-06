@@ -38,7 +38,7 @@
   {% endfor %}
   {% if can_edit %}
     {% if grn.status == "draft" or grn.status == "qc_done" %}
-    <div class="form-actions"{% if grn.status == "qc_done" %} id="do-next"{% endif %}>{% if can_accept_all %}<button class="btn primary" name="action" value="accept_all">Accept all and post</button>{% endif %}<button class="btn" name="action" value="save_qc">Save QC</button><button class="btn{% if grn.status == "draft" and not can_accept_all %} primary{% endif %}" name="action" value="finish_qc">Finish QC</button>
+    <div class="form-actions"{% if grn.status == "qc_done" %} id="do-next"{% endif %}><button class="btn" name="action" value="save_qc">Save QC</button>{% if can_accept_all %}<button class="btn primary" name="action" value="accept_all">Accept all and post</button>{% endif %}<button class="btn{% if grn.status == "draft" and not can_accept_all %} primary{% endif %}" name="action" value="finish_qc">Finish QC</button>
       {% if grn.status == "qc_done" %}<button class="btn primary" name="action" value="post">Post goods received</button>{% endif %}</div>
     {% if can_accept_all %}<p class="muted">If everything is fine, <strong>Accept all and post</strong> accepts every line and brings the goods into stock in one step. If something is rejected, mark it above and press Finish QC.</p>{% endif %}
     {% endif %}

@@ -1010,6 +1010,26 @@ def mixed_grn(ns, po=None):
                            lines=lines, user=ns.owner, po=po)
 
 
+def qc_form(grn, action, **typed):
+    """Everything a browser sends from the quality check form: one status and remark per roll, one rejected quantity
+    and remark per other line, and the button pressed. `typed` overrides fields by name."""
+    data = {"action": action}
+    for line in grn.lines.select_related("material").prefetch_related("rolls"):
+        if line.is_fabric_rolls:
+            for r in line.rolls.all():
+                data[f"roll_status_{r.pk}"], data[f"roll_remark_{r.pk}"] = r.qc_status, r.remark
+        else:
+            data[f"rejected_{line.pk}"], data[f"remark_{line.pk}"] = f"{line.qty_rejected.normalize():f}", line.remark
+    assert not set(typed) - set(data), typed
+    return {**data, **typed}
+
+
+def qc_buttons(html):
+    """The submit buttons of the quality check form, in the order a browser meets them (Enter presses the first)."""
+    form = html[html.index('<form method="post" id="do-next">'):]
+    return re.findall(r'<button class="([^"]*)" name="action" value="([^"]*)"', form[:form.index("</form>")])
+
+
 def test_accept_all_and_post_checks_finishes_and_posts_in_one_step(ns):
     from inventory.models import FabricRoll
     from inventory.services import stock
@@ -1019,8 +1039,11 @@ def test_accept_all_and_post_checks_finishes_and_posts_in_one_step(ns):
     g1 = mixed_grn(ns, po)
     html = page(ns.owner, "grn_detail", g1.pk)
     assert ACCEPT_ALL in html and '<button class="btn" name="action" value="finish_qc">Finish QC</button>' in html
-    assert html.count("btn primary") == 2                    # the guide's Check quality and this one
-    r = login(ns.owner).post(reverse("grn_detail", args=[g1.pk]), {"action": "accept_all"}, follow=True)
+    # Save QC is the first button, so Enter in a field saves and never posts; Accept all is the form's violet one
+    assert qc_buttons(html) == [("btn", "save_qc"), ("btn primary", "accept_all"), ("btn", "finish_qc")]
+    assert set(qc_form(g1, "accept_all")) - {"action"} == set(re.findall(r'name="((?:roll_status|roll_remark|rejected|remark)_\d+)"', html))
+    c = login(ns.owner)
+    r = c.post(reverse("grn_detail", args=[g1.pk]), qc_form(g1, "accept_all"), follow=True)
     g1 = grn_of(g1)
     assert g1.status == "posted" and g1.number == "GRN/LDH1/26-27/0001"
     assert {l.qc_status for l in g1.lines.all()} == {"accepted"} and FabricRoll.objects.count() == 2
@@ -1032,6 +1055,10 @@ def test_accept_all_and_post_checks_finishes_and_posts_in_one_step(ns):
     assert f"{g1.number} posted with everything accepted. Stock and books are updated." in done
     # the page leads on: the supplier's bill is next
     assert button(bill_url(ns, g1), "Enter supplier bill") in guide_of(done) and "Accept all and post" not in done
+    # a second click (the first answer was slow) says so and changes nothing
+    r = c.post(reverse("grn_detail", args=[g1.pk]), {"action": "accept_all"}, follow=True)
+    assert f"{g1.number} is already posted." in r.content.decode()
+    assert Voucher.objects.count() == 1 and FabricRoll.objects.count() == 2 and grn_of(g1).number == g1.number
 
 
 def test_accept_all_is_offered_only_while_nothing_has_been_checked(ns):
@@ -1083,7 +1110,7 @@ def test_if_posting_fails_after_accept_all_nothing_is_saved(ns, monkeypatch):
     monkeypatch.setattr(orders, "refresh_status", fails)
     moves, vouchers, history = StockMovement.objects.count(), Voucher.objects.count(), g1.history.count()
     c = login(ns.owner)
-    r = c.post(reverse("grn_detail", args=[g1.pk]), {"action": "accept_all"}, follow=True)
+    r = c.post(reverse("grn_detail", args=[g1.pk]), qc_form(g1, "accept_all"), follow=True)
     html = r.content.decode()
     assert "The order could not be updated." in html and ACCEPT_ALL in html     # still unchecked, still offered
     g1 = grn_of(g1)
@@ -1095,8 +1122,94 @@ def test_if_posting_fails_after_accept_all_nothing_is_saved(ns, monkeypatch):
     assert po_of(po).status == "approved"
     # the numbers drawn by the failed attempt were given back: the next goods receipt and its voucher are the first
     monkeypatch.undo()
-    r = c.post(reverse("grn_detail", args=[g1.pk]), {"action": "accept_all"}, follow=True)
+    r = c.post(reverse("grn_detail", args=[g1.pk]), qc_form(g1, "accept_all"), follow=True)
     g1 = grn_of(g1)
     assert g1.status == "posted" and g1.number == "GRN/LDH1/26-27/0001"
     assert Voucher.objects.get().number.endswith("/0001") and FabricRoll.objects.count() == 2
     assert po_of(po).status == "received"
+
+
+TYPED = "You entered a rejection or a remark. Press Finish QC to keep it, or clear it to accept everything. What you typed is saved."
+
+
+@pytest.mark.parametrize("what", ["roll_rejected", "roll_remark", "rejected_qty", "line_remark"])
+def test_accept_all_never_discards_what_was_typed_on_the_form(ns, what):
+    from inventory.models import StockMovement
+    from ledger.models import Voucher
+    from purchases.models import GrnRoll
+
+    g1 = mixed_grn(ns)
+    roll = g1.lines.get(material=ns.fabric).rolls.order_by("id").first()
+    line = g1.lines.get(material=ns.trim)
+    typed = {"roll_rejected": {f"roll_status_{roll.pk}": "rejected", f"roll_remark_{roll.pk}": "stains"},
+             "roll_remark": {f"roll_remark_{roll.pk}": "check the shade"},
+             "rejected_qty": {f"rejected_{line.pk}": "7", f"remark_{line.pk}": "broken"},
+             "line_remark": {f"remark_{line.pk}": "short by a box?"}}[what]
+    r = login(ns.owner).post(reverse("grn_detail", args=[g1.pk]), qc_form(g1, "accept_all", **typed), follow=True)
+    html = r.content.decode()
+    assert TYPED in html
+    g1 = grn_of(g1)
+    assert g1.status == "draft" and g1.number is None and not StockMovement.objects.exists() and not Voucher.objects.exists()
+    # nothing typed was lost: it is saved as Save QC saves it, and shows on the form that came back
+    roll, line = GrnRoll.objects.get(pk=roll.pk), g1.lines.get(pk=line.pk)
+    saved = {f"roll_status_{roll.pk}": roll.qc_status, f"roll_remark_{roll.pk}": roll.remark,
+             f"rejected_{line.pk}": f"{line.qty_rejected.normalize():f}", f"remark_{line.pk}": line.remark}
+    assert {k: saved[k] for k in typed} == typed
+    # with a result on it the receipt no longer offers Accept all; Finish QC is the violet button again
+    assert not grns.untouched(g1) and "Accept all and post" not in html
+    assert qc_buttons(html) == [("btn", "save_qc"), ("btn primary", "finish_qc")]
+
+
+def test_a_remark_saved_on_a_roll_left_pending_counts_as_checked_and_is_never_wiped(ns):
+    from purchases.models import GrnRoll
+
+    g1 = mixed_grn(ns)
+    roll = g1.lines.get(material=ns.fabric).rolls.order_by("id").first()
+    c = login(ns.owner)
+    r = c.post(reverse("grn_detail", args=[g1.pk]), qc_form(g1, "save_qc", **{f"roll_remark_{roll.pk}": "check the shade"}), follow=True)
+    assert "QC saved." in r.content.decode() and "Accept all and post" not in r.content.decode()
+    assert GrnRoll.objects.get(pk=roll.pk).qc_status == "pending" and not grns.untouched(grn_of(g1))
+    # a stale page still has the button: neither the full form nor a bare request gets past the saved remark
+    for data in (qc_form(grn_of(g1), "accept_all"), {"action": "accept_all"}):
+        c.post(reverse("grn_detail", args=[g1.pk]), data)
+        assert grn_of(g1).status == "draft" and GrnRoll.objects.get(pk=roll.pk).remark == "check the shade"
+    with pytest.raises(BusinessRuleError, match="already have a quality check result"):
+        grns.accept_all_and_post(g1, user=ns.owner)
+    assert GrnRoll.objects.get(pk=roll.pk).remark == "check the shade"
+    # clearing the remark and saving brings the one-step button back
+    r = c.post(reverse("grn_detail", args=[g1.pk]), qc_form(grn_of(g1), "save_qc", **{f"roll_remark_{roll.pk}": ""}), follow=True)
+    assert ACCEPT_ALL in r.content.decode() and grns.untouched(grn_of(g1))
+
+
+# ---------------- a locked period ----------------
+
+def test_accept_all_in_a_locked_period_is_refused_and_nothing_is_saved(ns):
+    from core.services.periods import lock_period
+    from inventory.models import FabricRoll, StockMovement
+    from ledger.models import Voucher
+    from purchases.models import GrnRoll
+
+    po = order(ns)
+    g1 = mixed_grn(ns, po)
+    lock_period(user=ns.owner, company=ns.company, upto=date(2026, 6, 30))
+    r = login(ns.owner).post(reverse("grn_detail", args=[g1.pk]), qc_form(g1, "accept_all"), follow=True)
+    html = r.content.decode()
+    assert "is locked" in html and ACCEPT_ALL in html
+    g1 = grn_of(g1)
+    assert g1.status == "draft" and g1.number is None and grns.untouched(g1)
+    assert set(GrnRoll.objects.values_list("qc_status", "roll_id")) == {("pending", None)}
+    assert not StockMovement.objects.exists() and not Voucher.objects.exists() and not FabricRoll.objects.exists()
+    assert po_of(po).status == "approved"
+
+
+def test_save_and_submit_in_a_locked_period_does_exactly_what_submitting_a_draft_does(ns):
+    """An order posts nothing to the books or to stock, so the period lock has never applied to it: the one-step
+    button must not differ from Save draft followed by Submit order."""
+    from core.services.periods import lock_period
+
+    lock_period(user=ns.owner, company=ns.company, upto=date(2026, 6, 30))
+    two_steps = orders.submit_po(draft_po(ns), user=ns.owner)
+    r = login(ns.owner).post(reverse("po_new"), po_form(ns, then="submit"), follow=True)
+    one_step = PurchaseOrder.objects.exclude(pk=two_steps.pk).get()
+    assert (one_step.status, one_step.number) == ("approved", "PO/LDH1/26-27/0002") and two_steps.status == "approved"
+    assert "is locked" not in r.content.decode()

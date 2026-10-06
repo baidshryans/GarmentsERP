@@ -1358,3 +1358,71 @@ def test_a_made_to_order_order_stops_waiting_once_its_production_order_is_closed
     assert login(owner).get(g["primary"]["url"]).status_code == 200
     html = page(owner, "saleorder_detail", so.pk)
     assert NO_STOCK in guide_of(html) and "Close the balance" in html
+
+
+# ---------------- money the customer already has on account ----------------
+
+HELD = "is held on the customer's account. Adjust it against the next bill, or refund it from Money paid."
+
+
+def advance(ns, amount):
+    cash = Ledger.objects.get(company=ns.company, system_key="cash")
+    return post_manual_voucher(
+        company=ns.company, factory=ns.factory, vtype="receipt", on_date=DAY, narration="", header={"account": str(cash.pk)},
+        rows=[Row(ledger=str(ns.local.customer_ledger_id), amount=str(amount), ref_type="advance", reference="")], user=ns.owner)
+
+
+def test_receiving_money_mentions_an_advance_the_customer_already_paid(ns):
+    from ledger.selectors import ledger_position
+
+    o = confirmed_order(ns)
+    inv = billed(ns, pack(ns, o, ALL))
+    plain_hint = f"30000.00 is still to be received on {inv.number}."
+    assert invoice_guide(inv_of(inv), ns.owner)["primary"]["hint"] == plain_hint
+    advance(ns, "20000")
+    # the same position the voucher screen shows beside the customer
+    assert ledger_position(ns.local.customer_ledger, user=ns.owner)["advance"] == D("-20000.00")
+    for guide, doc in ((order_guide, order_of(o)), (invoice_guide, inv_of(inv))):
+        g = guide(doc, ns.owner)
+        # the amount and the link are still the bill's: nothing is netted, the user is only told
+        assert seen(g) == [(WHO, receive_link(inv, "30000.00"))]
+        assert g["primary"]["hint"] == f"{plain_hint} This customer also has 20000.00 on account from advances or returns."
+        follow_links(ns, g)
+    html = page(ns.owner, "saleinvoice_detail", inv.pk)
+    assert "This customer also has 20000.00 on account from advances or returns." in guide_of(html)
+    assert "Outstanding 30000.00" in head_of(html) and HELD not in html      # money is still to come: no second line
+    # a user of another factory sees neither the bill nor that money
+    assert held_for(ns, inv, make_far(ns)) == D("0")
+
+
+def make_far(ns):
+    from core.services.factories import create_factory
+
+    other = create_factory(company=ns.company, code="LDH9", name="Other unit", state_code="03")
+    return role_user("held_far", {"sales.invoice": ["view"], "ledger.voucher": ["view", "create"]}, other)
+
+
+def held_for(ns, inv, user):
+    from sales.services.guide import on_account
+
+    return on_account(inv_of(inv).customer, user, {})
+
+
+def test_a_return_after_full_payment_says_the_credit_is_held_on_the_account(ns):
+    inv = quick_invoice(ns)                                          # 10 pieces, 5,000
+    receive(ns, inv, "5000")
+    note = draft_return(ns, inv, "2")
+    assert HELD not in page(ns.owner, "saleinvoice_detail", inv.pk)
+    assert HELD not in page(ns.owner, "salecn_detail", note.pk)       # a draft has credited nothing yet
+    credit_notes.post_credit_note(note, user=ns.owner)
+    line = f'<p class="muted">1000.00 {HELD}</p>'
+    for name, doc in (("saleinvoice_detail", inv), ("salecn_detail", note)):
+        html = page(ns.owner, name, doc.pk)
+        assert line in html, name
+    g = invoice_guide(inv_of(inv), ns.owner)
+    assert offered(g) == [] and g["complete"]                         # told, not asked: no new step
+    # the next bill's money step mentions it; cancelling the return takes the credit, and the line, away
+    second = quick_invoice(ns, qty="2")
+    assert "also has 1000.00 on account" in invoice_guide(inv_of(second), ns.owner)["primary"]["hint"]
+    credit_notes.cancel_credit_note(note, user=ns.owner, reason="entered twice")
+    assert HELD not in page(ns.owner, "saleinvoice_detail", inv.pk)

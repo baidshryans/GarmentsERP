@@ -102,10 +102,14 @@ def post_bill_action(inv):
                    reverse("saleinvoice_detail", args=[inv.pk]), ("sales.invoice", "edit"), ("sales.invoice", "view"))
 
 
-def receive_action(inv, owed):
+def receive_action(inv, owed, credit=ZERO):
     """A posted bill with an amount still to receive: opens Money received with the customer, that amount and the
-    bill reference filled in. Nothing is posted until the user posts that voucher."""
-    return _action("receive", f"Receive money from {inv.customer.name}", f"{owed:.2f} is still to be received on {inv.number}.",
+    bill reference filled in. Nothing is posted until the user posts that voucher. `credit` is what the customer
+    already has on account (see `on_account`): the amount and the link stay the bill's, the hint mentions it."""
+    hint = f"{owed:.2f} is still to be received on {inv.number}."
+    if credit:
+        hint += f" This customer also has {credit:.2f} on account from advances or returns."
+    return _action("receive", f"Receive money from {inv.customer.name}", hint,
                    settle_url("receive", inv.customer.customer_ledger_id, owed, inv.number, f"Received against {inv.number}"),
                    ("ledger.voucher", "create"), ("ledger.voucher", "view"))
 
@@ -122,13 +126,36 @@ def due(inv, user, memo):
     """What the customer still owes on a posted bill, from the ledger's bill-wise records: the figure the bill page
     shows as Outstanding. Receipts and posted returns set against the bill are already taken off it. Each customer's
     open bills are read once per memo."""
-    ledger_id = inv.customer.customer_ledger_id
-    if inv.status != INV.POSTED or not ledger_id or not inv.number:
+    if inv.status != INV.POSTED or not inv.customer.customer_ledger_id or not inv.number:
         return ZERO
-    key = ("open bills", ledger_id)
+    return max(_position(inv.customer, user, memo)["bills"].get(inv.number, ZERO), ZERO)
+
+
+def _position(customer, user, memo):
+    """The customer's bill-wise position in the factories the user may see, read once per memo: the same records
+    the voucher screen shows beside a party (`ledger.selectors.ledger_position`)."""
+    key = ("open bills", customer.customer_ledger_id)
     if key not in memo:
-        memo[key] = outstanding_bills(inv.customer.customer_ledger, user=user)["bills"]
-    return max(memo[key].get(inv.number, ZERO), ZERO)
+        memo[key] = outstanding_bills(customer.customer_ledger, user=user)
+    return memo[key]
+
+
+def on_account(customer, user, memo):
+    """Money of the customer's that is set against no bill: advances received and on-account credits (a return posted
+    after its bill was paid leaves one). Zero when there is none, or when the account is the other way round."""
+    if not customer.customer_ledger_id:
+        return ZERO
+    position = _position(customer, user, memo)
+    return max(-(position["advance"] + position["on_account"]), ZERO)
+
+
+def held(inv, user, perms=None):
+    """What sits on the customer's account while nothing is left to receive on this posted bill: the bill and return
+    pages say it is there to be adjusted or refunded. Zero otherwise. No action comes of it."""
+    memo = {} if perms is None else perms
+    if inv.status != INV.POSTED or due(inv, user, memo):
+        return ZERO
+    return on_account(inv.customer, user, memo)
 
 
 def _draft_returns(invoices):
@@ -155,7 +182,7 @@ def _bill_actions(inv, notes, user, memo):
     found = [post_return_action(n) for n in notes.get(inv.pk, [])]
     owed = due(inv, user, memo)
     if owed:
-        found.append(receive_action(inv, owed))
+        found.append(receive_action(inv, owed, on_account(inv.customer, user, memo)))
     return found
 
 

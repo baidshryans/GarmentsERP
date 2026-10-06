@@ -622,7 +622,8 @@ class InvoiceDetail(LoginRequiredMixin, ScreenPermissionMixin, View):
             # the pill shows what the ledger holds open on the bill; the button is the guide's step, so a role that
             # could not open the voucher it leads to gets no button
             settle["url"] = next((a["url"] for a in [guide["primary"], *guide["others"]] if a and a["kind"] == "receive"), None)
-        return {"inv": inv, "guide": guide, "lines": inv.lines.select_related("sku__style", "sku__colour", "sku__size"),
+        return {"inv": inv, "guide": guide, "held": guide_service.held(inv, request.user),
+                "lines": inv.lines.select_related("sku__style", "sku__colour", "sku__size"),
                 "taxes": inv.tax_lines.all(), "can_edit": _can(request, "sales.invoice", "edit"),
                 "can_cancel": _can(request, "sales.invoice", "cancel"),
                 "can_return": _can(request, "sales.creditnote", "create"),
@@ -753,8 +754,10 @@ class CreditNoteDetail(LoginRequiredMixin, ScreenPermissionMixin, View):
             for t in l.taxes.all():
                 taxes[(t.component, t.rate)] = taxes.get((t.component, t.rate), Decimal("0")) + t.amount
         guide = guide_service.creditnote_guide(note, request.user)
+        note.invoice.customer = note.customer
         return render(request, "sales/creditnote_detail.html", {
             "note": note, "guide": guide, "can_post": guide["primary"] is not None,
+            "held": guide_service.held(note.invoice, request.user) if note.status == "posted" else None,
             "lines": lines, "taxes": [{"component": c, "rate": r, "amount": a} for (c, r), a in sorted(taxes.items())],
             "can_cancel": _can(request, "sales.creditnote", "cancel"),
             "can_open_invoice": _can(request, "sales.invoice", "view"), "can_open_voucher": _can(request, "ledger.voucher", "view")})

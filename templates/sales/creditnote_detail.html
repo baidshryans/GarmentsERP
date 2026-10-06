@@ -5,6 +5,7 @@
     <span class="pill {% if note.status == 'posted' %}success{% elif note.status == 'cancelled' %}danger{% else %}warning{% endif %}">{{ note.get_status_display }}</span>
     <div class="actions"><a class="btn ghost" href="{% url 'salecn_list' %}">All returns</a></div></div>
   {% include "sales/_sale_guide.html" with where="Where this return is" done="This return is posted." shut="This return was cancelled." %}
+  {% if held %}<p class="muted">{{ held }} is held on the customer's account. Adjust it against the next bill, or refund it from Money paid.</p>{% endif %}
   <div class="island"><div class="field-row">
     <div><div class="label muted">Customer</div>{{ note.customer.name }}</div>
     <div><div class="label muted">Bill</div>{% if can_open_invoice %}<a href="{% url 'saleinvoice_detail' note.invoice.pk %}">{{ note.invoice.number }}</a>{% else %}{{ note.invoice.number }}{% endif %}</div>

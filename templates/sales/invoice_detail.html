@@ -9,6 +9,7 @@
       {% if inv.status == "posted" %}<a class="btn" href="{% url 'saleinvoice_print' inv.pk %}">Print</a>{% if can_return %}<a class="btn" href="{% url 'salecn_new' inv.pk %}">Return from customer</a>{% endif %}{% endif %}
       <a class="btn ghost" href="{% url 'saleinvoice_list' %}">All bills</a></div></div>
   {% include "sales/_sale_guide.html" with done="This bill is settled." shut="This bill was cancelled." %}
+  {% if held %}<p class="muted">{{ held }} is held on the customer's account. Adjust it against the next bill, or refund it from Money paid.</p>{% endif %}
   <div class="island"><div class="field-row">
     <div><div class="label muted">Customer</div>{{ inv.customer.name }}{% if inv.customer.gstin %}<div class="muted">GSTIN {{ inv.customer.gstin }}</div>{% endif %}</div>
     <div><div class="label muted">Factory</div>{{ inv.factory.code }} · from {{ inv.location.name }}</div>

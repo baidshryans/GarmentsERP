@@ -4,7 +4,7 @@
   <div class="page-head"><h1 class="page-title">{{ ch.number|default:"Draft challan" }}</h1><span class="pill {% if ch.status == 'billed' %}success{% elif ch.status == 'draft' %}{% else %}warning{% endif %}">{{ ch.get_status_display }}</span>
     {% if ch.kind == "rework" %}<span class="pill warning">Rework</span>{% endif %}
     <div class="actions">{% if ch.status != "draft" %}<a class="btn" href="{% url 'challan_print' ch.pk %}" target="_blank">Print</a>{% endif %}
-      {% if ch.is_open and can_receive %}<a class="btn primary" href="{% url 'receipt_new' ch.pk %}">Receive goods</a>{% endif %}{% if can_open_lot %}<a class="btn" href="{% url 'lot_detail' ch.lot_id %}">Back to lot</a>{% endif %}<a class="btn ghost" href="{% url 'challan_list' %}">All challans</a></div></div>
+      {% if can_receive %}<a class="btn" href="{% url 'receipt_new' ch.pk %}">Receive goods</a>{% endif %}{% if can_open_lot %}<a class="btn" href="{% url 'lot_detail' ch.lot_id %}">Back to lot</a>{% endif %}<a class="btn ghost" href="{% url 'challan_list' %}">All challans</a></div></div>
   {% include "jobwork/_challan_guide.html" %}
   <div class="island"><div class="field-row">
     <div><div class="label muted">Fabricator</div>{{ ch.party.name }}</div><div><div class="label muted">Lot</div>{% if can_open_lot %}<a href="{% url 'lot_detail' ch.lot.pk %}">{{ ch.lot.lot_no }}</a>{% else %}{{ ch.lot.lot_no }}{% endif %}</div>

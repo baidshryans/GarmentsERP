@@ -403,7 +403,7 @@ class MoveView(LoginRequiredMixin, ScreenPermissionMixin, View):
                 "sku__size", "location", "current_step__process").order_by("bundle_no"))
             steps = [s for s in lot.steps.select_related("process", "factory", "party").order_by("sequence") if s.status != "skipped"]
             for b in bundles:
-                b.next = bundle_service.next_stage(b, steps)
+                b.next_label = bundle_service.next_stage_label(b, steps)
                 b.scan = labels.scan_text(b)
             ctx.update(bundles=bundles, steps=steps, factories=_factories(request.user))
         return ctx

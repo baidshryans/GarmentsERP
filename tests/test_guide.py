@@ -7,6 +7,7 @@ import pytest
 from django.test import Client
 from django.urls import reverse
 
+from core.exceptions import BusinessRuleError
 from core.models import Role, RolePermission
 from jobwork.services import challans, rates, receipts
 from jobwork.services.receipts import Counted
@@ -648,8 +649,11 @@ def test_rework_goes_back_on_the_step_it_came_from_not_the_first_open_one(ns):
     form = c.get(rework[0]["url"])
     assert form.context["kind"] == "rework" and form.context["step"].pk == emb.pk
     assert [b.bundle_no for b in form.context["bundles"]] == ["B001"]
-    # without the step the same screen opens on stitching, which is what the link used to do
-    assert c.get(reverse("challan_new") + f"?lot={ns.lot.pk}&kind=rework").context["step"].pk == step(ns, "STITCH").pk
+    # without the step a rework form opens on the step its first waiting bundle sits at, not on the first open step
+    bare = c.get(reverse("challan_new") + f"?lot={ns.lot.pk}&kind=rework")
+    assert bare.context["step"].pk == emb.pk and [b.bundle_no for b in bare.context["bundles"]] == ["B001"]
+    # a job work challan opened without a step still starts on the first open outside step
+    assert c.get(reverse("challan_new") + f"?lot={ns.lot.pk}").context["step"].pk == step(ns, "STITCH").pk
     follow_links(ns, g)
     # and the form, sent as it stands, makes the rework challan for embroidery
     r = c.post(reverse("challan_new"), {"lot": ns.lot.pk, "step": emb.pk, "kind": "rework", "factory": ns.factory.pk,
@@ -845,9 +849,23 @@ def test_the_move_screen_falls_back_to_the_next_optional_stage_when_nothing_mand
     for code in ("IRON", "FINISH", "QC", "PACK"):
         routes.remove_step(step(ns, code), user=ns.owner, reason="test: a route that ends in optional steps")
     go(ns, ns.bundles, "STITCH")
-    assert set(next_stages(ns).values()) == {"Embroidery"}
+    assert set(next_stages(ns).values()) == {"Embroidery (by challan)"}
     routes.skip_step(step(ns, "EMB"), user=ns.owner, reason="plain")
-    assert set(next_stages(ns).values()) == {"Printing"}
+    assert set(next_stages(ns).values()) == {"Printing (by challan)"}
     for code in ("PRINT", "WASH"):
         routes.skip_step(step(ns, code), user=ns.owner, reason="plain")
     assert set(next_stages(ns).values()) == {"—"}  # nothing is left on the route
+
+
+def test_the_move_screen_says_when_the_next_stage_is_not_a_move(ns):
+    # the standard route gives stitching to a fabricator: a challan takes the bundles there, not this screen
+    assert set(next_stages(ns).values()) == {"Stitching (by challan)"}
+    issue(ns, ns.bundles[HALF])
+    seen = next_stages(ns)
+    # out with the fabricator: they are received on the job work screens
+    assert {seen[b.bundle_no] for b in ns.bundles[HALF]} == {"With fabricator"}
+    assert {seen[b.bundle_no] for b in ns.bundles[3:]} == {"Stitching (by challan)"}
+    # the service refuses exactly those two, which is why the column says so
+    for b, why in ((ns.bundles[0], "with a fabricator"), (ns.bundles[3], "issue a job work challan")):
+        with pytest.raises(BusinessRuleError, match=why):
+            bundle_service.move_bundles(bundles=[b], to_step=step(ns, "IRON" if b is ns.bundles[0] else "STITCH"), user=ns.owner, date=DAY)

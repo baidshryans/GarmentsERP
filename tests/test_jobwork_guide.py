@@ -7,6 +7,7 @@ from datetime import date
 import pytest
 from django.test import Client
 from django.urls import reverse
+from django.utils.html import escape
 
 from core.exceptions import BusinessRuleError
 from core.home_actions import home_actions
@@ -15,7 +16,8 @@ from jobwork.models import JobWorkChallan
 from jobwork.services import bills, challans, rates, receipts
 from jobwork.services.guide import challan_guide, challan_next
 from jobwork.services.receipts import Counted
-from production.models import Bundle
+from inventory.models import StockMovement
+from production.models import Bundle, StageMovement
 from production.services.guide import lot_guide
 from tests.conftest import make_user
 from tests.prod_helpers import D, DAY, build, cut, fabricator, step
@@ -56,6 +58,14 @@ def fresh(challan):
 
 def guide(ns, challan, user=None, perms=None):
     return challan_guide(fresh(challan), user or ns.owner, perms)
+
+
+def bill_url(ns, challan):
+    return reverse("bill_new") + f"?party={ns.fab.pk}&factory={ns.factory.pk}&challan={challan.pk}"
+
+
+def rework_url(ns, code="STITCH"):
+    return reverse("challan_new") + f"?lot={ns.lot.pk}&kind=rework&step={step(ns, code).pk}"
 
 
 def offered(g):
@@ -115,6 +125,12 @@ def follow_links(ns, g, user=None):
             assert r.context["r"].status == "pending_approval" and 'name="action" value="approve"' in html
         elif a["label"] == "Check received pieces":
             assert r.context["r"].status == "received" and 'name="action" value="qc"' in html
+        elif a["label"] == "Send back for rework":
+            assert r.context["kind"] == "rework" and a["url"].endswith(f"&step={r.context['step'].pk}")
+            assert sum(b.rework_qty for b in r.context["bundles"]) == a["pieces"], a
+        elif a["label"] == "Post labour bill":
+            assert r.context["b"].status == "draft" and 'name="action" value="post"' in html
+            assert sum(l.qty for l in r.context["lines"]) >= a["pieces"] > 0
         else:
             raise AssertionError(f"a link the guide should not offer: {a}")
 
@@ -190,7 +206,7 @@ def test_accepted_pieces_not_yet_on_a_bill_ask_for_the_labour_bill(ns):
     assert [(a["label"], a["pieces"]) for a in offered(g)] == [("Check received pieces", 0), (f"Make labour bill for {ns.fab.name}", 39)]
     receipts.record_qc(receipt_line=l3, accepted=8, user=ns.owner)
     g = guide(ns, ch)
-    assert seen(g) == [(f"Make labour bill for {ns.fab.name}", reverse("bill_new") + f"?party={ns.fab.pk}", 47)]
+    assert seen(g) == [(f"Make labour bill for {ns.fab.name}", bill_url(ns, ch), 47)]
     assert states(g) == {"Draft": "done", "Issued": "done", "Received": "done", "Checked": "done", "Billed": "now"}
     assert current(g) == ["Billed"] and pieces(g)["Checked"] == 47
     assert next(s for s in g["journey"] if s["label"] == "Checked")["detail"] == "accepted"
@@ -204,8 +220,10 @@ def test_pieces_on_a_bill_are_not_offered_again_and_a_billed_challan_is_finished
     accept_all(ns, receive(ns, ch))
     bill = bills.create_bill(company=ns.company, factory=ns.factory, party=ns.fab, date=DAY, user=ns.owner)
     g = guide(ns, ch)
-    # every accepted piece is on the draft bill: nothing more to make, though the challan is not billed until it is posted
-    assert offered(g) == [] and g["waiting"] == "" and g["complete"] is False
+    # every accepted piece is on the draft bill: no second bill to make, but nothing is owed until that one is posted
+    assert seen(g) == [("Post labour bill", reverse("bill_detail", args=[bill.pk]), 42)] and g["complete"] is False
+    assert states(g)["Billed"] == "now"
+    follow_links(ns, g)
     bills.post_bill(bill, user=ns.owner)
     assert fresh(ch).status == "billed"
     g = guide(ns, ch)
@@ -273,6 +291,8 @@ def test_a_role_that_may_not_do_the_next_step_is_told_what_the_challan_waits_for
     ("over", "jobwork.receipt", "approve", "jobwork.receipt", "Approve over-receipt", 403),
     ("received", "jobwork.qc", "create", "jobwork.receipt", "Check received pieces", 403),
     ("accepted", "jobwork.bill", "create", "jobwork.bill", "Make labour bill for Sharma Stitching", 200),
+    ("on_draft_bill", "jobwork.bill", "edit", "jobwork.bill", "Post labour bill", 403),
+    ("sent_back", "jobwork.challan", "create", "jobwork.challan", "Send back for rework", 200),
 ])
 def test_each_action_needs_the_right_to_do_it_and_view_on_the_screen_it_opens(ns, stage, screen, action, target, label, opens):
     ch = draft(ns, ns.bundles[:1])
@@ -280,10 +300,14 @@ def test_each_action_needs_the_right_to_do_it_and_view_on_the_screen_it_opens(ns
         ch = challans.issue_challan(ch, user=ns.owner)
     if stage == "over":
         receive(ns, ch, {ch.bundles.get(): 19})
-    elif stage in ("received", "accepted"):
+    elif stage in ("received", "accepted", "on_draft_bill"):
         r = receive(ns, ch)
-        if stage == "accepted":
+        if stage != "received":
             accept_all(ns, r)
+        if stage == "on_draft_bill":
+            bills.create_bill(company=ns.company, factory=ns.factory, party=ns.fab, date=DAY, user=ns.owner)
+    elif stage == "sent_back":
+        receipts.record_qc(receipt_line=receive(ns, ch).lines.get(), accepted=0, rework=17, user=ns.owner)
     wanted = next(a for a in offered(guide(ns, ch)) if a["label"] == label)
     # the right to do it alone is not enough: the link would open a screen the role is refused on
     blind = role_user("blind", {screen: [action]}, ns.factory)
@@ -349,7 +373,7 @@ def test_the_guide_reads_and_never_writes(ns, django_assert_num_queries):
     ch = fresh(ch)
     before = (ch.history.count(), ch.status)
     answers = {("jobwork.bill", "create"): True, ("jobwork.bill", "view"): True}
-    with django_assert_num_queries(3) as seen_queries:   # the challan's lines, its receipts, the unbilled pieces
+    with django_assert_num_queries(4) as seen_queries:   # the challan's lines, its receipts, unbilled pieces, draft bills
         g = challan_guide(ch, ns.owner, answers)
     assert g["primary"]["label"] == f"Make labour bill for {ns.fab.name}"
     assert all(q["sql"].lstrip().upper().startswith("SELECT") for q in seen_queries.captured_queries)
@@ -416,10 +440,10 @@ def test_a_finished_challan_and_a_cancelled_one_say_so(ns):
     ch = issue(ns, ns.bundles[:1])
     accept_all(ns, receive(ns, ch))
     g = guide_of(page(ns.owner, "challan_detail", ch.pk))
-    assert button(reverse("bill_new") + f"?party={ns.fab.pk}", f"Make labour bill for {ns.fab.name}") in g and "17 pieces." in g
+    assert button(escape(bill_url(ns, ch)), f"Make labour bill for {ns.fab.name}") in g and "17 pieces." in g
     bill = bills.create_bill(company=ns.company, factory=ns.factory, party=ns.fab, date=DAY, user=ns.owner)
     g = guide_of(page(ns.owner, "challan_detail", ch.pk))
-    assert "Nothing to do on this challan right now." in g and "btn primary" not in g  # on a draft bill, not yet posted
+    assert button(reverse("bill_detail", args=[bill.pk]), "Post labour bill") in g and "17 pieces." in g  # a draft, not yet posted
     bills.post_bill(bill, user=ns.owner)
     g = guide_of(page(ns.owner, "challan_detail", ch.pk))
     assert "This challan is finished." in g and "btn primary" not in g and "Waiting for" not in g and "aria-current" not in g
@@ -454,7 +478,7 @@ def test_the_receipt_page_shows_its_challans_guide_so_the_next_step_is_one_click
     # the owner, on the same receipt: the other bundle first, then the labour bill for what was accepted
     g = guide_of(page(ns.owner, "receipt_detail", rec.pk))
     assert button(reverse("receipt_new", args=[ch.pk]), f"Receive from {ns.fab.name}") in g
-    assert f'<a href="{reverse("bill_new")}?party={ns.fab.pk}">Make labour bill for {ns.fab.name}</a>' in g
+    assert f'<a href="{escape(bill_url(ns, ch))}">Make labour bill for {ns.fab.name}</a>' in g
 
 
 def test_an_over_receipt_page_points_the_owner_at_the_approve_button_below(ns, accountant):
@@ -517,7 +541,7 @@ def test_the_receipt_list_names_the_next_step_of_each_receipt(ns):
     assert nexts[first.pk] is nexts[second.pk] and nexts[first.pk]["url"] == reverse("receipt_detail", args=[second.pk])
     accept_all(ns, second)
     html = page(ns.owner, "receipt_list")
-    assert html.count(f'<a class="btn" href="{reverse("bill_new")}?party={ns.fab.pk}">Make labour bill for {ns.fab.name}</a>') == 2
+    assert html.count(f'<a class="btn" href="{escape(bill_url(ns, ch))}">Make labour bill for {ns.fab.name}</a>') == 2
     looker = role_user("rc_list_looker", {"jobwork.receipt": ["view"]}, ns.factory)
     assert reverse("bill_new") not in page(looker, "receipt_list")
 
@@ -547,6 +571,12 @@ def test_the_lists_ask_each_permission_once_however_many_rows_they_show(ns):
 def form(ns, bundles, **extra):
     return {"lot": ns.lot.pk, "step": step(ns, "STITCH").pk, "kind": "issue", "factory": ns.factory.pk, "party": ns.fab.pk,
             "date": "2026-06-16", "bundle": [b.pk for b in bundles], **extra}
+
+
+def form_of(html):
+    """The challan form alone (the page's other forms and the menu are not its business)."""
+    start = html.index('<form method="post" class="island" novalidate>')
+    return html[start:html.index("</form>", start)]
 
 
 def new_form(user, ns):
@@ -590,24 +620,35 @@ def test_without_edit_only_the_draft_button_shows_and_a_forged_issue_is_refused(
 
 
 def test_if_issuing_fails_nothing_is_saved_and_the_form_comes_back(ns, monkeypatch):
-    def no_number(**kw):
-        raise BusinessRuleError("The challan series is full.")
+    def fails(lot):
+        raise BusinessRuleError("The route could not be refreshed.")
 
-    # the number is drawn last, after the bundles have moved and the trims have left stock: all of it must come back
-    monkeypatch.setattr(challans, "next_document_number", no_number)
+    # the very last thing issuing does, after the bundles moved, the trims left stock and the number was drawn:
+    # all of it must come back, the number included
+    monkeypatch.setattr(challans.bundle_service, "refresh_steps", fails)
     from inventory.services import stock
 
     zips = stock.on_hand(ns.factory, ns.zipper)
-    r = login(ns.owner).post(reverse("challan_new"), form(ns, ns.bundles[:2], then="issue"))
+    moves, stock_moves = StageMovement.objects.count(), StockMovement.objects.count()
+    c = login(ns.owner)
+    r = c.post(reverse("challan_new"), form(ns, ns.bundles[:2], then="issue"))
     html = r.content.decode()
-    assert r.status_code == 200 and "The challan series is full." in html
+    assert r.status_code == 200 and "The route could not be refreshed." in html
     assert not JobWorkChallan.objects.exists()                                     # no draft left behind
+    assert (StageMovement.objects.count(), StockMovement.objects.count()) == (moves, stock_moves)
     assert {Bundle.objects.get(pk=b.pk).status for b in ns.bundles[:2]} == {"cut"}
     assert stock.on_hand(ns.factory, ns.zipper) == zips
     assert step(ns, "STITCH").status == "pending"
-    # the form remembers which button was pressed
-    assert '<button class="btn primary" name="then" value="issue" autofocus>Save and issue</button>' in html
+    # the form comes back with both buttons and the bundles still ticked; no button grabs the focus past the message
+    assert '<button class="btn primary" name="then" value="issue">Save and issue</button>' in html
     assert '<button class="btn" name="then" value="draft">Save challan</button>' in html
+    for b in ns.bundles[:2]:
+        assert f'name="bundle" value="{b.pk}" checked' in html
+    assert f'name="bundle" value="{ns.bundles[2].pk}" checked' not in html and "autofocus" not in form_of(html)
+    # the number drawn by the failed attempt was given back: the next challan is the first of the series
+    monkeypatch.undo()
+    assert c.post(reverse("challan_new"), form(ns, ns.bundles[:2], then="issue")).status_code == 302
+    assert JobWorkChallan.objects.get().number == "JWC/LDH1/26-27/0001"
 
 
 def test_a_validation_error_shows_for_both_buttons_and_saves_nothing(ns):
@@ -616,7 +657,7 @@ def test_a_validation_error_shows_for_both_buttons_and_saves_nothing(ns):
         r = c.post(reverse("challan_new"), form(ns, [], then=then))
         html = r.content.decode()
         assert r.status_code == 200 and "Scan or choose at least one bundle." in html
-        assert f'name="then" value="{then}" autofocus>' in html and html.count(" autofocus>") == 1
+        assert 'value="issue">Save and issue</button>' in html and "autofocus" not in form_of(html)
     assert not JobWorkChallan.objects.exists()
 
 
@@ -628,8 +669,11 @@ def test_the_second_fabricator_warning_still_asks_before_save_and_issue(ns):
     data = form(ns, ns.bundles[1:2], then="issue", party=other.pk)
     r = c.post(reverse("challan_new"), data)
     html = r.content.decode()
-    assert r.status_code == 200 and f"already open with {ns.fab.name}" in html and 'name="confirm_second"' in html
-    assert '<button class="btn primary" name="then" value="issue" autofocus>Save and issue</button>' in html
+    assert r.status_code == 200 and f"already open with {ns.fab.name}" in html
+    # the question takes the focus, and the bundle ticked before is still ticked
+    assert '<input id="cs" type="checkbox" name="confirm_second" autofocus>' in html and form_of(html).count("autofocus") == 1
+    assert f'name="bundle" value="{ns.bundles[1].pk}" checked' in html and form_of(html).count(" checked") == 1
+    assert '<button class="btn primary" name="then" value="issue">Save and issue</button>' in html
     assert list(ns.lot.challans.values_list("pk", flat=True)) == [first.pk]       # nothing saved, nothing issued
     r = c.post(reverse("challan_new"), {**data, "confirm_second": "on"})
     made = ns.lot.challans.exclude(pk=first.pk).get()
@@ -659,3 +703,139 @@ def test_home_receive_from_fabricator_opens_the_challans_that_are_out(ns):
     r = c.get(url)
     assert r.status_code == 200 and [x.pk for x in r.context["challans"]] == [out.pk]
     assert f'href="{reverse("receipt_new", args=[out.pk])}">Receive from {ns.fab.name}</a>' in r.content.decode()
+
+
+# ================================================================ no dead ends on a challan
+
+def sent_back(ns):
+    """B001 (17) accepted and B002 (25) sent back by QC, both on one fully received challan."""
+    ch = issue(ns, ns.bundles[:2])
+    l1, l2 = receive(ns, ch).lines.order_by("id")
+    receipts.record_qc(receipt_line=l1, accepted=17, user=ns.owner)
+    receipts.record_qc(receipt_line=l2, accepted=0, rework=25, user=ns.owner)
+    return ch, l2.receipt
+
+
+def test_a_bundle_sent_back_asks_for_a_rework_challan_exactly_as_the_lot_does(ns):
+    ch, rec = sent_back(ns)
+    g = guide(ns, ch)
+    assert seen(g) == [("Send back for rework", rework_url(ns), 25), (f"Make labour bill for {ns.fab.name}", bill_url(ns, ch), 17)]
+    assert g["complete"] is False
+    follow_links(ns, g)
+    mine = g["primary"]
+    theirs = next(a for a in offered(lot_guide(ns.lot, ns.owner)) if a["label"] == "Send back for rework")
+    assert (theirs["url"], theirs["hint"], theirs["pieces"], theirs["perm"]) == (mine["url"], mine["hint"], mine["pieces"], mine["perm"])
+    # on the challan page, the receipt page and the list row
+    assert button(escape(rework_url(ns)), "Send back for rework") in guide_of(page(ns.owner, "challan_detail", ch.pk))
+    assert button(escape(rework_url(ns)), "Send back for rework") in guide_of(page(ns.owner, "receipt_detail", rec.pk))
+    assert f'<a class="btn" href="{escape(rework_url(ns))}">Send back for rework</a>' in row_with(
+        page(ns.owner, "challan_list"), f'href="{reverse("challan_detail", args=[ch.pk])}">')
+    # someone who may not make challans is told what it waits for
+    looker = role_user("rw_looker", {"jobwork.challan": ["view"]}, ns.factory)
+    assert guide(ns, ch, looker)["waiting"] == "Send back for rework"
+
+
+def test_once_the_rework_challan_is_drafted_the_first_challan_stops_asking_and_finishes_when_it_goes_out(ns):
+    ch, rec = sent_back(ns)
+    bills.post_bill(bills.create_bill(company=ns.company, factory=ns.factory, party=ns.fab, date=DAY, user=ns.owner), user=ns.owner)
+    assert fresh(ch).status == "fully_received"      # not marked billed: a bundle of it is still waiting for rework
+    g = guide(ns, ch)
+    assert [a["label"] for a in offered(g)] == ["Send back for rework"] and g["complete"] is False
+    rw = challans.create_challan(company=ns.company, factory=ns.factory, party=ns.fab, lot=ns.lot, step=step(ns, "STITCH"),
+                                 bundles=[Bundle.objects.get(pk=ns.bundles[1].pk)], date=DAY, user=ns.owner, kind="rework")
+    # the bundle is on a draft now: that draft asks to be issued (on its own page and on the lot), not for another challan
+    g = guide(ns, ch)
+    assert offered(g) == [] and g["waiting"] == "" and g["complete"] is False
+    assert "Nothing to do on this challan right now." in guide_of(page(ns.owner, "challan_detail", ch.pk))
+    assert [a["label"] for a in offered(guide(ns, rw))] == [f"Issue challan to {ns.fab.name}"]
+    assert "Send back for rework" not in [a["label"] for a in offered(lot_guide(ns.lot, ns.owner))]
+    challans.issue_challan(rw, user=ns.owner)
+    # the bundle has gone out again on its own challan and everything accepted here is paid: this one is finished
+    g = guide(ns, ch)
+    assert offered(g) == [] and g["complete"] is True and fresh(ch).status == "fully_received"
+    assert states(g) == {"Draft": "done", "Issued": "done", "Received": "done", "Checked": "done", "Billed": "done"}
+    assert "This challan is finished." in guide_of(page(ns.owner, "challan_detail", ch.pk))
+    assert [a["label"] for a in offered(guide(ns, rw))] == [f"Receive from {ns.fab.name}"]
+
+
+def test_a_challan_whose_pieces_were_all_rejected_is_finished_without_a_bill(ns):
+    ch = issue(ns, ns.bundles[:1])
+    receipts.record_qc(receipt_line=receive(ns, ch).lines.get(), accepted=0, rejected=17, reject_reason="Wrong shade", user=ns.owner)
+    g = guide(ns, ch)
+    assert fresh(ch).status == "fully_received" and offered(g) == [] and g["waiting"] == "" and g["complete"] is True
+    # nothing was accepted, so nothing will ever be billed: the stage is left to come, not shown as in progress
+    assert states(g) == {"Draft": "done", "Issued": "done", "Received": "done", "Checked": "done", "Billed": "todo"} and current(g) == []
+    html = guide_of(page(ns.owner, "challan_detail", ch.pk))
+    assert "This challan is finished." in html and "Nothing to do" not in html
+
+
+def test_a_received_challan_still_waiting_for_qc_is_not_finished_for_someone_who_may_do_nothing(ns):
+    ch = issue(ns, ns.bundles[:1])
+    receive(ns, ch)
+    looker = role_user("unfinished_looker", {"jobwork.challan": ["view"]}, ns.factory)
+    g = guide(ns, ch, looker)
+    assert g["complete"] is False and g["waiting"] == "Check received pieces"
+
+
+def test_the_challan_page_header_offers_receive_goods_only_while_the_guide_does(ns):
+    ch = issue(ns, ns.bundles[:1])
+    plain = f'<a class="btn" href="{reverse("receipt_new", args=[ch.pk])}">Receive goods</a>'
+    html = page(ns.owner, "challan_detail", ch.pk)
+    head = html[html.index('class="page-head"'):html.index('class="island guide"')]
+    assert plain in head and "btn primary" not in head       # the one violet button is the guide's
+    looker = role_user("head_looker", {"jobwork.challan": ["view"]}, ns.factory)
+    assert "Receive goods" not in page(looker, "challan_detail", ch.pk)
+    # every line still out is on an over-receipt that waits for approval: there is nothing to receive
+    receive(ns, ch, {ch.bundles.get(): 19})
+    assert fresh(ch).is_open
+    html = page(ns.owner, "challan_detail", ch.pk)
+    assert "Receive goods" not in html and "Approve over-receipt" in guide_of(html)
+
+
+# ---------------- the labour bill link and the active factory ----------------
+
+def test_the_labour_bill_link_sends_you_back_when_another_factory_is_active(ns, factory2):
+    ch = issue(ns, ns.bundles[:1])
+    accept_all(ns, receive(ns, ch))
+    url = guide(ns, ch)["primary"]["url"]
+    assert url == bill_url(ns, ch)
+    back = reverse("challan_detail", args=[ch.pk])
+    told = f"These pieces are in {ns.factory.name}. Choose it in the top bar, then press the button again."
+    c = login(ns.owner)
+    for mode in (str(factory2.pk), "all"):
+        c.post(reverse("factory_switch"), {"factory": mode})
+        r = c.get(url, follow=True)
+        assert r.redirect_chain == [(back, 302)], mode
+        assert told in r.content.decode()
+    # the link never chooses the factory: with the factory left out of it, the form is for the active one, as before
+    c.post(reverse("factory_switch"), {"factory": str(factory2.pk)})
+    r = c.get(reverse("bill_new"), {"party": ns.fab.pk})
+    assert r.status_code == 200 and r.context["factory"] == factory2 and r.context["rows"] == []
+    # a made-up factory in the link changes nothing either
+    r = c.get(reverse("bill_new"), {"party": ns.fab.pk, "factory": ns.factory.pk})
+    assert r.status_code == 200 and r.context["factory"] == factory2 and r.context["rows"] == []
+    # with the challan's factory active the link opens the form on those pieces
+    c.post(reverse("factory_switch"), {"factory": str(ns.factory.pk)})
+    r = c.get(url)
+    assert r.status_code == 200 and r.context["factory"] == ns.factory and sum(x["r"].accepted for x in r.context["rows"]) == 17
+    assert not ns.fab.job_work_bills.exists()
+
+
+def test_the_labour_bill_link_never_sends_anyone_to_a_challan_they_cannot_open(ns, factory2):
+    ch = issue(ns, ns.bundles[:1])
+    accept_all(ns, receive(ns, ch))
+    url = bill_url(ns, ch)
+    # may make bills in both factories but may not open challans: the existing behaviour, no redirect to a 403
+    biller = role_user("bills_only", {"jobwork.bill": ["create", "view"]}, ns.factory)
+    biller.allowed_factories.add(factory2)
+    c = login(biller)
+    c.post(reverse("factory_switch"), {"factory": str(factory2.pk)})
+    r = c.get(url)
+    assert r.status_code == 200 and r.context["factory"] == factory2
+    c.post(reverse("factory_switch"), {"factory": "all"})
+    r = c.get(url, follow=True)
+    assert r.redirect_chain == [(reverse("bill_list"), 302)] and "Choose a single factory" in r.content.decode()
+    # works in the other factory only: the challan is not theirs to see, so nothing about it is said
+    far = role_user("far_biller", {"jobwork.bill": ["create", "view"], "jobwork.challan": ["view"]}, factory2)
+    r = login(far).get(url)
+    assert r.status_code == 200 and r.context["factory"] == factory2 and ns.factory.name not in r.content.decode()

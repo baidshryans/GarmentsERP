@@ -36,11 +36,6 @@ class Count:
     shortage: int = 0
 
 
-def next_step(bundle):
-    return (LotStep.objects.filter(lot=bundle.lot, sequence__gt=bundle.completed_seq)
-            .exclude(status=LotStep.Status.SKIPPED).order_by("sequence").first())
-
-
 def steps_ahead(bundle, steps):
     """(the next mandatory step or None, every step still ahead) for a bundle, counted from where it actually is:
     a bundle sitting at a stage has that stage behind it, any other has what it completed. `steps` is the lot's
@@ -55,6 +50,18 @@ def next_stage(bundle, steps):
     """The stage a bundle goes to next: the next mandatory step, or the next optional one when no mandatory step is left."""
     mandatory, later = steps_ahead(bundle, steps)
     return mandatory or (later[0] if later else None)
+
+
+def next_stage_label(bundle, steps):
+    """What the move screen says about where a bundle goes next. A bundle out with a fabricator is received, not
+    moved, and a fabricator's stage is entered by challan, so the label says so: `move_bundles` refuses both."""
+    if bundle.location.loc_type == Location.Type.FABRICATOR:
+        return "With fabricator"
+    step = next_stage(bundle, steps)
+    if step is None:
+        return ""
+    by_challan = " (by challan)" if step.assignment == LotStep.Assignment.SUBCONTRACT else ""
+    return f"{step.process.name}{by_challan}"
 
 
 def refresh_steps(lot):

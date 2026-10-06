@@ -16,10 +16,9 @@ B = Bundle.Status
 AT_A_STAGE = (B.AT_STAGE, B.DONE, B.RECEIVED, B.REWORK)
 # Within one stage, what is furthest behind comes first. An optional step sorts behind everything else aimed at the
 # mandatory step it comes before, so it is never the main button while that step is open to the same user.
-# Issue, receive, approve and QC keep the order the challan guide gives them.
-RANK = {"send": 0, "move": 0, **jobwork_guide.RANK, "rework": 5, "optional": 6}
-# making a challan needs `create`; the saved challan then opens on its own page, which needs `view`
-CHALLAN_NEW = (("jobwork.challan", "create"), ("jobwork.challan", "view"))
+# Issue, receive, approve, QC and rework keep the order the challan guide gives them.
+RANK = {"send": 0, "move": 0, **jobwork_guide.RANK, "optional": 6}
+CHALLAN_NEW = jobwork_guide.CHALLAN_NEW
 STATE = {LotStep.Status.DONE: "done", LotStep.Status.IN_PROGRESS: "now", LotStep.Status.PENDING: "todo"}
 
 
@@ -140,9 +139,7 @@ def _actions(lot, steps, bundles, cuts, issued):
         here = b.current_step.sequence if b.current_step_id else b.completed_seq
         if b.status == B.REWORK or b.rework_qty:
             # a bundle sent back keeps the step of the challan it came back on: the rework challan is for that step
-            at = f"&step={b.current_step_id}" if b.current_step_id else ""
-            add(("rework", b.current_step_id), here, "Send back for rework", "QC sent these pieces back to the fabricator.",
-                reverse("challan_new") + f"?lot={lot.pk}&kind=rework{at}", CHALLAN_NEW, b.rework_qty or b.qty)
+            add_shared(jobwork_guide.rework_action(lot.pk, b.current_step_id, b.rework_qty or b.qty), b.current_step_id, here)
             continue
         if b.status not in (B.CUT, B.READY, B.AT_STAGE):
             continue

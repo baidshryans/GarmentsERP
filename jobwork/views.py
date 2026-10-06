@@ -76,11 +76,16 @@ class ChallanNew(LoginRequiredMixin, ScreenPermissionMixin, View):
         lot = Lot.objects.for_user(request.user).select_related("style", "colour").filter(pk=d.get("lot")).first() if d.get("lot") else None
         ctx = {"lot": lot, "d": d, "fabricators": _fabricators(), "factories": _factories(request.user),
                "lots": in_active(Lot.objects.for_user(request.user), request).exclude(status__in=("closed", "completed")).select_related("style", "colour"),
-               "kind": d.get("kind", "issue"), "then": d.get("then", ""),   # the button pressed, when the form comes back
+               "kind": d.get("kind", "issue"),
                "can_issue": request.user.has_screen_perm("jobwork.challan", "edit")}
         if lot:
             steps = [s for s in lot.steps.select_related("process", "party") if s.status != "skipped"]
-            step = next((s for s in steps if str(s.pk) == d.get("step")), None) or next((s for s in steps if s.assignment == "subcontract" and s.status != "done"), None)
+            step = next((s for s in steps if str(s.pk) == d.get("step")), None)
+            if step is None and ctx["kind"] == "rework":
+                # rework goes back on the step it came from: open on the step the first waiting bundle sits at
+                waiting = lot.bundles.filter(status="rework", current_step__isnull=False).order_by("bundle_no").first()
+                step = next((s for s in steps if waiting and s.pk == waiting.current_step_id), None)
+            step = step or next((s for s in steps if s.assignment == "subcontract" and s.status != "done"), None)
             ctx.update(steps=steps, step=step)
             eligible = []
             for b in lot.bundles.filter(status__in=("cut", "ready", "at_stage", "rework")).select_related(
@@ -99,8 +104,10 @@ class ChallanNew(LoginRequiredMixin, ScreenPermissionMixin, View):
                 if b.challan_lines.filter(challan__status__in=("draft", "issued", "partly_received")).exists():
                     continue
                 eligible.append(b)
+            picked = set(d.getlist("bundle"))     # ticked before the form came back (an error, or the second-fabricator question)
             for b in eligible:
                 b.scan = scan_text(b)
+                b.picked = str(b.pk) in picked
             ctx["bundles"] = eligible
         return ctx
 
@@ -147,13 +154,14 @@ class ChallanDetail(LoginRequiredMixin, ScreenPermissionMixin, View):
 
     def get(self, request, pk):
         ch = self._ch(request, pk)
+        guide = guide_service.challan_guide(ch, request.user)
         return render(request, "jobwork/challan_detail.html", {
             "ch": ch, "lines": ch.bundles.select_related("bundle__sku__size", "bundle__sku__colour"), "trims": ch.trims.select_related("material"),
             "receipts": ch.receipts.all(), "can_edit": request.user.has_screen_perm("jobwork.challan", "edit"),
-            "can_receive": request.user.has_screen_perm("jobwork.receipt", "create"),
+            "can_receive": any(a["kind"] == "receive" for a in [guide["primary"], *guide["others"]] if a),
             "total_pieces": sum(l.qty_issued for l in ch.bundles.all()),
             "can_open_lot": request.user.has_screen_perm("production.lot", "view"),
-            "guide": guide_service.challan_guide(ch, request.user),
+            "guide": guide,
         })
 
     def post(self, request, pk):
@@ -366,8 +374,23 @@ class BillNew(LoginRequiredMixin, ScreenPermissionMixin, View):
             ctx["deductions"] = bills.pending_deductions(party, factory)
         return ctx
 
+    def _other_factory(self, request):
+        """Opened from a challan's Next button while another factory (or all of them) is active: the bill would be
+        for the active factory, not the challan's. Send the user back to the challan to switch first. The `factory`
+        in the link never chooses the bill's factory; the top bar does."""
+        wanted, came_from, user = request.GET.get("factory", ""), request.GET.get("challan", ""), request.user
+        if not (wanted.isdigit() and came_from.isdigit()) or (request.factory is not None and str(request.factory.pk) == wanted):
+            return None
+        if not user.has_screen_perm("jobwork.challan", "view"):
+            return None
+        challan = JobWorkChallan.objects.for_user(user).select_related("factory").filter(pk=came_from, factory_id=wanted).first()
+        if challan is None:
+            return None
+        messages.error(request, f"These pieces are in {challan.factory.name}. Choose it in the top bar, then press the button again.")
+        return redirect("challan_detail", pk=challan.pk)
+
     def get(self, request):
-        if back := _need_factory(request, "bill_list"):
+        if back := self._other_factory(request) or _need_factory(request, "bill_list"):
             return back
         return render(request, "jobwork/bill_form.html", self._ctx(request, request.GET))
 

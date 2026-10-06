@@ -335,6 +335,10 @@ def test_the_rework_form_lists_only_the_rework_bundles_of_the_chosen_step(ns):
         return [x.bundle_no for x in page.context["bundles"]]
 
     assert listed("EMB") == ["B001"] and listed("STITCH") == ["B003"] and listed("WASH") == []
+    empty = c.get(reverse("challan_new"), {"lot": ns.lot.pk, "kind": "rework", "step": step(ns, "WASH").pk}).content.decode()
+    assert "No bundles are waiting for rework at this step." in empty
+    plain = c.get(reverse("challan_new"), {"lot": ns.lot.pk, "step": step(ns, "WASH").pk}).content.decode()
+    assert "No bundles can be issued to this step right now." in plain and "waiting for rework at this step" not in plain
     # a hand-made post for the wrong step is refused by the service and says where the bundle waits
     r = c.post(reverse("challan_new"), {"lot": ns.lot.pk, "step": step(ns, "STITCH").pk, "kind": "rework", "factory": ns.factory.pk,
                                         "party": ns.fab.pk, "date": "2026-06-16", "bundle": [b.pk]})

@@ -14,7 +14,7 @@
       <thead><tr><th scope="col"></th><th scope="col">Bundle</th><th scope="col">Size</th><th scope="col" class="num">Pieces</th><th scope="col">Now at</th><th scope="col">Next stage</th><th scope="col" class="num">Loss</th><th scope="col" class="num">Rejected</th><th scope="col" class="num">Short</th></tr></thead>
       <tbody>{% for b in bundles %}<tr data-scan="{{ b.scan }}" data-token="{{ b.qr_token }}" data-no="{{ b.bundle_no }}">
         <td><input type="checkbox" name="bundle" value="{{ b.pk }}" aria-label="Move {{ b.bundle_no }}"></td><td><strong>{{ b.bundle_no }}</strong></td><td>{{ b.sku.size.code }}</td><td class="num">{{ b.qty }}</td>
-        <td>{{ b.current_step.process.name|default:"Cut" }} · {{ b.location.name }}</td><td>{{ b.next.process.name|default:"—" }}</td>
+        <td>{{ b.current_step.process.name|default:"Cut" }} · {{ b.location.name }}</td><td>{{ b.next_label|default:"—" }}</td>
         <td class="num"><input type="text" inputmode="numeric" name="loss_{{ b.pk }}" style="width:70px"></td>
         <td class="num"><input type="text" inputmode="numeric" name="rejection_{{ b.pk }}" style="width:70px"></td>
         <td class="num"><input type="text" inputmode="numeric" name="shortage_{{ b.pk }}" style="width:70px"></td></tr>

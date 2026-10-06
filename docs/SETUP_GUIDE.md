@@ -1008,7 +1008,7 @@ Bundle statuses you will see: Cut → At stage → Received, awaiting QC → Rea
 1. Choose the **Lot** and press **Show bundles**.
 2. **Scan** each bundle's QR (or type its number) in the scan box and press Enter. Scanning only ticks the row; everything is checked when you save.
 3. For any bundle with pieces that did not arrive, fill **Loss**, **Rejected** or **Short** on its row.
-4. Pick **Move to stage** (shown as "5. Ironing and pressing — in-house"). When you came from the lot's Next button, the stage it named is already chosen. The **Next stage** column on each row names where that bundle goes next: the next mandatory step after where the bundle actually is, the same step the lot's Next button names. A bundle sitting at Stitching shows the step after Stitching, and optional steps are passed over. Only when no mandatory step is left does it show the next optional step.
+4. Pick **Move to stage** (shown as "5. Ironing and pressing — in-house"). When you came from the lot's Next button, the stage it named is already chosen. The **Next stage** column on each row names where that bundle goes next: the next mandatory step after where the bundle actually is, the same step the lot's Next button names. A bundle sitting at Stitching shows the step after Stitching, and optional steps are passed over. Only when no mandatory step is left does it show the next optional step. Two cases cannot be moved from this screen, and the column says so: **With fabricator** for a bundle that is out on a challan (receive it first, 23.3), and the stage name followed by **(by challan)** when the next stage is done by a fabricator (issue a challan, 23.2).
 5. **At factory**: leave as "Stage default", or choose another factory to send the goods there (inter-factory move).
 6. Press **Move selected bundles**.
 
@@ -1028,10 +1028,10 @@ What the system checks:
 
 *Make → Sent to fabricators* (the challan list) *→ New challan*, the lot's Next button **Send to … for …**, or the link from Move bundles.
 
-1. Choose **Lot**, **Kind** (Job work, or Rework for pieces sent back) and the **Step**, then **Show bundles**.
+1. Choose **Lot**, **Kind** (Job work, or Rework for pieces sent back) and the **Step**, then **Show bundles**. For Rework the step starts on the one the first waiting bundle came back from.
 2. Choose the **Fabricator**, Date and **Expected back by**.
 3. Scan or tick the bundles to send. Only eligible bundles not already on an open challan are listed. For Kind = Rework, only the bundles waiting for rework **at the chosen step** are listed.
-4. Press **Save and issue** to save the challan and hand the bundles over in one step. It opens the issued challan, ready to **Print**. If issuing fails, nothing is saved. Or press **Save challan** to keep a Draft you can review first and issue later. Save and issue shows only if your role may issue challans.
+4. Press **Save and issue** to save the challan and hand the bundles over in one step. It opens the issued challan, ready to **Print**. If issuing fails, nothing is saved and the form comes back with your bundles still ticked. Or press **Save challan** to keep a Draft you can review first and issue later. Save and issue shows only if your role may issue challans.
 
 **Rework goes back on its own step.** A bundle sent back by QC waits at the step of the challan it came back on, and a rework challan can only be made for that step. If you pick another step the system refuses with "Bundle … is waiting for rework at …, not …". The lot's **Send back for rework** link opens the form on the right step.
 
@@ -1047,11 +1047,13 @@ The challan page tells you what to do next, like the lot page. At the top is a *
 | Issued or partly received, with pieces still out | **Receive from …** | The receipt form (23.3) |
 | Waiting on an over-receipt | **Approve over-receipt** | The receipt (owner only) |
 | Received, with bundles not yet checked | **Check received pieces** | The receipt, for QC (23.4) |
+| Checked, with a bundle QC sent back | **Send back for rework** | The rework challan form, on this lot and step |
 | Checked, with accepted pieces not yet on a labour bill | **Make labour bill for …** | New labour bill with the fabricator chosen (25.1) |
-| Billed | none: "This challan is finished." | |
+| Accepted pieces on a draft labour bill | **Post labour bill** | The draft bill, to check and post |
+| Billed, or nothing left to do (everything rejected, or reworked on its own challan and paid) | none: "This challan is finished." | |
 | Cancelled | none: "This challan was cancelled." | |
 
-What is furthest behind comes first; anything else pending is listed as smaller links under **Also waiting**. If the next step belongs to another role, the page says **Waiting for:** and the step instead of a button. The lot page and the challan page always name the same step. The receipt page shows the same strip and button for its challan, so after QC the next receipt or the labour bill is one click away. The lists *Sent to fabricators* and *Received from fabricators* have a **Next step** column with the same button on every row. *Sent to fabricators* has an **Out with fabricators** tab for the challans that are issued or partly received.
+What is furthest behind comes first; anything else pending is listed as smaller links under **Also waiting**. If the next step belongs to another role, the page says **Waiting for:** and the step instead of a button. Where the lot page and the challan page both offer a step (issue, receive, approve, check, send back for rework), it is the same button opening the same screen. Labour bills are offered on the challan, the receipt and the lists, not on the lot. Once a bundle sent back is on a draft rework challan, the first challan stops asking for it; issue the draft instead. The receipt page shows the same strip and button for its challan, so after QC the next receipt or the labour bill is one click away. The lists *Sent to fabricators* and *Received from fabricators* have a **Next step** column with the same button on every row. *Sent to fabricators* has an **Out with fabricators** tab for the challans that are issued or partly received.
 
 On the challan page:
 
@@ -1076,7 +1078,7 @@ Press **Receive**. Scanning the bundle tags ticks the rows.
 
 - Counted **less than** issued records a **shortage**. It is valued at lot cost and recoverable on the labour bill.
 - Counted **more than** issued is an **over-receipt**. Nothing moves, and the receipt waits for the owner. The owner opens the receipt and presses **Approve over-receipt**. Until then QC is blocked.
-- A bundle cannot be received twice.
+- A bundle cannot be received twice. A bundle counted on an over-receipt that still waits for approval is not listed again and cannot be received again ("Bundle … is on a receipt waiting for the owner's approval"); approve that receipt first.
 - After posting, the receipt is numbered, bundles become "Received, awaiting QC", returned trims go back to stock and missing trims become a deduction.
 
 > A fabricator saying "done" does **not** change stock or pay. Only your receipt and QC do. (The fabricator mobile app is planned and is not available yet.)
@@ -1148,9 +1150,9 @@ The lot becomes **Completed** when none of its bundles is still live; packed, wr
 
 ### 25.1 Labour bill
 
-*Make → Labour bills → New labour bill*, or the Next button **Make labour bill for …** on a challan or receipt whose accepted pieces are not on a bill yet. The button opens this screen with the fabricator already chosen.
+*Make → Labour bills → New labour bill*, or the Next button **Make labour bill for …** on a challan or receipt whose accepted pieces are not on a bill yet. The button opens this screen with the fabricator already chosen. The bill is always made in the factory chosen in the top bar; **Factory** on this screen only shows it and is not a choice. If the challan belongs to another factory (or "All factories" is active), the button takes you back to the challan with "These pieces are in …. Choose it in the top bar, then press the button again."
 
-1. Choose **Fabricator** and **Factory**, then **Show what is payable**.
+1. Choose the **Fabricator** (the **Factory** shown is the one active in the top bar), then **Show what is payable**.
 2. The screen lists **accepted QC pieces not yet paid**: Challan, Lot, Bundle, Accepted, Rate, Amount. It also lists the **deductions** it found: shortage of pieces (at lot cost) and missing trims (at unit cost).
 3. Set the **Bill date**. Choose a **TDS** template, or **No TDS**.
 4. Press **Save draft and review**.
@@ -1172,7 +1174,7 @@ Details:
 
 - Flat-rate (type D) challans pay in proportion to accepted pieces over pieces issued.
 - Errors you may meet: the fabricator has no payable ledger; nothing is payable; deductions are more than earned.
-- On the draft, check the numbers, then press **Post bill** (or **Discard draft**).
+- On the draft, check the numbers, then press **Post bill** (or **Discard draft**). While a bill is a draft, the challans on it show the Next button **Post labour bill**, which opens it.
 
 **What posting does:** the bill is added to the lot's cost as job work; the net amount becomes owed to the fabricator (due date = bill date + the fabricator's credit days); TDS goes to TDS Payable; the challans become **Billed** once everything is received, QC'd and paid with no rework open.
 

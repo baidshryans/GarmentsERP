@@ -3,6 +3,7 @@
 and bill guides, permissions, and each offered link followed to the screen it opens."""
 import re
 from datetime import date
+from urllib.parse import parse_qs, urlsplit
 from decimal import Decimal
 from types import SimpleNamespace
 
@@ -21,7 +22,7 @@ from masters.services import parties
 from purchases.models import DebitNote, Grn, PurchaseInvoice, PurchaseOrder
 from purchases.services import debit_notes, grn as grns, invoices, orders
 from purchases.services.guide import (
-    WAITS_FOR_BILL, debitnote_guide, grn_guide, grn_next, invoice_guide, invoice_next, po_guide, po_next,
+    WAITS_FOR_BILL, debitnote_guide, grn_guide, grn_next, invoice_guide, invoice_next, owed, po_guide, po_next,
 )
 from tests.conftest import make_user
 
@@ -186,10 +187,16 @@ def follow_links(ns, g, user=None):
             assert a["url"] == reverse("invoice_detail", args=[ctx["inv"].pk])
             assert ctx["inv"].status == "draft" and 'name="action" value="post"' in html
         elif label == f"Pay {ns.vendor.name}":
+            # Money paid opens with one row filled in: this supplier, the amount the button promised, against this bill
+            asked = {k: v[0] for k, v in parse_qs(urlsplit(a["url"]).query).items()}
             row = ctx["rows"][0]
-            assert ctx["vtype"] == "payment" and row["ledger"] == str(ns.vendor.payable_ledger_id) and row["ref_type"] == "against"
-            assert D(row["amount"]) == -bill_outstanding(ns.vendor.payable_ledger, row["reference"]) > 0
-            assert f"ref={row['reference']}&" in a["url"]
+            assert ctx["vtype"] == "payment" and urlsplit(a["url"]).path == reverse("voucher_payment")
+            assert (row["ledger"], row["amount"], row["reference"], row["ref_type"]) == (
+                str(ns.vendor.payable_ledger_id), asked["amount"], asked["ref"], "against")
+            assert D(asked["amount"]) > 0 and f"{asked['amount']} is " in a["hint"]
+            assert PurchaseInvoice.objects.filter(vendor=ns.vendor, status="posted", vendor_invoice_no=asked["ref"]).exists()
+            assert f'value="{asked["amount"]}"' in html and f'value="{asked["ref"]}"' in html
+            assert re.search(rf'<option value="{ns.vendor.payable_ledger_id}" data-billwise="1" selected>', html)
         elif label in ("Return rejected goods to supplier", "Post return"):
             note = ctx["note"]
             assert a["url"] == reverse("debitnote_detail", args=[note.pk])
@@ -357,9 +364,87 @@ def test_rejected_goods_are_returned_once_the_supplier_has_billed_them(ns):
     follow_links(ns, mine)
 
     debit_notes.post_debit_note(note, user=ns.owner)
-    assert seen(grn_guide(grn_of(g1), ns.owner)) == [money] == seen(invoice_guide(inv_of(inv), ns.owner))
     mine = debitnote_guide(note_of(note), ns.owner)
     assert mine["complete"] and offered(mine) == [] and details(mine) == {"Return posted": "2000.00"}
+    # the return sits on the supplier's account and the ledger still holds the whole bill open; what is asked for
+    # is the bill less the return
+    assert -bill_outstanding(ns.vendor.payable_ledger, "V-1") == D("10000.00")
+    less = ("Pay Yarn House", pay_link(ns, inv, "8000.00"))
+    for g in (grn_guide(grn_of(g1), ns.owner), invoice_guide(inv_of(inv), ns.owner)):
+        assert seen(g) == [less] and details(g)["Paid"] == "8000.00 unpaid" and details(g)["Billed"] == "10000.00"
+        assert g["primary"]["hint"] == "10000.00 on bill V-1 less 2000.00 returned: 8000.00 is left to pay."
+        follow_links(ns, g)
+    assert owed(inv_of(inv), ns.owner, {}) == (D("8000.00"), D("10000.00"), D("2000.00"), D("0.00"))
+    pay(ns, inv, "8000")
+    assert -bill_outstanding(ns.vendor.payable_ledger, "V-1") == D("2000.00")
+    for g in (grn_guide(grn_of(g1), ns.owner), invoice_guide(inv_of(inv), ns.owner)):
+        assert offered(g) == [] and g["complete"] and set(states(g).values()) == {"done"} and "Paid" not in details(g)
+    assert invoice_next(inv_of(inv), ns.owner) is None and grn_next(grn_of(g1), ns.owner) is None
+
+
+def journal(ns, *rows):
+    return post_manual_voucher(company=ns.company, factory=ns.factory, vtype="journal", on_date=DAY, narration="", header={},
+                               rows=[Row(**r) for r in rows], user=ns.owner)
+
+
+def test_a_return_is_taken_off_only_while_it_still_sits_on_the_suppliers_account(ns):
+    """The cap: if the return's debit has since been set against the bill (here by a journal that moves it off
+    'on account'), the ledger's figure for the bill already has it, and it is not taken off a second time."""
+    g1 = received(ns, qty="100", rejected="20")
+    inv = billed(ns, g1, qty="100")
+    debit_notes.post_debit_note(DebitNote.objects.get(grn=g1), user=ns.owner)
+    supplier = str(ns.vendor.payable_ledger_id)
+    journal(ns, {"ledger": supplier, "credit": "2000", "ref_type": "on_account"},
+            {"ledger": supplier, "debit": "2000", "ref_type": "against", "reference": "V-1"})
+    assert -bill_outstanding(ns.vendor.payable_ledger, "V-1") == D("8000.00")
+    g = invoice_guide(inv_of(inv), ns.owner)
+    assert seen(g) == [("Pay Yarn House", pay_link(ns, inv, "8000.00"))]
+    assert g["primary"]["hint"] == "8000.00 is still unpaid on bill V-1."
+    assert owed(inv_of(inv), ns.owner, {}) == (D("8000.00"), D("8000.00"), D("0.00"), D("0.00"))
+    follow_links(ns, g)
+
+
+def test_a_return_of_goods_in_stock_is_not_tied_to_a_bill_so_paying_only_mentions_it(ns):
+    g1 = received(ns)
+    inv = billed(ns, g1)
+    note = debit_notes.create_return_note(
+        company=ns.company, factory=ns.factory, vendor=ns.vendor, date=DAY, user=ns.owner, reason="Wrong size",
+        lines=[debit_notes.ReturnLineSpec(item=ns.trim, qty=D("10"), rate=D("100"), location=ns.godown)])
+    debit_notes.post_debit_note(note, user=ns.owner)
+    g = invoice_guide(inv_of(inv), ns.owner)
+    assert seen(g) == [("Pay Yarn House", pay_link(ns, inv, "10000.00"))]
+    assert g["primary"]["hint"] == ("10000.00 is still unpaid on bill V-1. "
+                                    "This supplier also has 1000.00 on account from returns or advances.")
+    assert seen(grn_guide(grn_of(g1), ns.owner)) == seen(g)
+    follow_links(ns, g)
+
+
+def test_two_bills_for_the_rejected_goods_of_one_line_each_take_off_only_their_own_share(ns):
+    g1 = received(ns, qty="100", rejected="20")
+    first = billed(ns, g1, qty="90", no="V-1")              # 80 accepted and 10 of the rejected
+    second = billed(ns, g1, qty="10", no="V-2")             # the other 10 rejected
+    debit_notes.post_debit_note(DebitNote.objects.get(grn=g1), user=ns.owner)
+    assert owed(inv_of(first), ns.owner, {}).less == D("1000.00") == owed(inv_of(second), ns.owner, {}).less
+    assert owed(inv_of(first), ns.owner, {}).net == D("8000.00") and owed(inv_of(second), ns.owner, {}).net == D("0.00")
+    g = grn_guide(grn_of(g1), ns.owner)
+    assert seen(g) == [("Pay Yarn House", pay_link(ns, first, "8000.00"))]
+
+
+def test_goods_all_rejected_are_not_complete_while_their_return_waits_for_the_bill(ns):
+    g1 = received(ns, qty="100", rejected="100")
+    assert grn_of(g1).status == "posted" and DebitNote.objects.get(grn=g1).status == "draft"
+    g = grn_guide(grn_of(g1), ns.owner)
+    assert offered(g) == [] and not g["complete"] and not g["closed"] and g["idle"] == WAITS_FOR_BILL
+    assert states(g) == {"Received": "done", "Checked": "done", "Billed": "todo", "Paid": "todo"}
+    html = login(ns.owner).get(reverse("grn_detail", args=[g1.pk])).content.decode()
+    assert "This purchase is complete." not in html and "This return waits for the supplier" in html
+    # once the supplier bills them the return is the step; with it posted and nothing to pay, the purchase is done
+    billed(ns, g1, qty="100")
+    g = grn_guide(grn_of(g1), ns.owner)
+    assert [a["label"] for a in offered(g)] == ["Return rejected goods to supplier", "Pay Yarn House"]
+    debit_notes.post_debit_note(DebitNote.objects.get(grn=g1), user=ns.owner)
+    g = grn_guide(grn_of(g1), ns.owner)
+    assert offered(g) == [] and g["complete"] and g["idle"] == ""
 
 
 def test_a_bill_for_the_accepted_goods_only_leaves_the_return_waiting_and_the_purchase_can_finish(ns):
@@ -681,12 +766,36 @@ def test_the_order_page_tells_a_viewer_what_it_waits_for_and_gives_no_link(ns):
     assert "Receive goods" not in html
 
 
-def test_the_order_page_offers_receive_goods_only_while_the_guide_does(ns):
+def test_the_order_page_keeps_receive_goods_while_goods_can_still_come(ns):
     po = order(ns)
-    assert "Receive goods" in head_of(page(ns.owner, "po_detail", po.pk))
-    draft_grn(ns, po, qty="60")                             # an open goods receipt: finish that one first
+    receive = f'<a class="btn" href="{reverse("grn_new")}?po={po.pk}">Receive goods</a>'
+    assert receive in head_of(page(ns.owner, "po_detail", po.pk))
+    # an earlier goods receipt is still being checked (fabric can take days): the guide points at it, and a second
+    # delivery can still be received from the header
+    first = draft_grn(ns, po, qty="60")
     html = page(ns.owner, "po_detail", po.pk)
-    assert "Receive goods" not in html and "Check quality" in guide_of(html)
+    assert button(reverse("grn_detail", args=[first.pk]), "Check quality") in guide_of(html)
+    assert "Receive goods" not in guide_of(html) and receive in head_of(html) and "btn primary" not in head_of(html)
+    g = po_guide(po_of(po), ns.owner)
+    assert seen(g) == [("Check quality", reverse("grn_detail", args=[first.pk]))] and g["receive"]["url"] == reverse("grn_new") + f"?po={po.pk}"
+    second = draft_grn(ns, po, qty="40")                    # the link really takes a second receipt
+    assert Grn.objects.filter(po=po, status="draft").count() == 2
+    grns.finish_qc(first, user=ns.owner)                    # awaiting posting: still offered
+    assert receive in head_of(page(ns.owner, "po_detail", po.pk))
+    # the header button needs both rights on goods received, like the guide's own step
+    for name, grants in (("no_view", {"purchases.po": ["view"], "purchases.grn": ["create"]}),
+                         ("no_create", {"purchases.po": ["view"], "purchases.grn": ["view"]})):
+        assert "Receive goods" not in page(role_user(name, grants, ns.factory), "po_detail", po.pk), name
+    # everything ordered has come: nothing more to receive
+    for g in (first, second):
+        if grn_of(g).status == "draft":
+            grns.finish_qc(g, user=ns.owner)
+        grns.post_grn(g, user=ns.owner)
+    assert po_of(po).status == "received" and "Receive goods" not in page(ns.owner, "po_detail", po.pk)
+    assert po_guide(po_of(po), ns.owner)["receive"] is None
+    closed = order(ns)
+    orders.short_close(closed, user=ns.owner, reason="Not needed")
+    assert "Receive goods" not in page(ns.owner, "po_detail", closed.pk)
     po2 = order(ns, "1000", "100")                          # waits for approval
     html = page(ns.owner, "po_detail", po2.pk)
     assert "Receive goods" not in html and button("#do-next", "Approve order") in guide_of(html)
@@ -912,7 +1021,8 @@ DRAFT = '<button class="btn" name="then" value="draft">Save draft</button>'
 
 def test_save_and_submit_makes_the_order_and_submits_it_in_one_step(ns):
     html = page(ns.owner, "po_new")
-    assert SUBMIT in html and DRAFT in html
+    # Save draft comes first, so Enter in a field saves a draft and never submits; Save and submit is the violet one
+    assert html.index(DRAFT) < html.index(SUBMIT)
     r = login(ns.owner).post(reverse("po_new"), po_form(ns, then="submit"), follow=True)
     po = PurchaseOrder.objects.get()
     assert r.redirect_chain == [(reverse("po_detail", args=[po.pk]), 302)]
@@ -1213,3 +1323,23 @@ def test_save_and_submit_in_a_locked_period_does_exactly_what_submitting_a_draft
     one_step = PurchaseOrder.objects.exclude(pk=two_steps.pk).get()
     assert (one_step.status, one_step.number) == ("approved", "PO/LDH1/26-27/0002") and two_steps.status == "approved"
     assert "is locked" not in r.content.decode()
+
+
+def test_the_bill_page_explains_why_the_amount_to_pay_differs_from_the_outstanding_figure(ns):
+    g1 = received(ns, qty="100", rejected="20")
+    inv = billed(ns, g1, qty="100")
+    why = "is for goods you returned"
+    assert why not in page(ns.owner, "invoice_detail", inv.pk)      # nothing returned yet: the two figures agree
+    debit_notes.post_debit_note(DebitNote.objects.get(grn=g1), user=ns.owner)
+    html = page(ns.owner, "invoice_detail", inv.pk)
+    link = pay_link(ns, inv, "8000.00")
+    assert button(link, "Pay Yarn House") in guide_of(html)
+    # the pill still reads the ledger; the plain header button is the guide's step, with the guide's amount
+    assert "Outstanding 10000.00" in head_of(html)
+    assert re.search(rf'<a class="btn" href="{re.escape(escape(link))}"[^>]*>Pay supplier</a>', head_of(html))
+    assert "amount=10000.00" not in html
+    assert "2000.00 of it is for goods you returned" in html and "so 8000.00 is left to pay" in html
+    pay(ns, inv, "8000")
+    html = page(ns.owner, "invoice_detail", inv.pk)
+    assert "This supplier bill is paid." in guide_of(html) and "Outstanding 2000.00" in head_of(html)
+    assert "so nothing is left to pay" in html and reverse("voucher_payment") + "?" not in html

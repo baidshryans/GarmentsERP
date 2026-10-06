@@ -7,6 +7,7 @@ Callers fetch the document through `for_user`; everything reached from it (an or
 and returns) is in the same factory, so nothing here widens that. Nothing here writes, and nothing here changes
 what is owed: the unpaid amount is read from the ledger's bill-wise records.
 """
+from collections import namedtuple
 from decimal import Decimal
 
 from django.db.models import Sum
@@ -14,7 +15,7 @@ from django.urls import reverse
 
 from ledger.selectors import outstanding_bills
 from ledger.settlement import pay_url
-from purchases.models import DebitNote, Grn, GrnLine, PurchaseInvoice, PurchaseInvoiceLine, PurchaseOrder
+from purchases.models import DebitNote, DebitNoteLine, Grn, GrnLine, PurchaseInvoice, PurchaseInvoiceLine, PurchaseOrder
 from purchases.services import debit_notes
 
 ZERO = Decimal("0")
@@ -88,11 +89,18 @@ def post_bill_action(inv):
                    reverse("invoice_detail", args=[inv.pk]), ("purchases.invoice", "edit"), ("purchases.invoice", "view"))
 
 
-def pay_action(inv, due):
-    """A posted bill with an amount still open in the ledger's bill-wise records: opens Money paid with the supplier,
-    the amount and the bill reference filled in. Nothing is posted until the user posts that voucher."""
-    return _action("pay", f"Pay {inv.vendor.name}", f"{due:.2f} is still unpaid on bill {inv.vendor_invoice_no}.",
-                   pay_url(inv.vendor.payable_ledger_id, due, inv.vendor_invoice_no, f"Paid against {inv.vendor_invoice_no}"),
+def pay_action(inv, owed):
+    """A posted bill with an amount really left to pay (see `owed`): opens Money paid with the supplier, that amount
+    and the bill reference filled in. Nothing is posted until the user posts that voucher."""
+    if owed.less:
+        hint = (f"{owed.due:.2f} on bill {inv.vendor_invoice_no} less {owed.less:.2f} returned: "
+                f"{owed.net:.2f} is left to pay.")
+    else:
+        hint = f"{owed.net:.2f} is still unpaid on bill {inv.vendor_invoice_no}."
+    if owed.extra:
+        hint += f" This supplier also has {owed.extra:.2f} on account from returns or advances."
+    return _action("pay", f"Pay {inv.vendor.name}", hint,
+                   pay_url(inv.vendor.payable_ledger_id, owed.net, inv.vendor_invoice_no, f"Paid against {inv.vendor_invoice_no}"),
                    ("ledger.voucher", "create"), ("ledger.voucher", "view"))
 
 
@@ -108,24 +116,60 @@ def return_action(note):
 
 # ---------------------------------------------------------------- what the ledger and the documents say
 
-def unpaid(inv, user, memo):
-    """Amount still open on a posted bill, from the ledger's bill-wise records (the same figure the bill page shows).
-    The open bills of one supplier are read once per memo."""
+# net: what is really left to pay. due: what the ledger's bill-wise records still hold open on the bill (the figure
+# the bill page's pill shows). less: the part of `due` already returned. extra: what else sits on the supplier's account.
+Owed = namedtuple("Owed", "net due less extra")
+NOTHING_OWED = Owed(ZERO, ZERO, ZERO, ZERO)
+WAITS_FOR_BILL = "This return waits for the supplier's bill. It can be posted once the rejected goods are on a posted bill."
+
+
+def _returned(inv):
+    """Value of this bill's rejected goods that posted returns have already debited to the supplier. A return is
+    for a goods-receipt line; when two posted bills billed rejected goods of the same line, the debit is matched to
+    the bills in the order they were entered, each up to what it parked as recoverable."""
+    debited = {r["grn_line_id"]: r["a"] or ZERO for r in DebitNoteLine.objects.filter(
+        note__status=DebitNote.Status.POSTED, note__kind=DebitNote.Kind.REJECTION, grn_line__invoice_lines__invoice=inv,
+    ).values("grn_line_id").annotate(a=Sum("amount"))}
+    if not debited:
+        return ZERO
+    mine = ZERO
+    for il in PurchaseInvoiceLine.objects.filter(grn_line_id__in=debited, invoice__status=INV.POSTED).order_by("invoice_id", "id"):
+        part = min(il.recoverable_amount, debited[il.grn_line_id])
+        debited[il.grn_line_id] -= part
+        if il.invoice_id == inv.pk:
+            mine += part
+    return mine
+
+
+def owed(inv, user, memo):
+    """What is left to pay on a posted bill. The ledger's bill-wise records give `due`. Posting a return of rejected
+    goods debits the supplier on account without settling the bill, so `due` still holds their value: it is taken
+    off here, capped at the debit the supplier's account really holds on account (so nothing is taken off twice if
+    that debit has since been set against the bill). Nothing is posted or changed; this only decides what the Pay
+    step offers. Each supplier's ledger position is read once per memo, each bill's figures once."""
     ledger_id = inv.vendor.payable_ledger_id
     if inv.status != INV.POSTED or not ledger_id:
-        return ZERO
+        return NOTHING_OWED
+    if ("owed", inv.pk) in memo:
+        return memo[("owed", inv.pk)]
     key = ("open bills", ledger_id)
     if key not in memo:
-        memo[key] = outstanding_bills(inv.vendor.payable_ledger, user=user)["bills"]
-    due = -memo[key].get(inv.vendor_invoice_no, ZERO)
-    return due if due > 0 else ZERO
+        memo[key] = outstanding_bills(inv.vendor.payable_ledger, user=user)
+    position = memo[key]
+    due = max(-position["bills"].get(inv.vendor_invoice_no, ZERO), ZERO)
+    on_account, advance = max(position["on_account"], ZERO), max(position["advance"], ZERO)
+    less = min(_returned(inv), on_account, due) if due and on_account and not inv.is_direct else ZERO
+    result = memo[("owed", inv.pk)] = Owed(due - less, due, less, (on_account - less + advance) if due - less else ZERO)
+    return result
 
 
 def _after_receipt(grns, user, memo):
     """What the posted goods receipts among `grns` still need. {grn id: {"accepted", "received", "items", "unbilled",
-    "drafts": [bill], "posted": [(bill, unpaid)], "returns": [note]}} in four queries, plus one per supplier for
-    the open bills and two per line of a rejection return."""
-    facts = {g.pk: {"accepted": ZERO, "received": ZERO, "items": 0, "unbilled": False, "drafts": [], "posted": [], "returns": []}
+    "drafts": [bill], "posted": [(bill, Owed)], "returns": [note that can be posted], "waiting": n returns that
+    wait for the supplier's bill}} in four queries, plus one per supplier for its ledger position, one or two per
+    unpaid bill for what was returned, and two per line of a rejection return."""
+    facts = {g.pk: {"accepted": ZERO, "received": ZERO, "items": 0, "unbilled": False, "drafts": [], "posted": [], "returns": [],
+                    "waiting": 0}
              for g in grns if g.status == G.POSTED}
     if not facts:
         return facts
@@ -148,13 +192,15 @@ def _after_receipt(grns, user, memo):
         if inv.status == INV.DRAFT:
             facts[grn_id]["drafts"].append(inv)
         else:
-            facts[grn_id]["posted"].append((inv, unpaid(inv, user, memo)))
+            facts[grn_id]["posted"].append((inv, owed(inv, user, memo)))
     for line_id, qty_left in left.items():
         if qty_left > 0:
             facts[owner[line_id]]["unbilled"] = True
     for note in DebitNote.objects.filter(grn_id__in=facts, status=DebitNote.Status.DRAFT).order_by("id"):
         if debit_notes.can_post(note):
             facts[note.grn_id]["returns"].append(note)
+        else:
+            facts[note.grn_id]["waiting"] += 1
     return facts
 
 
@@ -169,7 +215,7 @@ def _grn_actions(grn, facts):
     found = [bill_action(grn)] if f["unbilled"] else []
     found += [post_bill_action(inv) for inv in f["drafts"]]
     found += [return_action(note) for note in f["returns"]]
-    found += [pay_action(inv, due) for inv, due in f["posted"] if due]
+    found += [pay_action(inv, o) for inv, o in f["posted"] if o.net]
     return found
 
 
@@ -204,7 +250,7 @@ def _money_stages(found, all_in=True):
     """Billed and Paid for the posted goods receipts in `found` (their facts). `all_in` is False while more goods
     are still to come on the order: what came so far may be billed and paid, the purchase is not."""
     drafts = {inv.pk: inv for f in found for inv in f["drafts"]}
-    posted = {inv.pk: (inv, due) for f in found for inv, due in f["posted"]}
+    posted = {inv.pk: (inv, o.net) for f in found for inv, o in f["posted"]}
     return _bill_stages(
         billed=sum((inv.payable for inv, _ in posted.values()), ZERO), due=sum((due for _, due in posted.values()), ZERO),
         any_posted=bool(posted), open_work=bool(drafts) or any(f["unbilled"] for f in found) or not all_in,
@@ -232,23 +278,28 @@ def _order_stages(po):
     return stages
 
 
-def _result(journey, actions, user, memo, *, complete, closed, idle=""):
+def _result(journey, actions, user, memo, *, complete, closed, idle="", receive=None):
     can = checker(user, memo)
     allowed = [a for a in actions if all(can(*p) for p in a["perm"])]
+    if receive is not None and not all(can(*p) for p in receive["perm"]):
+        receive = None
     return {"journey": _strip(journey, closed), "primary": allowed[0] if allowed else None, "others": allowed[1:],
             "waiting": actions[0]["label"] if actions and not allowed else "",
-            "complete": complete and not actions, "closed": closed, "idle": idle}
+            "complete": complete and not actions, "closed": closed, "idle": idle, "receive": receive}
 
 
 # ---------------------------------------------------------------- purchase order
 
 def _po_state(po, user, memo):
-    """(actions, journey) of an order: its own steps, then those of its goods receipts, their bills and returns."""
+    """(actions, journey, receive) of an order: its own steps, then those of its goods receipts, their bills and
+    returns. `receive` is the Receive goods step whenever goods can still be received against the order, even while
+    an earlier goods receipt is unposted: the guide then points at that one first, but a second delivery can arrive
+    before the first is checked, so the order page keeps a plain button for it."""
     status = po.status
     stages = _order_stages(po)
     if status in (PO.DRAFT, PO.PENDING):
         rest = [_stage(name, "todo") for name in ("Received", "Checked", "Billed", "Paid")]
-        return [submit_action(po) if status == PO.DRAFT else approve_action(po)], stages + rest
+        return [submit_action(po) if status == PO.DRAFT else approve_action(po)], stages + rest, None
     grns = [g for g in po.grns.select_related("vendor").order_by("id") if g.status != G.CANCELLED]
     for g in grns:
         g.po = po
@@ -259,8 +310,9 @@ def _po_state(po, user, memo):
     waiting_on = any(got.get(l.pk, ZERO) < l.qty for l in lines)
     unposted = [g for g in grns if g.status in OPEN_GRN]
     actions = []
-    if status in (PO.APPROVED, PO.PARTLY) and waiting_on and not unposted:
-        actions.append(receive_action(po))
+    receive = receive_action(po) if status in (PO.APPROVED, PO.PARTLY) and waiting_on else None
+    if receive and not unposted:
+        actions.append(receive)
     for g in grns:
         actions += _grn_actions(g, facts)
 
@@ -273,19 +325,20 @@ def _po_state(po, user, memo):
     checked = "now" if unposted or (facts and receiving) else ("done" if facts else "todo")
     stages.append(_stage("Checked", checked))
     stages += _money_stages(list(facts.values()), all_in=not receiving)
-    return _ranked(actions), stages
+    return _ranked(actions), stages, receive
 
 
 def po_guide(po, user, perms=None):
     """{'journey': [...], 'primary': action or None, 'others': [...], 'waiting': label, 'complete': bool, 'closed': bool,
-    'idle': sentence}: the shape `templates/_journey.html` takes. An action is offered only if the user's role may do it
+    'idle': sentence, 'receive': action or None}: the shape `templates/_journey.html` takes, plus `receive` for the
+    order page's header button (see `_po_state`). An action is offered only if the user's role may do it
     and may open the screen it leads to; `waiting` names the next step when it is someone else's. A short-closed order
     asks for no more goods, but what it did receive is still billed and paid; it reads as closed once nothing is left.
     `perms` is an optional dict shared between calls for the SAME user (it also remembers each supplier's open bills)."""
     memo = {} if perms is None else perms
-    actions, journey = _po_state(po, user, memo)
+    actions, journey, receive = _po_state(po, user, memo)
     return _result(journey, actions, user, memo, complete=po.status == PO.RECEIVED,
-                   closed=po.status == PO.CLOSED and not actions)
+                   closed=po.status == PO.CLOSED and not actions, receive=receive)
 
 
 def po_next(po, user, perms=None):
@@ -315,7 +368,10 @@ def grn_guide(grn, user, perms=None):
         stages += [_stage("Received", "done", qty(f["received"]) if one else f"{f['items']} items"),
                    _stage("Checked", "done", f"{qty(f['accepted'])} accepted" if one else "")]
         stages += _money_stages([f])
-    return _result(stages, actions, user, memo, complete=grn.status == G.POSTED, closed=grn.status == G.CANCELLED)
+    # everything was rejected and the return still waits for the supplier's bill: not finished, and the page says why
+    all_back = f is not None and not f["accepted"] and f["waiting"] and not actions
+    return _result(stages, actions, user, memo, complete=grn.status == G.POSTED and not all_back,
+                   closed=grn.status == G.CANCELLED, idle=WAITS_FOR_BILL if all_back else "")
 
 
 def grn_next(grn, user, perms=None):
@@ -332,7 +388,8 @@ def invoice_guide(inv, user, perms=None):
     (no goods receipt) starts at Billed."""
     memo = {} if perms is None else perms
     status = inv.status
-    actions, due = [], unpaid(inv, user, memo)
+    actions, o = [], owed(inv, user, memo)
+    due = o.net
     if status == INV.DRAFT:
         actions.append(post_bill_action(inv))
     elif status == INV.POSTED:
@@ -341,7 +398,7 @@ def invoice_guide(inv, user, perms=None):
                                              lines__grn_line__invoice_lines__invoice=inv).distinct().order_by("id")
             actions += [return_action(n) for n in notes if debit_notes.can_post(n)]
         if due:
-            actions.append(pay_action(inv, due))
+            actions.append(pay_action(inv, o))
     stages = []
     if not inv.is_direct:
         orders = list(Grn.objects.filter(lines__invoice_lines__invoice=inv).values_list("po_id", "po__approved_by_id").distinct())
@@ -363,9 +420,6 @@ def invoice_next(inv, user, perms=None):
 
 
 # ---------------------------------------------------------------- return to supplier
-
-WAITS_FOR_BILL = "This return waits for the supplier's bill. It can be posted once the rejected goods are on a posted bill."
-
 
 def debitnote_guide(note, user, perms=None):
     """A return's own step: post it. One raised for goods rejected at the quality check waits for the supplier's bill."""

@@ -188,7 +188,7 @@ class PODetail(LoginRequiredMixin, ScreenPermissionMixin, View):
             "po": po, "lines": lines, "grns": po.grns.all(),
             "can_edit": user.has_screen_perm("purchases.po", "edit"),
             "can_approve": user.has_screen_perm("purchases.po", "approve"),
-            "can_receive": _offers(guide, "receive"), "can_open_grn": user.has_screen_perm("purchases.grn", "view"),
+            "can_receive": guide["receive"] is not None, "can_open_grn": user.has_screen_perm("purchases.grn", "view"),
             "limit": po.company.po_approval_limit, "guide": guide,
         })
 
@@ -582,13 +582,16 @@ class InvoiceDetail(LoginRequiredMixin, ScreenPermissionMixin, View):
 
     def get(self, request, pk):
         inv = self._inv(request, pk)
-        guide = guide_service.invoice_guide(inv, request.user)
+        memo = {}
+        guide = guide_service.invoice_guide(inv, request.user, memo)
+        owed = guide_service.owed(inv, request.user, memo)
         settle = settlement(request.user, ledger=inv.vendor.payable_ledger, reference=inv.vendor_invoice_no, direction="pay",
                             narration=f"Paid against {inv.vendor_invoice_no}") if inv.status == "posted" and inv.vendor.payable_ledger_id else None
-        if settle and not _offers(guide, "pay"):
-            settle["url"] = None                 # the amount still shows; the button is the guide's to offer
+        if settle:
+            # the pill shows what the ledger holds open on the bill; the button is the guide's step, with its amount
+            settle["url"] = next((a["url"] for a in [guide["primary"], *guide["others"]] if a and a["kind"] == "pay"), None)
         return render(request, "purchases/invoice_detail.html", {
-            "inv": inv, "guide": guide, "lines": inv.lines.select_related("grn_line__grn", "grn_line__material", "grn_line__sku__style", "grn_line__sku__colour", "grn_line__sku__size", "material", "sku__style", "sku__colour", "sku__size"),
+            "inv": inv, "guide": guide, "owed": owed if owed.less else None, "lines": inv.lines.select_related("grn_line__grn", "grn_line__material", "grn_line__sku__style", "grn_line__sku__colour", "grn_line__sku__size", "material", "sku__style", "sku__colour", "sku__size"),
             "gst": inv.tax_lines.filter(kind="gst"), "tds": inv.tax_lines.filter(kind="tds"),
             "can_edit": request.user.has_screen_perm("purchases.invoice", "edit"),
             "can_cancel": request.user.has_screen_perm("purchases.invoice", "cancel"),

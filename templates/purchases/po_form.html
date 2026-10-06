@@ -18,6 +18,6 @@
           <td class="num"><input type="text" inputmode="decimal" name="rate" value="{{ r.rate|default:'' }}"></td></tr>{% endfor %}</tbody>
       </table></div>
     </div>
-    <div class="form-actions">{% if can_submit %}<button class="btn primary" name="then" value="submit">Save and submit</button><button class="btn" name="then" value="draft">Save draft</button>{% else %}<button class="btn primary">Save draft</button>{% endif %}<a class="btn ghost" href="{% url 'po_list' %}">Cancel</a></div>
+    <div class="form-actions">{% if can_submit %}<button class="btn" name="then" value="draft">Save draft</button><button class="btn primary" name="then" value="submit">Save and submit</button>{% else %}<button class="btn primary">Save draft</button>{% endif %}<a class="btn ghost" href="{% url 'po_list' %}">Cancel</a></div>
   </form>
 {% endblock %}

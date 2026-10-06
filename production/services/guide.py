@@ -7,6 +7,8 @@ from django.urls import reverse
 
 from core.models import Location
 from jobwork.models import JobWorkChallan, Receipt, ReceiptLine
+from jobwork.services import guide as jobwork_guide
+from jobwork.services.guide import checker as _checker
 from production.models import Bundle, LotStep
 from production.services import bundles as bundle_service
 
@@ -14,7 +16,8 @@ B = Bundle.Status
 AT_A_STAGE = (B.AT_STAGE, B.DONE, B.RECEIVED, B.REWORK)
 # Within one stage, what is furthest behind comes first. An optional step sorts behind everything else aimed at the
 # mandatory step it comes before, so it is never the main button while that step is open to the same user.
-RANK = {"send": 0, "move": 0, "issue": 1, "receive": 2, "approve": 3, "qc": 4, "rework": 5, "optional": 6}
+# Issue, receive, approve and QC keep the order the challan guide gives them.
+RANK = {"send": 0, "move": 0, **jobwork_guide.RANK, "rework": 5, "optional": 6}
 # making a challan needs `create`; the saved challan then opens on its own page, which needs `view`
 CHALLAN_NEW = (("jobwork.challan", "create"), ("jobwork.challan", "view"))
 STATE = {LotStep.Status.DONE: "done", LotStep.Status.IN_PROGRESS: "now", LotStep.Status.PENDING: "todo"}
@@ -78,6 +81,11 @@ def _actions(lot, steps, bundles, cuts, issued):
                                    "order": (seq, RANK.get(key[0], 0), tie)})
         a["pieces"] += pieces
 
+    def add_shared(a, pk, seq):
+        """An action the challan guide builds: the same label and link here as on the challan's own page."""
+        if a:
+            add((a["kind"], pk), seq, a["label"], a["hint"], a["url"], a["perm"], a["pieces"])
+
     def onward(step, b, target=None):
         """Send or move bundles on to `step`. With `target`, `step` is an optional one on the way to that mandatory
         step (or, with nothing mandatory left, to itself): it is offered beside the main action, never ahead of it."""
@@ -118,26 +126,13 @@ def _actions(lot, steps, bundles, cuts, issued):
         on_challan.update(l.bundle_id for l in lines)
         if ch.status == JobWorkChallan.Status.DRAFT:
             on_draft.update(l.bundle_id for l in lines)
-            add(("issue", ch.pk), ch.step.sequence, f"Issue challan to {ch.party.name}",
-                "The challan is a draft. Issue it to hand the bundles over.",
-                reverse("challan_detail", args=[ch.pk]), (("jobwork.challan", "edit"), ("jobwork.challan", "view")),
-                sum(l.bundle.qty for l in lines))
+            add_shared(jobwork_guide.issue_action(ch, lines), ch.pk, ch.step.sequence)
         else:
-            out = sum(l.bundle.qty for l in lines if not (l.qty_received or l.qty_shortage) and l.pk not in counted)
-            if out:
-                add(("receive", ch.pk), ch.step.sequence, f"Receive from {ch.party.name}",
-                    f"Count the pieces that came back from {ch.step.process.name}.",
-                    reverse("receipt_new", args=[ch.pk]), (("jobwork.receipt", "create"), ("jobwork.receipt", "view")), out)
+            add_shared(jobwork_guide.receive_action(ch, lines, counted), ch.pk, ch.step.sequence)
 
     waiting = (Receipt.Status.PENDING_APPROVAL, Receipt.Status.RECEIVED)
     for r in Receipt.objects.filter(challan__lot=lot, status__in=waiting).select_related("challan__party", "challan__step"):
-        url, seq = reverse("receipt_detail", args=[r.pk]), r.challan.step.sequence
-        if r.status == Receipt.Status.PENDING_APPROVAL:
-            add(("approve", r.pk), seq, "Approve over-receipt", "More pieces were counted than were sent. The owner must approve.",
-                url, (("jobwork.receipt", "approve"), ("jobwork.receipt", "view")))
-        else:
-            add(("qc", r.pk), seq, "Check received pieces", f"Accept, reject or send back what {r.challan.party.name} returned.",
-                url, (("jobwork.qc", "create"), ("jobwork.receipt", "view")))
+        add_shared(jobwork_guide.receipt_action(r), r.pk, r.challan.step.sequence)
 
     for b in bundles:
         if not b.is_live or b.pk in on_draft:
@@ -166,16 +161,6 @@ def _actions(lot, steps, bundles, cuts, issued):
             if not s.is_mandatory:
                 onward(s, b, target=nxt or s)
     return sorted(found.values(), key=lambda a: a["order"])
-
-
-def _checker(user, perms):
-    """Ask each permission once. `perms` is the memo; a caller showing many lots to one user passes the same dict."""
-    def can(screen, action):
-        key = (screen, action)
-        if key not in perms:
-            perms[key] = user.has_screen_perm(screen, action)
-        return perms[key]
-    return can
 
 
 def lot_guide(lot, user, perms=None):

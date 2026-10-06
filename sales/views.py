@@ -173,7 +173,8 @@ class OrderList(LoginRequiredMixin, ScreenPermissionMixin, View):
     screen_code = "sales.order"
 
     def get(self, request):
-        qs = in_active(SaleOrder.objects.for_user(request.user), request).select_related("customer", "factory")
+        qs = in_active(SaleOrder.objects.for_user(request.user), request).select_related(
+            "customer", "factory", "production_order").prefetch_related("lines", "packing_lists", "invoices")
         status = request.GET.get("status")
         if status:
             qs = qs.filter(status=status)
@@ -324,7 +325,8 @@ class OrderBook(LoginRequiredMixin, ScreenPermissionMixin, View):
     screen_code = "sales.order"
 
     def get(self, request):
-        return render(request, "sales/order_book.html", {"rows": orders.order_book(request.user)})
+        # the active factory's orders, like the Sale orders list beside it; every factory of the user's in "All" mode
+        return render(request, "sales/order_book.html", {"rows": orders.order_book(request.user, request.factory)})
 
 
 # ================================================================ packing list, cartons, labels (E4.6)
@@ -335,7 +337,8 @@ class PackingListView(LoginRequiredMixin, ScreenPermissionMixin, View):
     def get(self, request):
         qs = in_active(PackingList.objects.for_user(request.user), request).select_related("order__customer", "factory")
         return render(request, "sales/packing_list.html", {
-            "lists": _with_next(qs[:200], guide_service.packing_next, request.user), "book": orders.order_book(request.user),
+            "lists": _with_next(qs[:200], guide_service.packing_next, request.user),
+            "book": orders.order_book(request.user, request.factory), "can_open_order": _can(request, "sales.order", "view"),
             # the form needs `create`, and saving it lands on the packing list's page
             "can_pack": _can(request, "sales.packing", "create")})
 
@@ -421,6 +424,23 @@ class PackingSave(LoginRequiredMixin, ScreenPermissionMixin, View):
         return redirect("packing_detail", pk=saved.pk)
 
 
+def _draft_bill(p, make):
+    """Draft the bill of a packing list. The packing page has no GST choice, so when GST cannot be suggested the
+    message names the style and where to put it right, instead of offering choices this page does not have."""
+    try:
+        return make()
+    except invoices.NoGstRate as exc:
+        styles = {sku.style for sku in packing_service.sku_totals(p)}
+        hsn = exc.hsn
+        found = sorted(s.style_no for s in styles if s.hsn_id == (hsn.pk if hsn else None))
+        names = ", ".join(found) or "A style"
+        if hsn is None:
+            raise BusinessRuleError(f"{names} {'have' if len(found) > 1 else 'has'} no HSN code. Set it in "
+                                    "Masters → Styles, then make the bill again.") from exc
+        raise BusinessRuleError(f"{names}: HSN {hsn.code} has no GST slab for this value and date. Add it in "
+                                "Masters → Setup → HSN and GST slabs, then make the bill again.") from exc
+
+
 class PackingDetail(LoginRequiredMixin, ScreenPermissionMixin, View):
     screen_code = "sales.packing"
 
@@ -444,7 +464,7 @@ class PackingDetail(LoginRequiredMixin, ScreenPermissionMixin, View):
         try:
             if action == "invoice":
                 _need(request, "sales.invoice", "create")
-                inv = invoices.invoice_from_packing(p, user=request.user, date=timezone.localdate())
+                inv = _draft_bill(p, lambda: invoices.invoice_from_packing(p, user=request.user, date=timezone.localdate()))
                 messages.success(request, "Bill drafted for the packed pieces. Check it, then post it.")
                 return redirect("saleinvoice_detail", pk=inv.pk)
             _need(request, "sales.packing", "edit")
@@ -452,7 +472,7 @@ class PackingDetail(LoginRequiredMixin, ScreenPermissionMixin, View):
                 # every right the two steps and the bill's own page ask for
                 _need(request, "sales.invoice", "create")
                 _need(request, "sales.invoice", "view")
-                inv = invoices.finish_packing_and_bill(p, user=request.user, date=timezone.localdate())
+                inv = _draft_bill(p, lambda: invoices.finish_packing_and_bill(p, user=request.user, date=timezone.localdate()))
                 messages.success(request, "Packing finished and the bill drafted. Check the GST and the total, then post it.")
                 return redirect("saleinvoice_detail", pk=inv.pk)
             if action == "finalize":
@@ -520,7 +540,7 @@ class InvoiceList(LoginRequiredMixin, ScreenPermissionMixin, View):
     screen_code = "sales.invoice"
 
     def get(self, request):
-        qs = in_active(SaleInvoice.objects.for_user(request.user), request).select_related("customer", "factory")
+        qs = in_active(SaleInvoice.objects.for_user(request.user), request).select_related("customer", "factory", "packing")
         status = request.GET.get("status")
         if status:
             qs = qs.filter(status=status)

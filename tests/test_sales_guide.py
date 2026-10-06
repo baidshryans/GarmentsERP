@@ -970,7 +970,11 @@ def test_the_lists_ask_each_permission_once_however_many_rows_they_show(ns):
     for name in names:
         assert four[name][0] == one[name][0], name              # three more rows, no permission asked again
         assert four[name][1] == one[name][1] == 1, name         # one customer: its open bills are read once for the page
-        assert four[name][2] - one[name][2] <= 3 * 14, name     # a bounded number of reads per row
+    # reads per extra row: an order's lines, packing lists and bills are prefetched for the whole page, leaving its
+    # packed pieces and its bills' draft returns; a packing list also reads its cartons, its bill and its order's balance
+    per_row = {"saleorder_list": 2, "packing_list": 6, "saleinvoice_list": 1}
+    for name in names:
+        assert four[name][2] - one[name][2] <= 3 * per_row[name], name
 
 
 # ================================================================ fewer steps
@@ -1426,3 +1430,77 @@ def test_a_return_after_full_payment_says_the_credit_is_held_on_the_account(ns):
     assert "also has 1000.00 on account" in invoice_guide(inv_of(second), ns.owner)["primary"]["hint"]
     credit_notes.cancel_credit_note(note, user=ns.owner, reason="entered twice")
     assert HELD not in page(ns.owner, "saleinvoice_detail", inv.pk)
+
+
+# ---------------- small fixes found in review ----------------
+
+def test_the_orders_waiting_to_be_packed_are_links_only_for_those_who_may_open_orders(ns):
+    o = confirmed_order(ns)
+    url = reverse("saleorder_detail", args=[o.pk])
+    packer = role_user("book_packer", {"sales.packing": ["view", "create"]}, ns.factory)
+    html = page(packer, "packing_list")
+    assert o.number in html and f'href="{url}"' not in html and login(packer).get(url).status_code == 403
+    assert plain(reverse("packing_new", args=[o.pk]), "Pack") in html
+    assert f'<a href="{url}">{o.number}</a>' in page(ns.owner, "packing_list")
+
+
+def test_the_order_book_follows_the_active_factory_on_both_screens(ns, factory2):
+    here = confirmed_order(ns)
+    there = orders.confirm_order(orders.create_order(
+        company=ns.company, factory=factory2, customer=ns.local, date=DAY, user=ns.owner,
+        lines=[orders.OrderLineSpec(ns.sku("Black", "M"), D("5"), D("500"), D("0"))]), user=ns.owner)
+    assert here.number != there.number
+    c = login(ns.owner)                                              # starts in the first factory
+
+    def shown(name):
+        ctx = c.get(reverse(name)).context
+        return {r["order"].pk for r in (ctx["book"] if name == "packing_list" else ctx["rows"])}
+
+    for name in ("packing_list", "saleorder_pending"):
+        assert shown(name) == {here.pk}, name
+    c.post(reverse("factory_switch"), {"factory": factory2.pk})
+    for name in ("packing_list", "saleorder_pending"):
+        assert shown(name) == {there.pk}, name
+    c.post(reverse("factory_switch"), {"factory": "all"})
+    for name in ("packing_list", "saleorder_pending"):
+        assert shown(name) == {here.pk, there.pk}, name
+
+
+@pytest.mark.parametrize("action", ["finish_and_bill", "invoice"])
+def test_a_bill_that_cannot_be_drafted_for_want_of_an_hsn_code_names_the_style(ns, company, action):
+    h.gst_on(company)
+    o = confirmed_order(ns)
+    p = draft_pack(ns, o, ALL)
+    if action == "invoice":
+        p = packing.finalize_packing(p, user=ns.owner)
+    before = packing_of(p).status
+    ns.style.hsn = None
+    ns.style.save()
+    url = reverse("packing_detail", args=[p.pk])
+    r = login(ns.owner).post(url, {"action": action}, follow=True)
+    html = r.content.decode()
+    assert r.redirect_chain == [(url, 302)]
+    assert "TP-1 has no HSN code. Set it in Masters → Styles, then make the bill again." in html
+    assert "choose a GST template" not in html                       # this page has no such choice to offer
+    assert packing_of(p).status == before and not SaleInvoice.objects.exists()
+    # quick billing, which does offer the choice, keeps its own message
+    from masters.models import SKU
+
+    with pytest.raises(BusinessRuleError, match="choose a GST template or no GST for this invoice"):
+        invoices.save_invoice(company=ns.company, factory=ns.factory, customer=ns.local, date=DAY, user=ns.owner,
+                              location=ns.godown, lines=[invoices.InvoiceLineSpec(SKU.objects.get(pk=ns.sku("Navy", "M").pk), D("1"), D("500"), D("0"))])
+
+
+def test_a_bill_that_cannot_be_drafted_for_want_of_a_slab_names_the_style_and_the_hsn(ns, company):
+    from tax.models import HSN
+
+    h.gst_on(company)
+    o = confirmed_order(ns)
+    p = draft_pack(ns, o, ALL)
+    ns.style.hsn = HSN.objects.create(code="99887766", description="No slab yet")
+    ns.style.save()
+    url = reverse("packing_detail", args=[p.pk])
+    html = login(ns.owner).post(url, {"action": "finish_and_bill"}, follow=True).content.decode()
+    assert ("TP-1: HSN 99887766 has no GST slab for this value and date. Add it in Masters → Setup → HSN and GST slabs, "
+            "then make the bill again.") in html
+    assert packing_of(p).status == "draft" and packing_of(p).number is None and not SaleInvoice.objects.exists()

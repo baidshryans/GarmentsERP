@@ -299,10 +299,11 @@ def _order_state(order, user, memo):
         rest = [_stage(name, "todo") for name in ("Packed", "Billed", "Paid")]
         return [confirm_action(order)], stages + [_stage("Confirmed", "now")] + rest, None
     stages.append(_stage("Confirmed", "done"))
-    every_list = {p.pk: p for p in order.packing_lists.order_by("id")}
+    # `.all()` and not a new query: a list page prefetches the lines, packing lists and bills of its rows
+    every_list = {p.pk: p for p in sorted(order.packing_lists.all(), key=lambda p: p.pk)}
     packings = [p for p in every_list.values() if p.status != P.CANCELLED]
     invoices = []
-    for i in order.invoices.order_by("id"):
+    for i in sorted(order.invoices.all(), key=lambda i: i.pk):
         i.order, i.customer = order, order.customer
         if i.packing_id:
             i.packing = every_list[i.packing_id]

@@ -5,7 +5,7 @@
   <div class="island"><h2>Orders waiting to be packed</h2>
     {% if book %}<div class="table-wrap"><table>
       <thead><tr><th scope="col">Order</th><th scope="col">Customer</th><th scope="col">Due</th><th scope="col" class="num">Balance pending</th><th scope="col"></th></tr></thead>
-      <tbody>{% for r in book %}<tr><td><a href="{% url 'saleorder_detail' r.order.pk %}">{{ r.order.number }}</a></td><td>{{ r.order.customer.name }}</td><td>{{ r.order.due_date|date:"d M Y"|default:"—" }}</td><td class="num">{{ r.balance|floatformat:"-0" }}</td><td>{% if can_pack %}<a class="btn" href="{% url 'packing_new' r.order.pk %}">Pack</a>{% endif %}</td></tr>{% endfor %}</tbody>
+      <tbody>{% for r in book %}<tr><td>{% if can_open_order %}<a href="{% url 'saleorder_detail' r.order.pk %}">{{ r.order.number }}</a>{% else %}{{ r.order.number }}{% endif %}</td><td>{{ r.order.customer.name }}</td><td>{{ r.order.due_date|date:"d M Y"|default:"—" }}</td><td class="num">{{ r.balance|floatformat:"-0" }}</td><td>{% if can_pack %}<a class="btn" href="{% url 'packing_new' r.order.pk %}">Pack</a>{% endif %}</td></tr>{% endfor %}</tbody>
     </table></div>{% else %}<p class="muted">No open orders.</p>{% endif %}</div>
   <div class="island"><h2>Packing lists</h2>
     {% if lists %}<div class="table-wrap"><table>

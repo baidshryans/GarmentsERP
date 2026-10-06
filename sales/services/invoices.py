@@ -51,6 +51,15 @@ class InvoiceLineSpec:
 
 # ---------------------------------------------------------------- tax
 
+class NoGstRate(BusinessRuleError):
+    """GST cannot be suggested because a style has no HSN code (`hsn` is None) or its HSN has no slab for the value
+    and date (`hsn` is that HSN). The same refusal as before, told apart so a screen can name the style."""
+
+    def __init__(self, message, hsn=None):
+        super().__init__(message)
+        self.hsn = hsn
+
+
 def gst_on(company, factory, on_date) -> bool:
     return tax_services.gst_enabled(company, on_date, factory)
 
@@ -62,10 +71,10 @@ def place_of_supply(customer, factory, override=None) -> str:
 def _slab_template(hsn, unit_value, on_date, factory_state, place_state):
     """(rate, template) the HSN slab suggests for one piece value and where the goods go; errors say what is missing."""
     if hsn is None:
-        raise BusinessRuleError("The style has no HSN code; set it, or choose a GST template or no GST for this invoice.")
+        raise NoGstRate("The style has no HSN code; set it, or choose a GST template or no GST for this invoice.")
     rate = tax_services.gst_rate_for(hsn, unit_value, on_date)
     if rate is None:
-        raise BusinessRuleError(f"No GST slab for HSN {hsn.code} on {on_date:%d %b %Y}; add the slab, or choose a template.")
+        raise NoGstRate(f"No GST slab for HSN {hsn.code} on {on_date:%d %b %Y}; add the slab, or choose a template.", hsn)
     template = calc.suggest_gst_template(party_state=factory_state, place_state=place_state, rate=rate)
     if template is None:
         raise BusinessRuleError(f"There is no GST template for {rate.normalize():f}%; create one or choose another.")

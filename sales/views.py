@@ -59,7 +59,7 @@ def _customers():
 
 def _locations(factory):
     return Location.objects.filter(factory=factory, is_active=True).exclude(
-        loc_type__in=("cutting", "process", "fabricator", "rejects", "transit")) if factory else Location.objects.none()
+        loc_type__in=packing_service.NOT_PACKED_FROM) if factory else Location.objects.none()
 
 
 def _can(request, screen, action):

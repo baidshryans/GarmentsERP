@@ -16,6 +16,8 @@ from sales.services.common import check_pieces
 P = PackingList.Status
 LIVE = (P.DRAFT, P.PACKED, P.INVOICED)
 QZERO = Decimal("0.000")
+# kinds of location goods are never packed from: work in progress, rejects and goods on the road
+NOT_PACKED_FROM = ("cutting", "process", "fabricator", "rejects", "transit")
 
 
 @dataclass

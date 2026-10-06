@@ -5,6 +5,7 @@
     {% if ch.kind == "rework" %}<span class="pill warning">Rework</span>{% endif %}
     <div class="actions">{% if ch.status != "draft" %}<a class="btn" href="{% url 'challan_print' ch.pk %}" target="_blank">Print</a>{% endif %}
       {% if ch.is_open and can_receive %}<a class="btn primary" href="{% url 'receipt_new' ch.pk %}">Receive goods</a>{% endif %}{% if can_open_lot %}<a class="btn" href="{% url 'lot_detail' ch.lot_id %}">Back to lot</a>{% endif %}<a class="btn ghost" href="{% url 'challan_list' %}">All challans</a></div></div>
+  {% include "jobwork/_challan_guide.html" %}
   <div class="island"><div class="field-row">
     <div><div class="label muted">Fabricator</div>{{ ch.party.name }}</div><div><div class="label muted">Lot</div>{% if can_open_lot %}<a href="{% url 'lot_detail' ch.lot.pk %}">{{ ch.lot.lot_no }}</a>{% else %}{{ ch.lot.lot_no }}{% endif %}</div>
     <div><div class="label muted">Step</div>{{ ch.step.process.name }}</div><div><div class="label muted">Date</div>{{ ch.date|date:"d M Y" }}</div>
@@ -17,6 +18,6 @@
   {% if trims %}<div class="island"><h2>Trims issued</h2><div class="table-scroll"><table><thead><tr><th scope="col">Material</th><th scope="col" class="num">Issued</th><th scope="col" class="num">Returned</th><th scope="col" class="num">Missing</th></tr></thead>
     <tbody>{% for t in trims %}<tr><td>{{ t.material.name }}</td><td class="num">{{ t.qty_issued|floatformat:"-3" }}</td><td class="num">{{ t.qty_returned|floatformat:"-3" }}</td><td class="num">{{ t.qty_missing|floatformat:"-3" }}</td></tr>{% endfor %}</tbody></table></div></div>{% endif %}
   {% if receipts %}<div class="island"><h2>Receipts</h2>{% for r in receipts %}<p><a href="{% url 'receipt_detail' r.pk %}">{{ r.number|default:"Waiting for approval" }}</a> · {{ r.date|date:"d M Y" }} · {{ r.get_status_display }}</p>{% endfor %}</div>{% endif %}
-  {% if ch.status == "draft" and can_edit %}<form method="post" class="island">{% csrf_token %}<button class="btn primary" name="action" value="issue">Issue challan</button> <button class="btn danger" name="action" value="discard">Discard draft</button>
+  {% if ch.status == "draft" and can_edit %}<form method="post" class="island" id="do-next">{% csrf_token %}<button class="btn primary" name="action" value="issue">Issue challan</button> <button class="btn danger" name="action" value="discard">Discard draft</button>
     <p class="muted">Issuing moves the bundles to {{ ch.party.name }} and takes the trims out of stock into the lot's cost.</p></form>{% endif %}
 {% endblock %}

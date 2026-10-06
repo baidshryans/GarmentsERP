@@ -3,8 +3,10 @@
 {% block content %}
   <div class="page-head"><h1 class="page-title">{{ r.number|default:"Receipt waiting for approval" }}</h1><span class="pill {% if r.status == 'qc_done' %}success{% elif r.status == 'pending_approval' %}danger{% else %}warning{% endif %}">{{ r.get_status_display }}</span>
     <div class="actions">{% if can_open_lot %}<a class="btn" href="{% url 'lot_detail' r.challan.lot_id %}">Back to lot</a>{% endif %}<a class="btn ghost" href="{% url 'challan_detail' r.challan.pk %}">{{ r.challan.number }}</a><a class="btn ghost" href="{% url 'receipt_list' %}">All receipts</a></div></div>
+  {% include "jobwork/_challan_guide.html" %}
   <div class="island"><div class="field-row"><div><div class="label muted">Fabricator</div>{{ r.challan.party.name }}</div><div><div class="label muted">Lot</div>{{ r.challan.lot.lot_no }}</div>
     <div><div class="label muted">Step</div>{{ r.challan.step.process.name }}</div><div><div class="label muted">Date</div>{{ r.date|date:"d M Y" }}</div></div></div>
+  <span id="do-next"></span>
   {% if r.status == "pending_approval" %}<div class="island"><p class="pill warning">Some bundles were counted above what was issued. Nothing has moved yet.</p>
     {% if can_approve %}<form method="post">{% csrf_token %}<button class="btn primary" name="action" value="approve">Approve over-receipt</button></form>{% else %}<p class="muted">Only the owner can approve this.</p>{% endif %}</div>{% endif %}
   {% for l in lines %}

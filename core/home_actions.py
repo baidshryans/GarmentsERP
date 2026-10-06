@@ -24,11 +24,22 @@ HOME_ACTIONS = [
 ]
 
 
+# A button that opens its screen already filtered: (url_name, label) -> query string.
+HOME_QUERY = {
+    ("challan_list", "Receive from fabricator"): "status=out",   # only what is out; the Next step of each row is Receive
+}
+
+
+def _url(url_name, label):
+    query = HOME_QUERY.get((url_name, label))
+    return reverse(url_name) + (f"?{query}" if query else "")
+
+
 def home_actions(user):
     """Islands of permitted buttons for this user, in display order. Empty islands are left out."""
     islands = []
     for title, icon, actions in HOME_ACTIONS:
-        allowed = [{"label": label, "url": reverse(url_name)}
+        allowed = [{"label": label, "url": _url(url_name, label)}
                    for url_name, label, screen, action in actions if user.has_screen_perm(screen, action)]
         if allowed:
             islands.append({"title": title, "icon": icon, "actions": allowed})

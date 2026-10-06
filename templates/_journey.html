@@ -1,0 +1,21 @@
+{% comment %}The journey strip and the one next step. `guide` comes from a guide service; the including template says what it is
+   about: `where` (the label of the strip), `done`, `shut` and `idle` (the sentences when nothing is offered), and optionally
+   `here`, the path of the page itself: an action done on this very page jumps to #do-next instead of reloading it.{% endcomment %}
+<div class="island guide">
+  <ol class="journey{% if guide.closed %} closed{% endif %}" aria-label="{{ where }}">{% for s in guide.journey %}
+    <li class="{{ s.state }}"{% if s.current %} aria-current="step"{% endif %}>
+      <span class="j-label">{{ s.label }}</span>
+      {% if s.optional %}<span class="j-tag">optional</span>{% endif %}
+      {% if s.detail %}<span class="j-detail">{{ s.detail }}</span>{% endif %}
+      {% if s.pieces %}<span class="j-pieces">{{ s.pieces }} pcs</span>{% endif %}
+      {% if not guide.closed %}<span class="sr-only">{% if s.state == "done" %}done{% elif s.state == "now" %}in progress{% else %}to come{% endif %}</span>{% endif %}
+    </li>{% endfor %}
+  </ol>
+  {% if guide.primary %}
+    <div class="guide-next"><a class="btn primary" href="{% if guide.primary.url == here %}#do-next{% else %}{{ guide.primary.url }}{% endif %}">{{ guide.primary.label }}</a><span class="muted">{{ guide.primary.hint }}{% if guide.primary.pieces %} {{ guide.primary.pieces }} pieces.{% endif %}</span></div>
+    {% if guide.others %}<p class="muted guide-also">Also waiting: {% for a in guide.others %}<a href="{% if a.url == here %}#do-next{% else %}{{ a.url }}{% endif %}">{{ a.label }}</a>{% if not forloop.last %} · {% endif %}{% endfor %}</p>{% endif %}
+  {% elif guide.waiting %}<p class="muted">Waiting for: {{ guide.waiting }}</p>
+  {% elif guide.complete %}<p>{{ done }}</p>
+  {% elif guide.closed %}<p class="muted">{{ shut }}</p>
+  {% else %}<p class="muted">{{ idle }}</p>{% endif %}
+</div>

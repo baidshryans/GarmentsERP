@@ -3,12 +3,13 @@
 {% block content %}
   <div class="page-head"><h1 class="page-title">Sent to fabricators</h1>
     <div class="actions"><a class="btn" href="{% url 'job_reports' %}">Fabricator reports</a>{% if can_create %}<a class="btn primary" href="{% url 'challan_new' %}"><svg width="16" height="16"><use href="#i-plus"/></svg> New challan</a>{% endif %}</div></div>
-  <div class="steps"><a class="step {% if not status %}current{% endif %}" href="{% url 'challan_list' %}">All</a>{% for v, l in statuses %}<a class="step {% if status == v %}current{% endif %}" href="?status={{ v }}">{{ l }}</a>{% endfor %}</div>
+  <div class="steps"><a class="step {% if not status %}current{% endif %}" href="{% url 'challan_list' %}">All</a><a class="step {% if status == 'out' %}current{% endif %}" href="?status=out">Out with fabricators</a>{% for v, l in statuses %}<a class="step {% if status == v %}current{% endif %}" href="?status={{ v }}">{{ l }}</a>{% endfor %}</div>
   <div class="island">
     {% if challans %}<div class="table-wrap"><table>
-      <thead><tr><th scope="col">Challan</th><th scope="col">Date</th><th scope="col">Fabricator</th><th scope="col">Lot</th><th scope="col">Step</th><th scope="col">Status</th></tr></thead>
+      <thead><tr><th scope="col">Challan</th><th scope="col">Date</th><th scope="col">Fabricator</th><th scope="col">Lot</th><th scope="col">Step</th><th scope="col">Status</th><th scope="col">Next step</th></tr></thead>
       <tbody>{% for c in challans %}<tr><td><a href="{% url 'challan_detail' c.pk %}">{{ c.number|default:"Draft" }}</a>{% if c.kind == "rework" %} <span class="pill warning">Rework</span>{% endif %}</td><td>{{ c.date|date:"d M Y" }}</td><td>{{ c.party.name }}</td>
-        <td>{{ c.lot.lot_no }}</td><td>{{ c.step.process.name }}</td><td><span class="pill {% if c.status == 'billed' or c.status == 'closed' %}success{% elif c.status == 'draft' %}{% else %}warning{% endif %}">{{ c.get_status_display }}</span></td></tr>{% endfor %}</tbody>
-    </table></div>{% else %}<div class="empty"><div class="hand">No challans yet</div></div>{% endif %}
+        <td>{{ c.lot.lot_no }}</td><td>{{ c.step.process.name }}</td><td><span class="pill {% if c.status == 'billed' or c.status == 'closed' %}success{% elif c.status == 'draft' %}{% else %}warning{% endif %}">{{ c.get_status_display }}</span></td>
+        <td>{% if c.next %}<a class="btn" href="{{ c.next.url }}">{{ c.next.label }}</a>{% endif %}</td></tr>{% endfor %}</tbody>
+    </table></div>{% else %}<div class="empty"><div class="hand">{% if status == "out" %}Nothing is out with a fabricator{% else %}No challans yet{% endif %}</div></div>{% endif %}
   </div>
 {% endblock %}

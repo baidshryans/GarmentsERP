@@ -25,6 +25,7 @@ from .models import (
     ChallanBundle, DailySummary, JobWorkBill, JobWorkChallan, LabourRate, QcResult, Receipt, ReceiptLine,
 )
 from .services import bills, challans, rates, receipts
+from .services import guide as guide_service
 from .services import summary as summary_service
 from .services.challans import SecondFabricatorWarning
 from .services.receipts import Counted
@@ -54,10 +55,15 @@ class ChallanList(LoginRequiredMixin, ScreenPermissionMixin, View):
 
     def get(self, request):
         qs = in_active(JobWorkChallan.objects.for_user(request.user), request).select_related("party", "lot", "step__process")
-        if request.GET.get("status"):
+        if request.GET.get("status") == "out":       # with a fabricator: issued, or only partly received
+            qs = qs.filter(status__in=(JobWorkChallan.Status.ISSUED, JobWorkChallan.Status.PARTLY))
+        elif request.GET.get("status"):
             qs = qs.filter(status=request.GET["status"])
+        rows, perms = list(qs[:200]), {}
+        for c in rows:
+            c.next = guide_service.challan_next(c, request.user, perms)
         return render(request, "jobwork/challan_list.html", {
-            "challans": qs[:200], "statuses": JobWorkChallan.Status.choices, "status": request.GET.get("status", ""),
+            "challans": rows, "statuses": JobWorkChallan.Status.choices, "status": request.GET.get("status", ""),
             "can_create": request.user.has_screen_perm("jobwork.challan", "create"),
         })
 
@@ -70,7 +76,8 @@ class ChallanNew(LoginRequiredMixin, ScreenPermissionMixin, View):
         lot = Lot.objects.for_user(request.user).select_related("style", "colour").filter(pk=d.get("lot")).first() if d.get("lot") else None
         ctx = {"lot": lot, "d": d, "fabricators": _fabricators(), "factories": _factories(request.user),
                "lots": in_active(Lot.objects.for_user(request.user), request).exclude(status__in=("closed", "completed")).select_related("style", "colour"),
-               "kind": d.get("kind", "issue")}
+               "kind": d.get("kind", "issue"), "then": d.get("then", ""),   # the button pressed, when the form comes back
+               "can_issue": request.user.has_screen_perm("jobwork.challan", "edit")}
         if lot:
             steps = [s for s in lot.steps.select_related("process", "party") if s.status != "skipped"]
             step = next((s for s in steps if str(s.pk) == d.get("step")), None) or next((s for s in steps if s.assignment == "subcontract" and s.status != "done"), None)
@@ -103,12 +110,16 @@ class ChallanNew(LoginRequiredMixin, ScreenPermissionMixin, View):
     def post(self, request):
         p = request.POST
         ctx = self._ctx(request, p)
+        issue_now = p.get("then") == "issue"
+        if issue_now and not ctx["can_issue"]:
+            raise PermissionDenied
+        save = challans.create_and_issue if issue_now else challans.create_challan
         try:
             lot, step = ctx["lot"], ctx.get("step")
             if lot is None or step is None:
                 raise BusinessRuleError("Choose the lot and the step first.")
             ids = p.getlist("bundle")
-            challan = challans.create_challan(
+            challan = save(
                 company=vu.company(), factory=get_object_or_404(_factories(request.user), pk=p.get("factory") or lot.factory_id),
                 party=get_object_or_404(Party, pk=p.get("party"), is_fabricator=True), lot=lot, step=step,
                 bundles=list(Bundle.objects.filter(pk__in=ids, lot=lot)), date=vu.day(p.get("date"), default=timezone.localdate()),
@@ -121,7 +132,10 @@ class ChallanNew(LoginRequiredMixin, ScreenPermissionMixin, View):
         except (ValueError, BusinessRuleError) as exc:
             vu.report(request, exc)
             return render(request, "jobwork/challan_form.html", ctx)
-        messages.success(request, "Challan saved as a draft. Check it, then issue it.")
+        if issue_now:
+            messages.success(request, f"{challan.number} issued. The bundles are now with {challan.party.name}. Print it from this page.")
+        else:
+            messages.success(request, "Challan saved as a draft. Check it, then issue it.")
         return redirect("challan_detail", pk=challan.pk)
 
 
@@ -139,6 +153,7 @@ class ChallanDetail(LoginRequiredMixin, ScreenPermissionMixin, View):
             "can_receive": request.user.has_screen_perm("jobwork.receipt", "create"),
             "total_pieces": sum(l.qty_issued for l in ch.bundles.all()),
             "can_open_lot": request.user.has_screen_perm("production.lot", "view"),
+            "guide": guide_service.challan_guide(ch, request.user),
         })
 
     def post(self, request, pk):
@@ -181,9 +196,14 @@ class ReceiptList(LoginRequiredMixin, ScreenPermissionMixin, View):
     screen_code = "jobwork.receipt"
 
     def get(self, request):
-        qs = in_active(Receipt.objects.for_user(request.user), request).select_related("challan__party", "challan__lot")
+        qs = in_active(Receipt.objects.for_user(request.user), request).select_related("challan__party", "challan__lot", "challan__step__process")
+        rows, perms, nexts = list(qs[:200]), {}, {}
+        for r in rows:                               # the next step of a receipt is that of its challan; ask once per challan
+            if r.challan_id not in nexts:
+                nexts[r.challan_id] = guide_service.challan_next(r.challan, request.user, perms)
+            r.next = nexts[r.challan_id]
         return render(request, "jobwork/receipt_list.html", {
-            "receipts": qs[:200], "pending_qc": ReceiptLine.objects.filter(qc_done=False, receipt__in=qs.exclude(status="pending_approval")).count(),
+            "receipts": rows, "pending_qc": ReceiptLine.objects.filter(qc_done=False, receipt__in=qs.exclude(status="pending_approval")).count(),
         })
 
 
@@ -248,6 +268,7 @@ class ReceiptDetail(LoginRequiredMixin, ScreenPermissionMixin, View):
             "can_approve": user.has_screen_perm("jobwork.receipt", "approve"),
             "can_qc": user.has_screen_perm("jobwork.qc", "create"),
             "can_open_lot": user.has_screen_perm("production.lot", "view"),
+            "guide": guide_service.challan_guide(r.challan, user),   # scoped with the receipt: same factory as its challan
         })
 
     def post(self, request, pk):

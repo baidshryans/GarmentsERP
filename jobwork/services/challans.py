@@ -121,6 +121,13 @@ def create_challan(*, company, factory, party, lot, step, bundles, date, user, e
 
 
 @transaction.atomic
+def create_and_issue(*, user, **details) -> JobWorkChallan:
+    """Make a challan and issue it in one go (the form's "Save and issue"). `details` are the arguments of
+    `create_challan`. One transaction: if issuing fails, no draft is left behind."""
+    return issue_challan(create_challan(user=user, **details), user=user)
+
+
+@transaction.atomic
 def issue_challan(challan, *, user) -> JobWorkChallan:
     challan = JobWorkChallan.objects.select_related("lot", "lot__company", "step", "step__process", "party", "factory").get(pk=challan.pk)
     assert_factory_access(user, challan.factory)

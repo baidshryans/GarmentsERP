@@ -24,8 +24,8 @@
       {% empty %}<tr><td colspan="5" class="muted">No bundles can be issued to this step right now.</td></tr>{% endfor %}</tbody>
     </table></div>
     {% if need_confirm %}<div class="check" style="margin-top:12px"><input id="cs" type="checkbox" name="confirm_second"><label for="cs"><strong>Yes, issue this lot to another fabricator too</strong></label></div>{% endif %}
-    {% if bundles %}<p class="muted">The challan fills in the rate and, for stitching, the trims the BOM needs. You can review it before issuing.</p>
-    <div class="form-actions"><button class="btn primary">Save challan</button><a class="btn ghost" href="{% url 'challan_list' %}">Cancel</a></div>{% endif %}
+    {% if bundles %}<p class="muted">The challan fills in the rate and, for stitching, the trims the BOM needs. {% if can_issue %}Save challan keeps a draft you can review before issuing. Save and issue hands the bundles over now.{% else %}You can review it before issuing.{% endif %}</p>
+    <div class="form-actions">{% if can_issue %}<button class="btn" name="then" value="draft"{% if then == "draft" %} autofocus{% endif %}>Save challan</button><button class="btn primary" name="then" value="issue"{% if then == "issue" %} autofocus{% endif %}>Save and issue</button>{% else %}<button class="btn primary">Save challan</button>{% endif %}<a class="btn ghost" href="{% url 'challan_list' %}">Cancel</a></div>{% endif %}
   </form>
   <script src="{% static 'js/scan.js' %}?v={{ asset_v }}" defer></script>
   {% endif %}

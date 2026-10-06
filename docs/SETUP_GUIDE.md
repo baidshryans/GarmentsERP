@@ -771,7 +771,7 @@ Rules for the sheet:
 
 Run one small lot through the whole system. This is the same flow as BRD scenarios A1–A3 and A10.
 
-1. **Purchase fabric.** Purchase order → goods received (GRN) into Main Godown with roll numbers and weights → QC → supplier bill (purchase invoice). Check the roll balance in *Stock → Stock*.
+1. **Purchase fabric.** *Buy → Purchase orders → New PO*, then **Save and submit**. From there follow the violet Next button on each page: **Receive goods** (into Main Godown, with roll numbers and weights) → **Check quality** → **Post goods received** → **Enter supplier bill** → **Post supplier bill** → **Pay …** (section 19 lists every step). Check the roll balance in *Stock → Stock*.
 2. **Create a production order** for `JGR-104`, Black, 20 pieces each of M and L, and release it. Route B is copied into the lot.
 3. **Plan the route.** On the lot page open **Route and rates** and check each step; assign stitching to Gurpreet Garments and embroidery to Royal Embroidery.
 4. **Issue fabric** by roll (the lot's Next button). The roll balance reduces.
@@ -886,6 +886,29 @@ Lot pages, fabric issue, cutting and tags are **not** menu items. Open the produ
 The lot page tells you what to do next. At the top is a **journey strip**: Order, Fabric, Cut, each step of the route, then Finished goods. Each stage is shown as done, now or to come, with the pieces sitting there, the fabricator's name on outside steps, and an "optional" tag on steps that can be skipped. An optional step stays on the strip while bundles could still go to it; once every bundle is past it, the strip keeps it only if bundles really went there (showing those pieces, then done) and drops it if nobody used it. Below it is one violet **Next** button naming what the lot needs, for example Issue fabric, Record cutting, Make bundles, Move to a stage, Send to a fabricator, Receive from a fabricator, Check received pieces or Pack into finished goods. The Next button points at the next mandatory step. Optional steps, and any other pending actions when bundles are spread over several stages, are listed beside it as smaller links under **Also waiting**. If the next step belongs to another role, the page says **Waiting for:** and the step instead of a button. A finished lot says "This lot is complete." **Route and rates**, **Lot cost** and **History** are folded sections; click one to open it. A **Corrections** row keeps Fabric issue, Cutting and Move bundles reachable if you need to go back, and the header keeps **Print tags**. Fabric issue, cutting, tags, challan and receipt pages have a **Back to lot** button.
 
 Challans and receipts guide you the same way (section 23.2). On Home, **Receive from fabricator** opens *Sent to fabricators* on the **Out with fabricators** tab: only the challans that are issued or partly received, each with a **Receive from …** button in its **Next step** column.
+
+**Buying guides you the same way.** The purchase order, goods received, supplier bill and return pages open with one journey strip, **Ordered → Approved → Received → Checked → Billed → Paid**, and one violet Next button. **Approved** appears only on an order above the approval limit. Goods received without an order start at Received; a direct supplier bill (no goods received) starts at Billed. The strip shows how much has come ("60 of 100"), the amount billed and the amount still unpaid. The lists *Buy → Purchase orders*, *Goods received* and *Supplier bills* have a **Next step** column with the same button on every row, so you can work straight down a list.
+
+| Where the purchase is | Next button | What it opens |
+| --- | --- | --- |
+| New order | **Save and submit** on the form (or **Save draft**, then **Submit order**) | The order gets its number. Up to the approval limit it is approved at once |
+| Order above the approval limit | **Approve order** (owner) | The order page; **Send back** returns it to draft with a reason |
+| Order approved, goods still to come | **Receive goods** | A new goods received entry with the order's pending lines filled in |
+| Goods received saved, not checked | **Check quality** | The goods received page. If everything is fine press **Accept all and post**: every line is accepted and the goods come into stock in one step. If something is rejected, mark it, press **Finish QC**, then **Post goods received** |
+| Goods received checked, not posted | **Post goods received** | Accepted goods come into stock; rejected goods get a draft return automatically |
+| Goods posted, no bill yet | **Enter supplier bill** | The new bill form for that supplier, with these goods ticked. Other goods of the same supplier that are not billed yet are listed unticked. **Save draft and review** |
+| Bill saved as a draft | **Post supplier bill** | The bill page. Tax is added only if you chose it on the bill |
+| The supplier billed goods you rejected | **Return rejected goods to supplier** | The draft return; **Post return** takes their value off what you owe. It is offered only after that bill is posted, and before paying |
+| Bill posted, amount unpaid | **Pay** and the supplier's name | *Money paid* with the supplier, the unpaid amount and the bill reference filled in. Choose **Paid from** and post. A part payment leaves the rest on the button |
+| A return of goods already in stock, saved as a draft | **Post return** | The return page (*Buy → Returns to supplier*) |
+| Nothing left | "This purchase is complete." | |
+
+- The order page shows the steps of all its goods received and bills; the goods received page shows its own and its bills'; the bill page shows its own. The same step has the same name and opens the same screen wherever you see it.
+- While a goods received entry of an order is still unchecked or unposted, the order asks you to finish that one before receiving more.
+- If the supplier bills only what you accepted, the draft return for the rejected goods simply waits; the purchase is complete without it. The return page says it is waiting for the supplier's bill.
+- A short-closed order asks for no more goods, but what it did receive is still billed and paid from its Next button.
+- If the next step belongs to another role the page says **Waiting for:** and the step. The default roles: Purchase Officer orders, Store Keeper receives and checks, Accountant enters bills and pays, Owner approves.
+- **Enter supplier bill** makes the bill in the factory chosen in the top bar. If another factory is chosen, you are sent back to the goods received page with a message; choose the right factory and press the button again.
 
 ---
 
@@ -1196,7 +1219,7 @@ Choose **Paid from**, check the figures, and **Post payment voucher**. Afterward
 
 Pick the **factory in the top bar** that the bill belongs to before you post. The Payment voucher posts to the factory you are working in.
 
-The same works for vendors: a posted purchase invoice has **Pay vendor**. Section 27 explains the Bill options.
+The same works for suppliers: a posted supplier bill shows **Outstanding**, its Next button is **Pay** and the supplier's name, and the header has a plain **Pay supplier** button for the same step (section 19). Section 27 explains the Bill options.
 
 ---
 
@@ -1396,7 +1419,7 @@ Your accountant must confirm which ledger fits each case.
 
 **See what a party owes as you enter.** When you choose a customer or vendor on a **Sales voucher** (and the other party vouchers), or choose a ledger on a **Journal**, **Payment** or **Receipt**, a note appears beneath it, for example *Outstanding ₹1,20,000.00 Dr (owes you) in 2 open bills · advance ₹5,000.00 Cr*. Dr means they owe you, Cr means you owe them. For an ordinary ledger such as a bank account it shows the balance. This is **information only**; it never stops you from posting.
 
-A purchase invoice posts the vendor's bill (reference = their invoice number, with due date). Open the posted invoice and press **Pay vendor**, or use a Payment voucher with **Against bill**.
+A purchase invoice posts the vendor's bill (reference = their invoice number, with due date). Open the posted supplier bill and press its Next button (**Pay** and the supplier's name) or **Pay supplier** in the header, or use a Payment voucher with **Against bill**.
 
 ---
 

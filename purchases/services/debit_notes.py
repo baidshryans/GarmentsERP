@@ -1,7 +1,9 @@
 """Debit notes (PUR-09, E5.3).
 
 Rejection note - raised as a draft when a GRN rejects pieces. It posts only once the vendor has billed
-those pieces: Dr Vendor, Cr Rejected Goods Recoverable (the amount the invoice parked there).
+those pieces: Dr Vendor, Cr Rejected Goods Recoverable (the amount the invoice parked there). The vendor's
+debit is set against the bill(s) that billed those pieces, bill-wise, so the bill shows what is really left
+to pay (E5.6); whatever a bill no longer has open stays on account.
 Return note   - goods already in stock go back to the vendor: stock leaves at cost, Dr Vendor,
 Cr Stock, Cr Input GST when claimable, and any difference to Purchase Returns.
 """
@@ -18,7 +20,10 @@ from core.services.numbering import next_document_number
 from inventory.models import StockMovement
 from inventory.services import stock
 from ledger.models import Ledger
-from ledger.services.posting import LineSpec, post_voucher, reverse_voucher
+from datetime import timedelta
+
+from ledger.selectors import outstanding_bills
+from ledger.services.posting import AllocationSpec, LineSpec, post_voucher, reverse_voucher
 from purchases.models import DebitNote, DebitNoteLine, PurchaseInvoiceLine
 from tax import calc
 
@@ -111,6 +116,47 @@ def _remaining_recoverable(grn_line):
     return _r2(billed) - _r2(debited)
 
 
+def _traced_to_bills(grn_line, amount):
+    """Split `amount` (what is still recoverable on a GRN line: what `_remaining_recoverable` returned) over the posted
+    bills that parked it there. {invoice: part}; the parts add up to `amount` exactly. Earlier posted rejection
+    notes took the oldest bills' recoverable first, so this note takes what is left, oldest bill first: the very
+    bills whose posting made this note postable."""
+    taken = DebitNoteLine.objects.filter(grn_line=grn_line, note__status="posted", note__kind="rejection").aggregate(
+        a=Sum("amount"))["a"] or ZERO
+    taken, left, traced = _r2(taken), amount, {}
+    for il in PurchaseInvoiceLine.objects.filter(grn_line=grn_line, invoice__status="posted", recoverable_amount__gt=0
+                                                 ).select_related("invoice").order_by("invoice_id", "id"):
+        gone = min(il.recoverable_amount, taken)
+        taken -= gone
+        part = min(il.recoverable_amount - gone, left)
+        if part > 0:
+            traced[il.invoice] = traced.get(il.invoice, ZERO) + part
+            left -= part
+    return traced
+
+
+def _bill_allocations(vendor, vendor_ledger, traced, total):
+    """Bill-wise allocations for the vendor's debit of a rejection note: 'against' each bill it was traced to, up to
+    what that bill still has open in the ledger; the rest (a bill already paid, or nothing traced) on account.
+    Empty means the posting engine's default, on account, exactly as before."""
+    if not vendor_ledger.bill_wise:
+        return ()
+    open_bills = outstanding_bills(vendor_ledger)["bills"]
+    out, against = [], ZERO
+    for inv, amount in sorted(traced.items(), key=lambda pair: pair[0].pk):
+        open_amount = max(-open_bills.get(inv.vendor_invoice_no, ZERO), ZERO)   # a bill we owe is a credit balance
+        part = min(amount, open_amount)
+        if part > 0:
+            due = inv.vendor_invoice_date + timedelta(days=vendor.credit_days)  # the due date the bill was posted with
+            out.append(AllocationSpec("against", part, inv.vendor_invoice_no, due))
+            against += part
+    if not out:
+        return ()
+    if total - against > 0:
+        out.append(AllocationSpec("on_account", total - against))
+    return tuple(out)
+
+
 def can_post(note) -> bool:
     """Read-only: is this a draft that `post_debit_note` would take now? A rejection note waits until the vendor
     has billed every line of it (the same test posting applies); a return note is ready as soon as it is saved."""
@@ -138,7 +184,7 @@ def post_debit_note(note, *, user) -> DebitNote:
 
     specs = []
     if note.kind == DebitNote.Kind.REJECTION:
-        total = ZERO
+        total, traced = ZERO, {}
         for line in note.lines.select_related("grn_line"):
             remaining = _remaining_recoverable(line.grn_line)
             if remaining <= 0:
@@ -146,12 +192,15 @@ def post_debit_note(note, *, user) -> DebitNote:
                     f"The vendor has not billed the rejected {line.item} yet (or it is already debited); "
                     "post the vendor's invoice first."
                 )
+            for inv, part in _traced_to_bills(line.grn_line, remaining).items():
+                traced[inv] = traced.get(inv, ZERO) + part
             line.amount = remaining
             line.save(update_fields=["amount"])
             total += remaining
         note.subtotal = note.total = total
         specs = [
-            LineSpec(ledger=vendor_ledger, debit=total, narration=note.reason),
+            LineSpec(ledger=vendor_ledger, debit=total, narration=note.reason,
+                     allocations=_bill_allocations(note.vendor, vendor_ledger, traced, total)),
             LineSpec(ledger=ledger("rejected_recoverable"), credit=total),
         ]
     else:

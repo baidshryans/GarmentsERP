@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, timedelta
 from decimal import Decimal
 
 import pytest
@@ -358,7 +358,9 @@ def test_billing_rejected_pieces_parks_them_as_recoverable_until_the_debit_note(
     assert bal(company, "cgst_input", factory) == D("2160.00")             # input credit only on the accepted part
     note = debit_notes.post_debit_note(note, user=owner)
     assert note.total == D("4480.00") and bal(company, "rejected_recoverable", factory) == D("0.00")
-    assert outstanding_bills(vendor.payable_ledger)["on_account"] == D("4480.00")
+    # the vendor's debit, GST included, is set against the bill that billed the rejected rolls (E5.6)
+    assert outstanding_bills(vendor.payable_ledger) == {"bills": {"V-1": D("-40320.00")}, "advance": D("0.00"), "on_account": D("0.00")}
+    assert ledger_balance(vendor.payable_ledger) == D("-40320.00")
     with pytest.raises(BusinessRuleError, match="debit note has been posted"):
         invoices.cancel_invoice(inv, user=owner, reason="x")
 
@@ -518,3 +520,123 @@ def test_the_invoice_screen_saves_and_posts_a_direct_purchase(company, factory, 
     c.post(reverse("invoice_detail", args=[inv.pk]), {"action": "post"})
     assert stock.on_hand(factory, trim) == (D("25.000"), D("200.00"))
     assert "Direct" in c.get(reverse("invoice_detail", args=[inv.pk])).content.decode()
+
+
+# ============================== a rejection return is set against the supplier's bill (E5.6) ==============================
+
+def rejected_and_billed(company, factory, vendor, godown, trim, owner, billed="100", no="V-1"):
+    """100 zippers at 100 received, 20 rejected; the vendor billed `billed` of them. Returns (grn, draft note, bill)."""
+    g = trim_grn(company, factory, vendor, godown, trim, owner, qty="100", rejected="20", rate="100", remark="broken")
+    return g, DebitNote.objects.get(grn=g), bill(company, factory, vendor, owner, g.lines.get(), billed, "100", no=no)
+
+
+def pay_bill(company, factory, vendor, owner, amount, ref="V-1"):
+    from ledger.models import Ledger
+    from ledger.services.manual import Row, post_manual_voucher
+
+    cash = Ledger.objects.get(company=company, system_key="cash")
+    return post_manual_voucher(
+        company=company, factory=factory, vtype="payment", on_date=DAY, narration="", header={"account": str(cash.pk)},
+        rows=[Row(ledger=str(vendor.payable_ledger_id), amount=amount, ref_type="against", reference=ref)], user=owner)
+
+
+def position(vendor):
+    got = outstanding_bills(vendor.payable_ledger)
+    return got["bills"], got["on_account"], ledger_balance(vendor.payable_ledger)
+
+
+def test_a_rejection_return_reduces_the_bill_it_relates_to_and_the_rest_is_paid_off(company, factory, vendor, owner, godown, trim):
+    g, note, inv = rejected_and_billed(company, factory, vendor, godown, trim, owner)
+    assert position(vendor) == ({"V-1": D("-10000.00")}, D("0.00"), D("-10000.00"))
+    note = debit_notes.post_debit_note(note, user=owner)
+    assert note.total == D("2000.00")
+    # the bill shows 8,000 unpaid, the supplier is owed 8,000 and nothing sits on account
+    assert position(vendor) == ({"V-1": D("-8000.00")}, D("0.00"), D("-8000.00"))
+    # only the bill-wise allocation of the supplier line is new: the voucher's ledgers and amounts are as before
+    lines = {l.ledger.system_key or "vendor": (l.debit, l.credit) for l in note.voucher.lines.select_related("ledger")}
+    assert lines == {"vendor": (D("2000.00"), D("0.00")), "rejected_recoverable": (D("0.00"), D("2000.00"))}
+    allocs = [(a.ref_type, a.reference, a.amount, a.due_date) for l in note.voucher.lines.all() for a in l.allocations.all()]
+    assert allocs == [("against", "V-1", D("2000.00"), DAY + timedelta(days=30))]      # the bill's own reference and due date
+    assert bal(company, "rejected_recoverable", factory) == D("0.00") and note.voucher.voucher_type == "debit_note"
+    assert not StockMovement.objects.filter(source_type=note._meta.label_lower).exists()
+    pay_bill(company, factory, vendor, owner, "8000")
+    assert position(vendor) == ({}, D("0.00"), D("0.00"))
+    # the bill is settled: no further payment is taken against it
+    with pytest.raises(BusinessRuleError, match="fully settled"):
+        pay_bill(company, factory, vendor, owner, "1")
+
+
+def test_cancelling_the_return_puts_the_bill_back(company, factory, vendor, owner, godown, trim):
+    g, note, inv = rejected_and_billed(company, factory, vendor, godown, trim, owner)
+    note = debit_notes.post_debit_note(note, user=owner)
+    assert position(vendor)[0] == {"V-1": D("-8000.00")}
+    debit_notes.cancel_debit_note(note, user=owner, reason="posted by mistake")
+    assert position(vendor) == ({"V-1": D("-10000.00")}, D("0.00"), D("-10000.00"))
+    assert bal(company, "rejected_recoverable", factory) == D("2000.00")
+    # the whole bill can be paid again
+    pay_bill(company, factory, vendor, owner, "10000")
+    assert position(vendor) == ({}, D("0.00"), D("0.00"))
+
+
+def test_what_the_bill_no_longer_has_open_stays_on_account(company, factory, vendor, owner, godown, trim):
+    g, note, inv = rejected_and_billed(company, factory, vendor, godown, trim, owner)
+    pay_bill(company, factory, vendor, owner, "9000")                       # only 1,000 is still open on the bill
+    note = debit_notes.post_debit_note(note, user=owner)
+    allocs = sorted((a.ref_type, a.reference, a.amount) for l in note.voucher.lines.all() for a in l.allocations.all())
+    assert allocs == [("against", "V-1", D("1000.00")), ("on_account", "", D("1000.00"))]
+    assert position(vendor) == ({}, D("1000.00"), D("1000.00"))             # the supplier owes us 1,000
+    # a bill already paid in full: everything stays on account, exactly as before
+    g2, note2, inv2 = rejected_and_billed(company, factory, vendor, godown, trim, owner, no="V-2")
+    pay_bill(company, factory, vendor, owner, "10000", ref="V-2")
+    note2 = debit_notes.post_debit_note(note2, user=owner)
+    assert [(a.ref_type, a.amount) for l in note2.voucher.lines.all() for a in l.allocations.all()] == [("on_account", D("2000.00"))]
+    assert position(vendor) == ({}, D("3000.00"), D("3000.00"))
+
+
+def test_a_return_spanning_two_bills_is_set_against_each_for_its_own_share(company, factory, vendor, owner, godown, trim):
+    g = trim_grn(company, factory, vendor, godown, trim, owner, qty="100", rejected="20", rate="100", remark="broken")
+    line = g.lines.get()
+    bill(company, factory, vendor, owner, line, "85", "100", no="V-1")      # 80 accepted and 5 of the rejected
+    bill(company, factory, vendor, owner, line, "15", "100", no="V-2")      # the other 15 rejected
+    note = debit_notes.post_debit_note(DebitNote.objects.get(grn=g), user=owner)
+    allocs = [(a.ref_type, a.reference, a.amount) for l in note.voucher.lines.all() for a in l.allocations.order_by("id")]
+    assert allocs == [("against", "V-1", D("500.00")), ("against", "V-2", D("1500.00"))] and note.total == D("2000.00")
+    assert position(vendor) == ({"V-1": D("-8000.00")}, D("0.00"), D("-8000.00"))   # V-2 billed only rejected goods: nothing left on it
+
+
+def test_a_second_return_takes_only_the_bill_that_made_it_postable(company, factory, vendor, owner, godown, trim):
+    g = trim_grn(company, factory, vendor, godown, trim, owner, qty="100", rejected="20", rate="100", remark="broken")
+    line = g.lines.get()
+    bill(company, factory, vendor, owner, line, "85", "100", no="V-1")
+    first = debit_notes.post_debit_note(DebitNote.objects.get(grn=g), user=owner)          # 500 against V-1
+    assert first.total == D("500.00") and position(vendor)[0] == {"V-1": D("-8000.00")}
+    bill(company, factory, vendor, owner, line, "15", "100", no="V-2")
+    second = DebitNote.objects.create(company=company, factory=factory, kind="rejection", vendor=vendor, grn=g, date=DAY,
+                                      reason="Rest of the rejected zippers", created_by=owner)
+    second.lines.create(grn_line=line, qty=D("15"), rate=D("100"), amount=D("0"), material=trim)
+    second = debit_notes.post_debit_note(second, user=owner)
+    allocs = [(a.ref_type, a.reference, a.amount) for l in second.voucher.lines.all() for a in l.allocations.all()]
+    assert allocs == [("against", "V-2", D("1500.00"))]
+    assert position(vendor) == ({"V-1": D("-8000.00")}, D("0.00"), D("-8000.00"))
+
+
+def test_a_return_of_goods_in_stock_still_goes_on_account(company, factory, vendor, owner, godown, trim):
+    g = trim_grn(company, factory, vendor, godown, trim, owner)
+    bill(company, factory, vendor, owner, g.lines.get(), "100", "10")
+    note = debit_notes.create_return_note(
+        company=company, factory=factory, vendor=vendor, date=DAY, user=owner, reason="Wrong size", grn=g,
+        lines=[debit_notes.ReturnLineSpec(trim, D("20"), D("10"), godown)])
+    note = debit_notes.post_debit_note(note, user=owner)
+    assert [(a.ref_type, a.amount) for l in note.voucher.lines.all() for a in l.allocations.all()] == [("on_account", D("200.00"))]
+    assert position(vendor) == ({"V-1": D("-1000.00")}, D("200.00"), D("-800.00"))
+
+
+def test_whom_i_owe_shows_the_bill_less_the_return(company, factory, vendor, owner, godown, trim):
+    from reports.services.books import ageing
+
+    g, note, inv = rejected_and_billed(company, factory, vendor, godown, trim, owner)
+    debit_notes.post_debit_note(note, user=owner)
+    report = ageing(company, user=owner, kind="creditors", as_of=DAY)
+    party = next(p for p in report["parties"] if p["ledger"] == vendor.payable_ledger)
+    assert party["total"] == D("8000.00") and party["unadjusted"] == D("0.00") and report["total"] == D("8000.00")
+    assert [(b["reference"], b["amount"], b["due"]) for b in party["bills"]] == [("V-1", D("8000.00"), DAY + timedelta(days=30))]

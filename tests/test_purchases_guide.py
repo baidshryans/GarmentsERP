@@ -40,6 +40,13 @@ def ns(company, factory, owner):
         fabric=Material.objects.create(code="FAB-1", name="Fleece", kind="fabric", unit=Unit.objects.get(code="KG")))
 
 
+@pytest.fixture
+def old_way(monkeypatch):
+    """Returns posted before E5.6 debited the supplier on account and left the bill untouched. They are still in the
+    books, so the guide must go on netting them. Test-only: the service has no such path any more."""
+    monkeypatch.setattr(debit_notes, "_bill_allocations", lambda *args: ())
+
+
 def draft_po(ns, qty="100", rate="100"):
     return orders.create_po(company=ns.company, factory=ns.factory, vendor=ns.vendor, date=DAY, user=ns.owner,
                             lines=[orders.POLineSpec(ns.trim, D(qty), D(rate))])
@@ -366,8 +373,29 @@ def test_rejected_goods_are_returned_once_the_supplier_has_billed_them(ns):
     debit_notes.post_debit_note(note, user=ns.owner)
     mine = debitnote_guide(note_of(note), ns.owner)
     assert mine["complete"] and offered(mine) == [] and details(mine) == {"Return posted": "2000.00"}
-    # the return sits on the supplier's account and the ledger still holds the whole bill open; what is asked for
-    # is the bill less the return
+    # the return is set against the bill, so the ledger, the header figure and the Pay step all say 8,000
+    assert -bill_outstanding(ns.vendor.payable_ledger, "V-1") == D("8000.00")
+    less = ("Pay Yarn House", pay_link(ns, inv, "8000.00"))
+    for g in (grn_guide(grn_of(g1), ns.owner), invoice_guide(inv_of(inv), ns.owner)):
+        assert seen(g) == [less] and details(g)["Paid"] == "8000.00 unpaid" and details(g)["Billed"] == "10000.00"
+        assert g["primary"]["hint"] == "8000.00 is still unpaid on bill V-1."
+        follow_links(ns, g)
+    assert owed(inv_of(inv), ns.owner, {}) == (D("8000.00"), D("8000.00"), D("0.00"), D("0.00"))   # nothing taken off twice
+    html = login(ns.owner).get(reverse("invoice_detail", args=[inv.pk])).content.decode()
+    assert "Outstanding 8000.00" in html and "is for goods you returned" not in html
+    pay(ns, inv, "8000")
+    assert bill_outstanding(ns.vendor.payable_ledger, "V-1") == D("0.00")
+    for g in (grn_guide(grn_of(g1), ns.owner), invoice_guide(inv_of(inv), ns.owner)):
+        assert offered(g) == [] and g["complete"] and set(states(g).values()) == {"done"} and "Paid" not in details(g)
+    assert invoice_next(inv_of(inv), ns.owner) is None and grn_next(grn_of(g1), ns.owner) is None
+
+
+def test_a_return_posted_the_old_way_is_still_taken_off_what_is_paid(ns, old_way):
+    g1 = received(ns, qty="100", rejected="20")
+    inv = billed(ns, g1, qty="100")
+    debit_notes.post_debit_note(DebitNote.objects.get(grn=g1), user=ns.owner)
+    # it sits on the supplier's account and the ledger still holds the whole bill open; what is asked for is the
+    # bill less the return
     assert -bill_outstanding(ns.vendor.payable_ledger, "V-1") == D("10000.00")
     less = ("Pay Yarn House", pay_link(ns, inv, "8000.00"))
     for g in (grn_guide(grn_of(g1), ns.owner), invoice_guide(inv_of(inv), ns.owner)):
@@ -382,12 +410,29 @@ def test_rejected_goods_are_returned_once_the_supplier_has_billed_them(ns):
     assert invoice_next(inv_of(inv), ns.owner) is None and grn_next(grn_of(g1), ns.owner) is None
 
 
+def test_a_return_set_against_the_bill_is_not_mistaken_for_other_money_on_account(ns):
+    """The new return leaves nothing on account; a later return of goods in stock does. That on-account debit is not
+    this bill's return, so it is mentioned and not taken off."""
+    g1 = received(ns, qty="100", rejected="20")
+    inv = billed(ns, g1, qty="100")
+    debit_notes.post_debit_note(DebitNote.objects.get(grn=g1), user=ns.owner)
+    note = debit_notes.create_return_note(
+        company=ns.company, factory=ns.factory, vendor=ns.vendor, date=DAY, user=ns.owner, reason="Wrong size",
+        lines=[debit_notes.ReturnLineSpec(item=ns.trim, qty=D("10"), rate=D("100"), location=ns.godown)])
+    debit_notes.post_debit_note(note, user=ns.owner)
+    g = invoice_guide(inv_of(inv), ns.owner)
+    assert seen(g) == [("Pay Yarn House", pay_link(ns, inv, "8000.00"))]
+    assert g["primary"]["hint"] == ("8000.00 is still unpaid on bill V-1. "
+                                    "This supplier also has 1000.00 on account from returns or advances.")
+    assert owed(inv_of(inv), ns.owner, {}).less == D("0.00")
+
+
 def journal(ns, *rows):
     return post_manual_voucher(company=ns.company, factory=ns.factory, vtype="journal", on_date=DAY, narration="", header={},
                                rows=[Row(**r) for r in rows], user=ns.owner)
 
 
-def test_a_return_is_taken_off_only_while_it_still_sits_on_the_suppliers_account(ns):
+def test_a_return_is_taken_off_only_while_it_still_sits_on_the_suppliers_account(ns, old_way):
     """The cap: if the return's debit has since been set against the bill (here by a journal that moves it off
     'on account'), the ledger's figure for the bill already has it, and it is not taken off a second time."""
     g1 = received(ns, qty="100", rejected="20")
@@ -419,7 +464,7 @@ def test_a_return_of_goods_in_stock_is_not_tied_to_a_bill_so_paying_only_mention
     follow_links(ns, g)
 
 
-def test_two_bills_for_the_rejected_goods_of_one_line_each_take_off_only_their_own_share(ns):
+def test_two_bills_for_the_rejected_goods_of_one_line_each_take_off_only_their_own_share(ns, old_way):
     g1 = received(ns, qty="100", rejected="20")
     first = billed(ns, g1, qty="90", no="V-1")              # 80 accepted and 10 of the rejected
     second = billed(ns, g1, qty="10", no="V-2")             # the other 10 rejected
@@ -1325,7 +1370,7 @@ def test_save_and_submit_in_a_locked_period_does_exactly_what_submitting_a_draft
     assert "is locked" not in r.content.decode()
 
 
-def test_the_bill_page_explains_why_the_amount_to_pay_differs_from_the_outstanding_figure(ns):
+def test_the_bill_page_explains_an_old_return_that_the_outstanding_figure_does_not_show(ns, old_way):
     g1 = received(ns, qty="100", rejected="20")
     inv = billed(ns, g1, qty="100")
     why = "is for goods you returned"

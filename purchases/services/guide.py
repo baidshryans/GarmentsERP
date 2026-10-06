@@ -124,12 +124,14 @@ WAITS_FOR_BILL = "This return waits for the supplier's bill. It can be posted on
 
 
 def _returned(inv):
-    """Value of this bill's rejected goods that posted returns have already debited to the supplier. A return is
-    for a goods-receipt line; when two posted bills billed rejected goods of the same line, the debit is matched to
-    the bills in the order they were entered, each up to what it parked as recoverable."""
+    """Value of this bill's rejected goods that posted returns debited to the supplier ON ACCOUNT, as every return
+    was before E5.6. A return posted since is set against the bill by its own voucher, so the ledger's figure for the
+    bill already has it and it is left out here. A return is for a goods-receipt line; when two posted bills billed
+    rejected goods of the same line, the debit is matched to the bills in the order they were entered, each up to
+    what it parked as recoverable."""
     debited = {r["grn_line_id"]: r["a"] or ZERO for r in DebitNoteLine.objects.filter(
         note__status=DebitNote.Status.POSTED, note__kind=DebitNote.Kind.REJECTION, grn_line__invoice_lines__invoice=inv,
-    ).values("grn_line_id").annotate(a=Sum("amount"))}
+    ).exclude(note__voucher__lines__allocations__ref_type="against").values("grn_line_id").annotate(a=Sum("amount"))}
     if not debited:
         return ZERO
     mine = ZERO
@@ -142,9 +144,9 @@ def _returned(inv):
 
 
 def owed(inv, user, memo):
-    """What is left to pay on a posted bill. The ledger's bill-wise records give `due`. Posting a return of rejected
-    goods debits the supplier on account without settling the bill, so `due` still holds their value: it is taken
-    off here, capped at the debit the supplier's account really holds on account (so nothing is taken off twice if
+    """What is left to pay on a posted bill. The ledger's bill-wise records give `due`. A return of rejected goods
+    posted before E5.6 debited the supplier on account without settling the bill, so `due` still holds its value: it
+    is taken off here, capped at the debit the supplier's account really holds on account (so nothing is taken off twice if
     that debit has since been set against the bill). Nothing is posted or changed; this only decides what the Pay
     step offers. Each supplier's ledger position is read once per memo, each bill's figures once."""
     ledger_id = inv.vendor.payable_ledger_id

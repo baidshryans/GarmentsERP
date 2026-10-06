@@ -27,6 +27,6 @@
       <p class="muted">Finishing checks the pieces are in stock at {{ p.location.name }} and gives the list its number.{% if can_invoice %} Making the bill drafts it for the packed pieces at the order's rates; you choose or waive GST on it before posting.{% endif %}</p>{% endif %}
     {% if p.status == "packed" %}{% if can_invoice and not invoice %}<form method="post" id="do-next">{% csrf_token %}<button class="btn primary" name="action" value="invoice">Make bill</button></form>
       <p class="muted">Makes a draft bill for the packed pieces at the order's rates. You choose or waive GST on it before posting.</p>{% endif %}
-      {% if can_edit %}<form method="post" style="max-width:420px;margin-top:12px">{% csrf_token %}<input type="hidden" name="action" value="cancel"><div class="field"><label for="why">Cancel with a reason</label><input id="why" name="reason" type="text" required></div><button class="btn danger">Cancel packing list</button></form>{% endif %}{% endif %}
+      {% if invoice %}<p class="muted">Discard or cancel its bill before cancelling this packing list.</p>{% elif can_edit %}<form method="post" style="max-width:420px;margin-top:12px">{% csrf_token %}<input type="hidden" name="action" value="cancel"><div class="field"><label for="why">Cancel with a reason</label><input id="why" name="reason" type="text" required></div><button class="btn danger">Cancel packing list</button></form>{% endif %}{% endif %}
   </div>
 {% endblock %}

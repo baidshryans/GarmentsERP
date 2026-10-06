@@ -1227,3 +1227,134 @@ def test_finish_and_bill_in_a_locked_period_drafts_as_the_two_steps_do_and_posti
         assert "is locked" in r.content.decode() and fresh.status == "draft" and fresh.number is None
     assert (StockMovement.objects.count(), Voucher.objects.count()) == (moves, vouchers)
     assert packing_of(p).status == "packed" and order_of(o).status == "confirmed"
+
+
+# ================================================================ review fixes: no step that must fail
+
+BILL_GONE = "Its bill was cancelled. Discard this draft return."
+LIST_GONE = "Its packing list was cancelled. Discard this draft bill."
+NO_STOCK = "None of these pieces is in finished stock yet; the list can be saved but not finished."
+
+
+def test_a_packing_list_with_a_bill_cannot_be_cancelled(ns):
+    o = confirmed_order(ns)
+    p = pack(ns, o, [{"S": "10"}])
+    inv = draft_bill(ns, p)
+    with pytest.raises(BusinessRuleError, match=f"{p.number} has a draft bill. Discard or cancel that bill first."):
+        packing.cancel_packing(p, user=ns.owner, reason="wrong goods")
+    assert packing_of(p).status == "packed" and order_of(o).lines.get(sku=ns.sku("Black", "S")).qty_packed == D("10")
+    # the page does not offer what would be refused, and says why
+    c = login(ns.owner)
+    url = reverse("packing_detail", args=[p.pk])
+    html = c.get(url).content.decode()
+    assert "Cancel packing list" not in html and "Discard or cancel its bill before cancelling this packing list." in html
+    r = c.post(url, {"action": "cancel", "reason": "wrong goods"}, follow=True)
+    assert "has a draft bill. Discard or cancel that bill first." in r.content.decode() and packing_of(p).status == "packed"
+    # with the draft discarded the list can be cancelled as before
+    invoices.discard_draft(inv, user=ns.owner)
+    assert "Cancel packing list" in c.get(url).content.decode()
+    # a cancelled bill does not hold the list either
+    inv = billed(ns, p)
+    with pytest.raises(BusinessRuleError, match="has been invoiced"):
+        packing.cancel_packing(p, user=ns.owner, reason="wrong goods")
+    invoices.cancel_invoice(inv, user=ns.owner, reason="wrong")
+    assert packing.cancel_packing(p, user=ns.owner, reason="wrong goods").status == "cancelled"
+
+
+def stranded_bill(ns):
+    """A draft bill whose packing list was cancelled under it: no screen can make this any more, but books that
+    were kept before the guard may hold one. Built here by lifting the guard, as the old service behaved."""
+    o = confirmed_order(ns)
+    p = pack(ns, o, [{"S": "10"}])
+    inv = draft_bill(ns, p)
+    PackingList.objects.filter(pk=p.pk).update(status="cancelled")
+    packing.refresh_packed(o)
+    return o, p, inv
+
+
+def test_a_draft_bill_of_a_cancelled_packing_list_is_never_offered_for_posting(ns):
+    o, p, inv = stranded_bill(ns)
+    with pytest.raises(BusinessRuleError, match="no longer a finalised packing list"):
+        invoices.post_invoice(inv, user=ns.owner)
+    g = invoice_guide(inv_of(inv), ns.owner)
+    assert offered(g) == [] and g["waiting"] == "" and g["idle"] == LIST_GONE and not g["complete"] and not g["closed"]
+    assert invoice_next(inv_of(inv), ns.owner) is None
+    html = page(ns.owner, "saleinvoice_detail", inv.pk)
+    assert LIST_GONE in guide_of(html) and "<a " not in guide_of(html) and "Discard draft" in html
+    assert 'value="post"' not in html
+    assert "Post bill" not in row_with(page(ns.owner, "saleinvoice_list"), "Draft")
+    # the order does not count it: nothing is billed, the pieces are to be packed again
+    g = order_guide(order_of(o), ns.owner)
+    assert [a["label"] for a in offered(g)] == ["Pack goods"] and "60 pieces" in g["primary"]["hint"]
+    assert states(g) == {"Ordered": "done", "Confirmed": "done", "Packed": "now", "Billed": "todo", "Paid": "todo"}
+    follow_links(ns, g)
+    pg = packing_guide(packing_of(p), ns.owner)
+    assert offered(pg) == [] and pg["closed"]
+
+
+def test_a_draft_return_of_a_cancelled_bill_is_never_offered_for_posting(ns):
+    inv = quick_invoice(ns)
+    note = draft_return(ns, inv)
+    invoices.cancel_invoice(inv, user=ns.owner, reason="wrong customer")        # a draft return does not stop this
+    with pytest.raises(BusinessRuleError, match="no longer posted"):
+        credit_notes.post_credit_note(note, user=ns.owner)
+    g = creditnote_guide(note_of(note), ns.owner)
+    assert offered(g) == [] and g["waiting"] == "" and g["idle"] == BILL_GONE and not g["complete"] and not g["closed"]
+    assert states(g) == {"Return saved": "done", "Return posted": "todo"}
+    html = page(ns.owner, "salecn_detail", note.pk)
+    assert BILL_GONE in guide_of(html) and 'value="post"' not in html and "Discard draft" in html
+    assert offered(invoice_guide(inv_of(inv), ns.owner)) == []
+
+
+def test_pieces_promised_to_a_packed_list_do_not_count_as_stock_for_the_next_one(bare):
+    ns = bare
+    post_opening_stock(company=ns.company, factory=ns.factory, location=ns.godown, user=ns.owner,
+                       entries=[OpeningItem(ns.sku("Black", "M"), D("10"), D("300"))])
+    first = orders.confirm_order(draft_order(ns, qty="10", sizes=("M",)), user=ns.owner)
+    second = orders.confirm_order(draft_order(ns, qty="10", order_type="mto", sizes=("M",)), user=ns.owner)
+    assert not order_guide(order_of(second), ns.owner)["blocked"]             # ten in stock, promised to nobody
+    p = packing.finalize_packing(draft_pack(ns, first, [{"M": "10"}]), user=ns.owner)
+    # all ten are now held for the first order's list: a list for the second could be saved but never finished
+    assert packing.available_at(ns.godown, ns.sku("Black", "M")) == D("0")
+    g = order_guide(order_of(second), ns.owner)
+    assert g["blocked"] and g["waiting"] == "goods from production" and g["primary"] is None
+    packing.cancel_packing(p, user=ns.owner, reason="held back")
+    assert [a["label"] for a in offered(order_guide(order_of(second), ns.owner))] == ["Pack goods"]
+
+
+def test_a_ready_stock_order_with_nothing_in_stock_still_packs_and_is_told_so(bare):
+    ns = bare
+    o = orders.confirm_order(draft_order(ns, sizes=("M",)), user=ns.owner)
+    g = order_guide(order_of(o), ns.owner)
+    assert [a["label"] for a in offered(g)] == ["Pack goods"] and not g["blocked"]
+    assert g["primary"]["hint"] == f"30 pieces of {o.number} are still to be packed. {NO_STOCK}"
+    follow_links(ns, g)
+    assert NO_STOCK in guide_of(page(ns.owner, "saleorder_detail", o.pk))
+    post_opening_stock(company=ns.company, factory=ns.factory, location=ns.godown, user=ns.owner,
+                       entries=[OpeningItem(ns.sku("Black", "M"), D("1"), D("300"))])
+    g = order_guide(order_of(o), ns.owner)
+    assert g["primary"]["hint"] == f"30 pieces of {o.number} are still to be packed."
+
+
+def test_a_made_to_order_order_stops_waiting_once_its_production_order_is_closed(company, factory, owner):
+    from masters.models import SKU
+    from production.services import orders as prod_orders
+    from tests import prod_helpers as ph
+
+    ns = ph.build(company, factory, owner)
+    customer = h.parties.create_party(company=company, name="Dealer Dhillon", mobile="9877700000", is_customer=True, state_code="03")
+    so = orders.create_order(
+        company=company, factory=factory, customer=customer, date=DAY, user=owner, order_type="mto",
+        lines=[orders.OrderLineSpec(SKU.objects.get(style=ns.style, colour=ns.black, size=ns.sizes["M"]), D("40"), D("400"), D("0"))])
+    so = orders.confirm_order(so, user=owner)
+    assert order_guide(order_of(so), owner)["blocked"]                         # a draft requirement: still to be made
+    po = prod_orders.release_order(so.production_order, user=owner)
+    assert order_guide(order_of(so), owner)["blocked"]
+    prod_orders.close_order(po, user=owner, reason="Fabric not available")
+    # nothing more will come from production: the seller is not left waiting for ever
+    g = order_guide(order_of(so), owner)
+    assert [a["label"] for a in offered(g)] == ["Pack goods"] and not g["blocked"] and g["waiting"] == ""
+    assert g["primary"]["hint"] == f"40 pieces of {so.number} are still to be packed. {NO_STOCK}"
+    assert login(owner).get(g["primary"]["url"]).status_code == 200
+    html = page(owner, "saleorder_detail", so.pk)
+    assert NO_STOCK in guide_of(html) and "Close the balance" in html

@@ -39,7 +39,7 @@
         <button class="btn">Update GST</button></form>{% elif inv.status == "draft" and not gst %}<p class="muted">GST is not switched on, so this bill carries no tax.</p>{% endif %}
     </div>
     <div class="island"><h2>Actions</h2>
-      {% if inv.status == "draft" and can_edit %}<form method="post" id="do-next">{% csrf_token %}<button class="btn primary" name="action" value="post">Post bill</button> <button class="btn danger" name="action" value="discard">Discard draft</button></form>
+      {% if inv.status == "draft" and can_edit %}<form method="post" id="do-next">{% csrf_token %}{% if not guide.idle %}<button class="btn primary" name="action" value="post">Post bill</button>{% endif %} <button class="btn danger" name="action" value="discard">Discard draft</button></form>
         <p class="muted">Posting takes the goods out of stock and books the sale, the GST and the cost of goods sold together.</p>{% endif %}
       {% if inv.status == "posted" and can_cancel %}<form method="post" style="max-width:420px">{% csrf_token %}<input type="hidden" name="action" value="cancel"><div class="field"><label for="why">Cancel with a reason</label><input id="why" name="reason" type="text" required></div><button class="btn danger">Cancel bill</button></form>{% endif %}
       {% if inv.status == "cancelled" %}<p class="muted">{{ inv.notes }}</p>{% endif %}

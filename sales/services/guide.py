@@ -17,6 +17,7 @@ from django.db.models import Sum
 from django.urls import reverse
 
 from inventory.models import StockBalance
+from production.models import ProductionOrder
 from ledger.selectors import outstanding_bills
 from ledger.settlement import settle_url
 from sales.models import CartonLine, PackingList, SaleCreditNote, SaleInvoice, SaleInvoiceLine, SaleOrder
@@ -32,6 +33,12 @@ OPEN_ORDER = (SO.CONFIRMED, SO.PARTLY)
 RANK = {"confirm": 1, "pack": 2, "production": 2, "finish_packing": 3, "bill": 4, "post_bill": 5, "post_return": 6,
         "receive": 7}
 FROM_PRODUCTION = "goods from production"
+NO_STOCK = "None of these pieces is in finished stock yet; the list can be saved but not finished."
+LIST_GONE = "Its packing list was cancelled. Discard this draft bill."
+BILL_GONE = "Its bill was cancelled. Discard this draft return."
+# a production order that will still put pieces into finished stock
+MAKING = (ProductionOrder.Status.DRAFT, ProductionOrder.Status.RELEASED, ProductionOrder.Status.IN_PRODUCTION,
+          ProductionOrder.Status.PARTLY)
 
 
 def checker(user, perms):
@@ -63,8 +70,11 @@ def confirm_action(order):
                    ("sales.order", "edit"), ("sales.order", "view"))
 
 
-def pack_action(order, left):
-    return _action("pack", "Pack goods", f"{pcs(left)} pieces of {order.number} are still to be packed.",
+def pack_action(order, left, in_stock=True):
+    """`in_stock` is False when none of the pieces still to pack can be had at any place goods are packed from: the
+    packing list can be drafted, and the hint says it cannot be finished yet."""
+    hint = f"{pcs(left)} pieces of {order.number} are still to be packed."
+    return _action("pack", "Pack goods", hint if in_stock else f"{hint} {NO_STOCK}",
                    reverse("packing_new", args=[order.pk]), ("sales.packing", "create"), ("sales.packing", "view"))
 
 
@@ -131,9 +141,15 @@ def _draft_returns(invoices):
     return found
 
 
+def stranded(inv):
+    """A draft bill made from a packing list that is no longer a finished one (it was cancelled under the bill, which
+    the packing service now refuses). Posting it would always fail, so it is never offered; the page says to discard it."""
+    return inv.status == INV.DRAFT and inv.packing_id is not None and inv.packing.status != P.PACKED
+
+
 def _bill_actions(inv, notes, user, memo):
     if inv.status == INV.DRAFT:
-        return [post_bill_action(inv)]
+        return [] if stranded(inv) else [post_bill_action(inv)]
     if inv.status != INV.POSTED:
         return []
     found = [post_return_action(n) for n in notes.get(inv.pk, [])]
@@ -161,15 +177,31 @@ def _bill_of(packing):
     return inv
 
 
-def _awaits_production(order, lines):
-    """A made-to-order order is packed from what production puts into finished stock. While none of the pieces still
-    to pack is at any place of the factory goods are packed from, a packing list could be drafted but never finished,
-    so the sale waits for production."""
-    if order.order_type != SaleOrder.Type.MTO:
-        return False
+def _in_stock(order, lines):
+    """Is any piece still to pack to be had at a place of the factory goods are packed from? What a finished packing
+    list that is not billed yet already holds there does not count, exactly as finishing a list judges it
+    (`packing.available_at`). While this is False a packing list could be drafted but never finished."""
     skus = [l.sku_id for l in lines if min(l.to_pack, l.balance) > 0]
-    return not (StockBalance.objects.filter(factory_id=order.factory_id, sku_id__in=skus, qty__gt=0)
-                .exclude(location__loc_type__in=NOT_PACKED_FROM).exists())
+    have = {(b["location_id"], b["sku_id"]): b["qty"] for b in (
+        StockBalance.objects.filter(factory_id=order.factory_id, sku_id__in=skus, qty__gt=0)
+        .exclude(location__loc_type__in=NOT_PACKED_FROM).values("location_id", "sku_id", "qty"))}
+    if not have:
+        return False
+    held = CartonLine.objects.filter(carton__packing__factory_id=order.factory_id, carton__packing__status=P.PACKED, sku_id__in=skus)
+    for h in held.values("carton__packing__location_id", "sku_id").annotate(q=Sum("qty")):
+        key = (h["carton__packing__location_id"], h["sku_id"])
+        if key in have:
+            have[key] -= h["q"]
+    return any(q > 0 for q in have.values())
+
+
+def _awaits_production(order):
+    """A made-to-order order is packed from what production puts into finished stock. It waits for production only
+    while its production order can still deliver; once that is completed or closed nothing more is coming, and the
+    seller packs what there is or closes the balance."""
+    if order.order_type != SaleOrder.Type.MTO or order.production_order_id is None:
+        return False
+    return order.production_order.status in MAKING
 
 
 def _ranked(actions):
@@ -211,7 +243,7 @@ def _money_stages(*, billed, owed, any_posted, unbilled, all_packed):
             _stage("Paid", paid, f"{owed:.2f} to receive" if owed else "")]
 
 
-def _result(journey, actions, user, memo, *, complete, closed, pack=None):
+def _result(journey, actions, user, memo, *, complete, closed, pack=None, idle=""):
     can = checker(user, memo)
 
     def may(a):
@@ -221,7 +253,7 @@ def _result(journey, actions, user, memo, *, complete, closed, pack=None):
     behind = actions[0] if actions and not allowed else None
     return {"journey": _strip(journey, closed), "primary": allowed[0] if allowed else None, "others": allowed[1:],
             "waiting": behind["label"] if behind else "", "blocked": bool(behind) and behind["kind"] == "production",
-            "complete": complete and not actions, "closed": closed, "idle": "",
+            "complete": complete and not actions and not idle, "closed": closed, "idle": idle,
             "pack": pack if pack is not None and may(pack) else None}
 
 
@@ -240,12 +272,18 @@ def _order_state(order, user, memo):
         rest = [_stage(name, "todo") for name in ("Packed", "Billed", "Paid")]
         return [confirm_action(order)], stages + [_stage("Confirmed", "now")] + rest, None
     stages.append(_stage("Confirmed", "done"))
-    packings = [p for p in order.packing_lists.order_by("id") if p.status != P.CANCELLED]
-    invoices = [i for i in order.invoices.order_by("id") if i.status != INV.CANCELLED]
+    every_list = {p.pk: p for p in order.packing_lists.order_by("id")}
+    packings = [p for p in every_list.values() if p.status != P.CANCELLED]
+    invoices = []
+    for i in order.invoices.order_by("id"):
+        i.order, i.customer = order, order.customer
+        if i.packing_id:
+            i.packing = every_list[i.packing_id]
+        # a draft bill left behind by a cancelled packing list is nothing of this sale any more (see `stranded`)
+        if i.status != INV.CANCELLED and not stranded(i):
+            invoices.append(i)
     for p in packings:
         p.order = order
-    for i in invoices:
-        i.order, i.customer = order, order.customer
     notes = _draft_returns(invoices)
     bill_of = {i.packing_id: i for i in invoices if i.packing_id}
     drafts = [p for p in packings if p.status == P.DRAFT]
@@ -254,7 +292,13 @@ def _order_state(order, user, memo):
     pack = pack_action(order, left) if left else None
     actions = []
     if pack and not drafts:
-        actions.append(production_wait(order) if _awaits_production(order, lines) else pack)
+        if _in_stock(order, lines):
+            actions.append(pack)
+        elif _awaits_production(order):
+            actions.append(production_wait(order))
+        else:
+            pack = pack_action(order, left, in_stock=False)
+            actions.append(pack)
     for p in packings:
         actions += _packing_actions(p, bill_of.get(p.pk), notes, user, memo)
     for i in invoices:
@@ -328,6 +372,7 @@ def invoice_guide(inv, user, perms=None):
     memo = {} if perms is None else perms
     posted = inv.status == INV.POSTED
     actions = _ranked(_bill_actions(inv, _draft_returns([inv]), user, memo))
+    lost = stranded(inv)
     owed = due(inv, user, memo)
     stages = []
     if inv.order_id:
@@ -336,7 +381,8 @@ def invoice_guide(inv, user, perms=None):
             stages.append(_stage("Packed", "done"))
     stages += [_stage("Billed", "done" if posted else "now", f"{inv.total:.2f}"),
                _stage("Paid", "todo" if not posted else ("now" if owed else "done"), f"{owed:.2f} to receive" if owed else "")]
-    return _result(stages, actions, user, memo, complete=posted, closed=inv.status == INV.CANCELLED)
+    return _result(stages, actions, user, memo, complete=posted, closed=inv.status == INV.CANCELLED,
+                   idle=LIST_GONE if lost else "")
 
 
 def invoice_next(inv, user, perms=None):
@@ -348,10 +394,13 @@ def invoice_next(inv, user, perms=None):
 # ---------------------------------------------------------------- return from customer
 
 def creditnote_guide(note, user, perms=None):
-    """A return's own step: post it."""
+    """A return's own step: post it. A draft whose bill was cancelled since can never be posted; it is not offered
+    and the page says to discard it."""
     memo = {} if perms is None else perms
     draft, posted = note.status == CN.DRAFT, note.status == CN.POSTED
-    actions = [post_return_action(note)] if draft else []
+    lost = draft and note.invoice.status != INV.POSTED
+    actions = [post_return_action(note)] if draft and not lost else []
     stages = [_stage("Return saved", "done"),
-              _stage("Return posted", "done" if posted else "now", f"{note.total:.2f}" if posted else "")]
-    return _result(stages, actions, user, memo, complete=posted, closed=note.status == CN.CANCELLED)
+              _stage("Return posted", "done" if posted else ("todo" if lost else "now"), f"{note.total:.2f}" if posted else "")]
+    return _result(stages, actions, user, memo, complete=posted, closed=note.status == CN.CANCELLED,
+                   idle=BILL_GONE if lost else "")

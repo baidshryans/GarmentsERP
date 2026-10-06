@@ -131,6 +131,11 @@ def cancel_packing(packing, *, user, reason="") -> PackingList:
         raise BusinessRuleError("This list has been invoiced; cancel the invoice first.")
     if packing.status == P.CANCELLED:
         raise BusinessRuleError("This packing list is already cancelled.")
+    bill = packing.invoices.exclude(status="cancelled").order_by("id").first()
+    if bill is not None:
+        # a bill is posted against a finished list: cancelling the list would leave a draft bill that can never be posted
+        raise BusinessRuleError(f"{packing} has {'bill ' + bill.number if bill.number else 'a draft bill'}. "
+                                "Discard or cancel that bill first.")
     if packing.status == P.PACKED and not reason.strip():
         raise BusinessRuleError("Give a reason to cancel the packing list.")
     packing.status = P.CANCELLED

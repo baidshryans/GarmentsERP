@@ -9,7 +9,7 @@
       <tbody>{% for g in grns %}<tr><td><a href="{% url 'grn_detail' g.pk %}">{{ g.number|default:"Draft" }}</a></td><td>{{ g.date|date:"d M Y" }}</td><td>{{ g.vendor.name }}</td><td>{{ g.po.number|default:"—" }}</td><td>{{ g.factory.code }}</td>
         <td>{% if g.status == "posted" %}<span class="pill success">Posted</span>{% elif g.status == "qc_done" %}<span class="pill warning">QC done</span>{% elif g.status == "cancelled" %}<span class="pill danger">Cancelled</span>{% else %}<span class="pill">Draft</span>{% endif %}</td>
         <td>{% if g.next %}<a class="btn" href="{{ g.next.url }}">{{ g.next.label }}</a>{% endif %}</td>
-        <td>{% if can_edit and g.status == "draft" or g.status == "qc_done" %}{% url 'grn_edit' g.pk as eu %}{% url 'grn_delete' g.pk as du %}{% include "partials/row_actions.html" with edit_url=eu delete_url=du %}{% endif %}</td></tr>{% endfor %}</tbody>
+        <td>{% if can_edit %}{% if g.status == "draft" or g.status == "qc_done" %}{% url 'grn_edit' g.pk as eu %}{% url 'grn_delete' g.pk as du %}{% include "partials/row_actions.html" with edit_url=eu delete_url=du %}{% endif %}{% endif %}</td></tr>{% endfor %}</tbody>
     </table></div>{% else %}<div class="empty"><svg viewBox="0 0 120 90" aria-hidden="true"><path d="M20 30h50v40H20zM70 45h20l10 12v13H70z"/><circle cx="38" cy="72" r="6"/><circle cx="88" cy="72" r="6"/></svg><div class="hand">No goods received yet</div></div>{% endif %}
   </div>
 {% endblock %}

@@ -44,7 +44,8 @@
           <td class="num">{{ r.last|default_if_none:"—" }}</td></tr>{% endfor %}</tbody>
       </table></div>
       <p class="muted">If the vendor billed pieces that failed QC, enter the full billed quantity: the rejected part is parked as recoverable until its debit note posts.</p>
-      {% else %}<div class="empty"><div class="hand">Nothing left to bill</div><p>Post a GRN for this vendor and factory first, or choose "Direct purchase".</p></div>{% endif %}
+      {% for h in held %}<p class="muted">{{ h.count }} line{{ h.count|pluralize }} {{ h.count|pluralize:"is,are" }} already on draft bill {{ h.bill.vendor_invoice_no }}, so {{ h.count|pluralize:"its,their" }} quantity is left out here. Post or discard that draft first.</p>{% endfor %}
+      {% else %}{% for h in held %}<p class="muted">{{ h.count }} line{{ h.count|pluralize }} {{ h.count|pluralize:"is,are" }} already on draft bill {{ h.bill.vendor_invoice_no }}, so {{ h.count|pluralize:"its,their" }} quantity is left out here. Post or discard that draft first.</p>{% endfor %}<div class="empty"><div class="hand">Nothing left to bill</div><p>Post a GRN for this vendor and factory first, or choose "Direct purchase".</p></div>{% endif %}
     </div>
     {% endif %}
     <div class="grid-2">

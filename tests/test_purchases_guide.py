@@ -1343,3 +1343,73 @@ def test_the_bill_page_explains_why_the_amount_to_pay_differs_from_the_outstandi
     html = page(ns.owner, "invoice_detail", inv.pk)
     assert "This supplier bill is paid." in guide_of(html) and "Outstanding 2000.00" in head_of(html)
     assert "so nothing is left to pay" in html and reverse("voucher_payment") + "?" not in html
+
+
+# ================================================================ small fixes found in review
+
+def test_the_goods_received_list_shows_edit_and_delete_only_to_a_role_that_may_edit(ns):
+    draft = draft_grn(ns)
+    checked = draft_grn(ns)
+    grns.finish_qc(checked, user=ns.owner)
+    looker = role_user("grn_list_looker", {"purchases.grn": ["view"]}, ns.factory)
+    html = page(looker, "grn_list")
+    for g in (draft, checked):
+        assert reverse("grn_edit", args=[g.pk]) not in html and reverse("grn_delete", args=[g.pk]) not in html
+        assert login(looker).get(reverse("grn_edit", args=[g.pk])).status_code == 403
+    html = page(ns.owner, "grn_list")
+    for g in (draft, checked):
+        assert reverse("grn_edit", args=[g.pk]) in html and reverse("grn_delete", args=[g.pk]) in html
+    posted = received(ns)
+    assert reverse("grn_edit", args=[posted.pk]) not in page(ns.owner, "grn_list")
+
+
+def test_cancelling_goods_received_needs_cancel_and_everything_else_needs_edit(ns):
+    from inventory.models import StockMovement
+
+    g1 = received(ns)
+    canceller = role_user("grn_canceller", {"purchases.grn": ["view", "cancel"]}, ns.factory)
+    editor = role_user("grn_editor", {"purchases.grn": ["view", "edit"]}, ns.factory)
+    form = '<input type="hidden" name="action" value="cancel">'
+    assert form in page(canceller, "grn_detail", g1.pk) and form not in page(editor, "grn_detail", g1.pk)
+    # edit alone does not cancel; nothing is reversed
+    r = login(editor).post(reverse("grn_detail", args=[g1.pk]), {"action": "cancel", "reason": "wrong supplier"})
+    assert r.status_code == 403 and grn_of(g1).status == "posted" and StockMovement.objects.count() == 1
+    # cancel alone does: the form it is shown really works
+    r = login(canceller).post(reverse("grn_detail", args=[g1.pk]), {"action": "cancel", "reason": "wrong supplier"}, follow=True)
+    assert "GRN cancelled; stock and books reversed." in r.content.decode() and grn_of(g1).status == "cancelled"
+    # and cancel gives none of the page's other actions
+    g2 = draft_grn(ns)
+    for action in ("save_qc", "finish_qc", "accept_all", "post"):
+        assert login(canceller).post(reverse("grn_detail", args=[g2.pk]), qc_form(g2, action)).status_code == 403, action
+    assert grn_of(g2).status == "draft"
+
+
+def test_the_bill_form_leaves_out_quantity_already_on_another_draft_bill_and_says_so(ns):
+    a, b = received(ns, qty="100"), received(ns, qty="40")
+    first = draft_bill(ns, a, qty="100", no="V-1")           # all of the first goods receipt is on a draft
+    r = login(ns.owner).get(reverse("invoice_new"), {"vendor": ns.vendor.pk})
+    assert [row["gl"].grn_id for row in r.context["grn_lines"]] == [b.pk]
+    html = r.content.decode()
+    assert "1 line is already on draft bill V-1, so its quantity is left out here. Post or discard that draft first." in html
+    assert f'name="use_{a.lines.get().pk}"' not in html
+    # the draft itself still shows and keeps its own line when it is edited
+    r = login(ns.owner).get(reverse("invoice_edit", args=[first.pk]))
+    mine = {row["gl"].grn_id: (row["use"], row["qty"]) for row in r.context["grn_lines"]}
+    assert mine == {a.pk: (True, D("100.000")), b.pk: (False, D("40.000"))} and "already on draft bill" not in r.content.decode()
+    # part of a line on a draft: only the rest is offered
+    first.delete()
+    part = draft_bill(ns, a, qty="30", no="V-2")
+    r = login(ns.owner).get(reverse("invoice_new"), {"vendor": ns.vendor.pk})
+    assert {row["gl"].grn_id: row["left"] for row in r.context["grn_lines"]} == {a.pk: D("70.000"), b.pk: D("40.000")}
+    assert "1 line is already on draft bill V-2" in r.content.decode()
+    # everything on drafts: the empty form names them instead of a dead end
+    draft_bill(ns, a, qty="70", no="V-3")
+    draft_bill(ns, b, qty="40", no="V-4")
+    r = login(ns.owner).get(reverse("invoice_new"), {"vendor": ns.vendor.pk})
+    html = r.content.decode()
+    assert r.context["grn_lines"] == [] and "Nothing left to bill" in html and "already on draft bill V-2" in html and "draft bill V-4" in html
+    # posting is unchanged: with the drafts posted nothing is hidden any more and nothing is left
+    for inv in (part, *PurchaseInvoice.objects.filter(vendor_invoice_no__in=("V-3", "V-4"))):
+        invoices.post_invoice(inv, user=ns.owner)
+    r = login(ns.owner).get(reverse("invoice_new"), {"vendor": ns.vendor.pk})
+    assert r.context["grn_lines"] == [] and "already on draft bill" not in r.content.decode()

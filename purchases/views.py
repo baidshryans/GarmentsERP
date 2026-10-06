@@ -364,15 +364,16 @@ class GrnDetail(LoginRequiredMixin, ScreenPermissionMixin, View):
             "can_edit": request.user.has_screen_perm("purchases.grn", "edit"),
             # recording QC, finishing it and posting are each this screen's `edit`; the POST below checks it
             "can_accept_all": request.user.has_screen_perm("purchases.grn", "edit") and grn_service.untouched(grn),
-            "can_cancel": request.user.has_screen_perm("purchases.grn", "cancel") or request.user.has_screen_perm("purchases.grn", "edit"),
+            "can_cancel": request.user.has_screen_perm("purchases.grn", "cancel"),
             "qc_choices": [("accepted", "Accepted"), ("rejected", "Rejected"), ("accepted_remark", "Accepted with remark")],
         })
 
     def post(self, request, pk):
         grn = self._grn(request, pk)
-        if not request.user.has_screen_perm("purchases.grn", "edit"):
-            raise PermissionDenied
         p, action, user = request.POST, request.POST.get("action"), request.user
+        # cancelling a posted GRN is its own right; everything else on this page is `edit`
+        if not user.has_screen_perm("purchases.grn", "cancel" if action == "cancel" else "edit"):
+            raise PermissionDenied
         try:
             rolls, lines = {}, {}
             if action in ("save_qc", "finish_qc", "accept_all"):
@@ -471,10 +472,23 @@ class InvoiceSave(LoginRequiredMixin, ScreenPermissionMixin, View):
                 rows = [{"item": f"m:{l.material_id}" if l.material_id else f"s:{l.sku_id}", "qty": l.qty, "rate": l.rate}
                         for l in inv.lines.all()]
             rows += [{}, {}]
+        held = {}
         if vendor and factory and not direct:
+            # quantity sitting on another draft bill is left out of the list (posting the second draft would fail);
+            # the form says which draft holds it. Posting itself is unchanged and still checks what is left.
+            on_drafts, holders = {}, {}
+            drafts = PurchaseInvoiceLine.objects.filter(
+                invoice__status="draft", grn_line__grn__vendor=vendor, grn_line__grn__factory=factory).select_related("invoice")
+            for dl in (drafts.exclude(invoice=inv) if inv else drafts).order_by("invoice_id", "id"):
+                on_drafts[dl.grn_line_id] = on_drafts.get(dl.grn_line_id, Decimal("0")) + dl.qty
+                holders.setdefault(dl.grn_line_id, dl.invoice)
             for gl in GrnLine.objects.filter(grn__status="posted", grn__vendor=vendor, grn__factory=factory).select_related(
                     "grn", "material", "sku__style", "sku__colour", "sku__size").order_by("grn__date", "id"):
                 left = invoices.billable_qty(gl, exclude=inv)
+                if left > 0 and gl.pk in on_drafts:
+                    holder = holders[gl.pk]
+                    held.setdefault(holder.pk, {"bill": holder, "count": 0})["count"] += 1
+                    left -= on_drafts[gl.pk]
                 if left <= 0:
                     continue
                 row = {"gl": gl, "left": left, "last": invoices.last_rate(vendor, gl, exclude=inv),
@@ -491,7 +505,7 @@ class InvoiceSave(LoginRequiredMixin, ScreenPermissionMixin, View):
         return {
             "vendors": _vendors(), "vendor": vendor, "factory": factory, "inv": inv, "itc": itc,
             "grn_lines": grn_lines, "d": d, "direct": direct, "mats": mats, "skus": skus, "rows": rows,
-            "locations": locations,
+            "locations": locations, "held": list(held.values()),
             "gst_templates": TaxTemplate.objects.filter(kind="gst", is_active=True),
             "tds_templates": TaxTemplate.objects.filter(kind="tds", is_active=True),
             "modes": PurchaseInvoice.TaxMode.choices,

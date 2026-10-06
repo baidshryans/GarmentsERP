@@ -126,7 +126,8 @@ def value_of(html, name):
     """What the first control posted as `name` holds: an input's value, a textarea's text, a select's chosen option."""
     node = named(html, name)[0]
     if node.tag == "textarea":
-        return "".join(node.texts)
+        text = "".join(node.texts)
+        return text[1:] if text.startswith(chr(10)) else text      # a browser drops the first newline of a textarea
     if node.tag == "select":
         return _chosen(node)
     return node.attrs.get("value", "")
@@ -1385,3 +1386,118 @@ def test_sales_refusals_say_bill_and_return(ns, owner):
         sale_bills.discard_draft(inv, user=owner)
     with pytest.raises(BusinessRuleError, match="Give a reason to cancel the bill."):
         sale_bills.cancel_invoice(inv, user=owner, reason="")
+
+
+# ================================================================ forms save what they saved before
+
+def test_a_sale_order_saved_from_the_short_form_is_the_same_order(ns, owner_c):
+    black, m = ns.colours["Black"], ns.sizes["M"]
+    html = html_of(owner_c.get(reverse("saleorder_new")))
+    assert value_of(html, "remarks") == ""                       # the folded field posts blank when left alone
+    r = owner_c.post(reverse("saleorder_new"), {
+        "customer": ns.local.pk, "date": DAY.isoformat(), "due_date": "", "order_type": "stock", "remarks": "",
+        "style": [ns.style.pk], f"rate_{ns.style.pk}": "450", f"disc_{ns.style.pk}": "", f"q_{ns.style.pk}_{black.pk}_{m.pk}": "12"})
+    order = SaleOrder.objects.get()
+    line = order.lines.get()
+    assert r.status_code == 302 and (order.remarks, order.order_type, order.due_date, order.status) == ("", "stock", None, "draft")
+    assert (line.qty, line.rate) == (D("12"), D("450"))
+
+
+def test_a_quick_bill_saved_from_the_short_form_is_the_same_bill(ns, owner_c):
+    sku = ns.sku("Black", "M")
+    html = html_of(owner_c.get(reverse("billing")))
+    assert value_of(html, "notes") == ""
+    r = owner_c.post(reverse("billing"), {"customer": ns.local.pk, "location": ns.godown.pk, "date": DAY.isoformat(),
+                                          "action": "draft", "notes": "", "sku": [sku.pk], "qty": ["3"], "rate": ["500"], "disc": [""]})
+    inv = SaleInvoice.objects.get()
+    assert r.status_code == 302 and (inv.notes, inv.status, inv.gst_total) == ("", "draft", D("0.00"))
+    assert inv.subtotal == D("1500.00") and inv.lines.get().qty == D("3")
+
+
+def test_a_labour_bill_saved_from_the_short_form_is_the_same_bill(job, out, owner_c):
+    from jobwork.models import JobWorkBill
+    from jobwork.services import receipts
+    from jobwork.services.receipts import Counted
+
+    receipt = receipts.create_receipt(challan=out, user=job.owner, date=DAY,
+                                      counts=[Counted(cb, cb.qty_issued) for cb in out.bundles.all()])
+    for line in receipt.lines.all():
+        receipts.record_qc(receipt_line=line, accepted=line.qty_received, user=job.owner)
+    html = html_of(owner_c.get(reverse("bill_new"), {"party": job.fab.pk}))
+    assert chosen(html, "tds") == "" and value_of(html, "notes") == ""
+    picks = {n.attrs["name"]: "on" for n in page(html).walk() if n.attrs.get("name", "").startswith(("qc_", "ded_"))}
+    assert picks
+    r = owner_c.post(reverse("bill_new"), {"party": job.fab.pk, "date": DAY.isoformat(), "tds_template": "", "notes": "", **picks})
+    bill = JobWorkBill.objects.get()
+    pieces = sum(cb.qty_issued for cb in out.bundles.all())
+    assert r.status_code == 302 and (bill.tds_template, bill.notes, bill.status) == (None, "", "draft")
+    assert bill.tds == D("0.00") and bill.gross == D(pieces) * D("25") and bill.net == bill.gross - bill.deductions
+
+
+def test_a_return_to_supplier_saved_from_the_short_form_is_the_same_return(company, factory, owner_c, vendor, trim, godown, received):
+    html = html_of(owner_c.get(reverse("debitnote_new")))
+    assert chosen(html, "gst_template") == "" and ticked(html, "itc_claimable")      # what the folded fields post when left alone
+    r = owner_c.post(reverse("debitnote_new"), {
+        "vendor": vendor.pk, "date": DAY.isoformat(), "reason": "wrong shade", "gst_template": "", "itc_claimable": "on",
+        "item": [f"m:{trim.pk}"], "location": [godown.pk], "roll": [""], "qty": ["7"], "rate": ["10"]})
+    note = DebitNote.objects.get(kind="return")
+    assert r.status_code == 302 and (note.gst_template, note.itc_claimable, note.status) == (None, True, "draft")
+    assert (note.subtotal, note.total) == (D("70.00"), D("70.00"))
+
+
+def test_a_style_saved_from_the_short_form_is_the_same_style(company, owner_c):
+    from masters.models import SKU, Colour, Product, Style
+
+    html = html_of(owner_c.get(reverse("style_new")))
+    assert value_of(html, "description") == "" and value_of(html, "mrp") == "" and not ticked(html, "is_archived")
+    r = owner_c.post(reverse("style_new"), {
+        "style_no": "sf-1", "name": "Short form jogger", "product": Product.objects.get(code="JGR").pk,
+        "colours": [Colour.objects.get(name="Black").pk], "sizes": [Size.objects.get(code="M").pk, Size.objects.get(code="L").pk],
+        "description": "", "mrp": "", "hsn": "", "default_route": ""})
+    style = Style.objects.get(style_no="SF-1")
+    assert r.status_code == 302 and (style.description, style.mrp, style.hsn, style.is_archived) == ("", None, None, False)
+    assert not style.image and SKU.objects.filter(style=style).count() == 2
+
+
+def test_a_bom_saved_without_a_version_note_is_the_same_bom(ns, owner_c, trim):
+    from masters.services import boms
+
+    url = reverse("bom_edit", args=[ns.style.pk])
+    assert value_of(html_of(owner_c.get(url)), "notes") == ""
+    r = owner_c.post(url, {"material": [trim.pk], "qty": ["2"], "wastage": [""], "notes": "",
+                           **{f"size_{s.pk}": [""] for s in ns.sizes.values()},
+                           "charge_desc": [""], "charge_process": [""], "charge_amount": [""]})
+    version = boms.current_version(ns.style)
+    line = version.lines.get()
+    assert r.status_code == 302 and version.notes == "" and (line.material, line.qty_per_piece, line.wastage_pct) == (trim, D("2"), D("0"))
+
+
+def test_sending_to_a_fabricator_without_notes_saves_the_same_challan(job, owner_c):
+    stitch = ph.step(job, "STITCH")
+    html = html_of(owner_c.get(reverse("challan_new"), {"lot": job.lot.pk, "step": stitch.pk}))
+    assert value_of(html, "remarks") == "" and chosen(html, "kind") == "issue"
+    r = owner_c.post(reverse("challan_new"), {"lot": job.lot.pk, "step": stitch.pk, "kind": "issue", "factory": job.factory.pk,
+                                              "party": job.fab.pk, "date": DAY.isoformat(), "expected_date": "", "remarks": "",
+                                              "bundle": [job.bundles[0].pk]})
+    ch = JobWorkChallan.objects.get()
+    assert r.status_code == 302 and (ch.remarks, ch.kind, ch.expected_date, ch.status) == ("", "issue", None, "draft")
+    assert ch.bundles.get().bundle == job.bundles[0]
+
+
+def test_a_draft_supplier_bill_with_gst_and_tds_opens_with_its_tax_shown(received, owner, vendor, owner_c):
+    from purchases.models import PurchaseInvoice
+    from purchases.services import invoices as bills
+    from tax.models import TaxTemplate
+
+    gst = TaxTemplate.objects.get(name="GST 12% intra-state (CGST + SGST)")
+    tds = TaxTemplate.objects.filter(kind="tds", is_active=True).first()
+    line = received.lines.get()
+    inv = bills.save_invoice(company=received.company, factory=received.factory, vendor=vendor, vendor_invoice_no="YH-9",
+                             vendor_invoice_date=DAY, date=DAY, user=owner, lines=[bills.InvoiceLineSpec(line, D("100"), D("10"))],
+                             tax_mode=PurchaseInvoice.TaxMode.TEMPLATE, gst_template=gst, tds_template=tds)
+    html = html_of(owner_c.get(reverse("invoice_edit", args=[inv.pk])))
+    assert folded(html, "gst_template", "itc_claimable", "tds_template", title="Tax (GST / TDS)", is_open=True)
+    assert chosen(html, "tax_mode") == "template" and chosen(html, "gst_template") == str(gst.pk) and chosen(html, "tds_template") == str(tds.pk)
+    assert not hidden_for_choice(html, "gst_template") and not hidden_for_choice(html, "itc_claimable")
+    assert hidden_for_choice(html, "manual_cgst") and ticked(html, "itc_claimable")
+    assert folded(html, "date", "notes", is_open=True)                    # its booking date is not today: shown

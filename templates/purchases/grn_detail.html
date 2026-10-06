@@ -4,15 +4,16 @@
   <div class="page-head"><h1 class="page-title">{{ grn.number|default:"Draft GRN" }}</h1>
     <span class="pill {% if grn.status == 'posted' %}success{% elif grn.status == 'cancelled' %}danger{% elif grn.status == 'qc_done' %}warning{% endif %}">{{ grn.get_status_display }}</span>
     <div class="actions">{% if grn.status == "posted" %}<a class="btn" href="{% url 'grn_labels' grn.pk %}">Print roll labels</a>{% endif %}{% if grn.status == "draft" or grn.status == "qc_done" %}{% if can_edit %}{% url 'grn_edit' grn.pk as eu %}{% url 'grn_delete' grn.pk as du %}{% include "partials/row_actions.html" with edit_url=eu delete_url=du %}{% endif %}{% endif %}<a class="btn ghost" href="{% url 'grn_list' %}">All GRNs</a></div></div>
+  {% include "purchases/_purchase_guide.html" %}
   <div class="island"><div class="field-row">
     <div><div class="label muted">Vendor</div>{{ grn.vendor.name }}</div><div><div class="label muted">Factory</div>{{ grn.factory.code }}</div>
     <div><div class="label muted">Received into</div>{{ grn.location.name }}</div><div><div class="label muted">Date</div>{{ grn.date|date:"d M Y" }}</div>
-    <div><div class="label muted">PO</div>{% if grn.po %}<a href="{% url 'po_detail' grn.po.pk %}">{{ grn.po.number }}</a>{% else %}—{% endif %}</div>
+    <div><div class="label muted">PO</div>{% if grn.po and can_open_po %}<a href="{% url 'po_detail' grn.po.pk %}">{{ grn.po.number }}</a>{% elif grn.po %}{{ grn.po.number }}{% else %}—{% endif %}</div>
     <div><div class="label muted">Vendor challan</div>{{ grn.vendor_challan_no|default:"—" }}</div></div>
     {% if grn.voucher %}<p class="muted">Books: <a href="{% url 'voucher_detail' grn.voucher.pk %}">{{ grn.voucher.number }}</a></p>{% endif %}
     {% if grn.remarks %}<p class="muted">{{ grn.remarks }}</p>{% endif %}</div>
 
-  <form method="post">{% csrf_token %}
+  <form method="post"{% if grn.status == "draft" %} id="do-next"{% endif %}>{% csrf_token %}
   {% for line in lines %}
   <div class="island">
     <h2>{{ line.item }} <span class="muted" style="font-weight:400">@ {{ line.rate }}</span></h2>
@@ -37,12 +38,12 @@
   {% endfor %}
   {% if can_edit %}
     {% if grn.status == "draft" or grn.status == "qc_done" %}
-    <div class="form-actions"><button class="btn" name="action" value="save_qc">Save QC</button><button class="btn primary" name="action" value="finish_qc">Finish QC</button>
-      {% if grn.status == "qc_done" %}<button class="btn primary" name="action" value="post">Post GRN</button>{% endif %}</div>
+    <div class="form-actions"{% if grn.status == "qc_done" %} id="do-next"{% endif %}><button class="btn" name="action" value="save_qc">Save QC</button><button class="btn{% if grn.status == "draft" %} primary{% endif %}" name="action" value="finish_qc">Finish QC</button>
+      {% if grn.status == "qc_done" %}<button class="btn primary" name="action" value="post">Post goods received</button>{% endif %}</div>
     {% endif %}
   {% endif %}
   </form>
-  {% if notes %}<div class="island"><h2>Debit notes from rejection</h2>{% for n in notes %}<p><a href="{% url 'debitnote_detail' n.pk %}">{{ n.number|default:"Draft debit note" }}</a> · {{ n.get_status_display }} · rejected pieces will be recovered once the vendor bills them</p>{% endfor %}</div>{% endif %}
+  {% if notes %}<div class="island"><h2>Debit notes from rejection</h2>{% for n in notes %}<p>{% if can_open_note %}<a href="{% url 'debitnote_detail' n.pk %}">{{ n.number|default:"Draft debit note" }}</a>{% else %}{{ n.number|default:"Draft debit note" }}{% endif %} · {{ n.get_status_display }} · rejected pieces will be recovered once the vendor bills them</p>{% endfor %}</div>{% endif %}
   {% if grn.status == "posted" and can_cancel %}<div class="island no-print"><h3>Cancel this GRN</h3>
     <form method="post" style="max-width:520px">{% csrf_token %}<input type="hidden" name="action" value="cancel"><div class="field"><label for="why">Reason</label><input id="why" name="reason" type="text" required></div><button class="btn danger">Cancel GRN</button></form></div>{% endif %}
 {% endblock %}

@@ -17,6 +17,7 @@ from tax.models import TaxTemplate
 
 from .models import DebitNote, Grn, GrnLine, PurchaseInvoice, PurchaseInvoiceLine, PurchaseOrder, PurchaseOrderLine
 from .services import debit_notes, grn as grn_service, invoices, orders
+from .services import guide as guide_service
 from ledger.settlement import settlement
 
 
@@ -74,6 +75,20 @@ def _vendors():
     return Party.objects.filter(is_vendor=True, is_active=True)
 
 
+def _offers(guide, kind):
+    """Does the guide offer this step to the user? Page buttons that repeat a step show only while it does."""
+    return any(a["kind"] == kind for a in [guide["primary"], *guide["others"]] if a)
+
+
+def _with_next(rows, next_step, user):
+    """The rows shown on a list, each with its next step. One memo serves the page: every permission and every
+    supplier's open bills are asked once."""
+    rows, memo = list(rows), {}
+    for row in rows:
+        row.next = next_step(row, user, memo)
+    return rows
+
+
 def _need_factory(request, to):
     """New documents are entered in one factory. In "All factories" mode say so and go back to the list."""
     if request.factory is None:
@@ -88,12 +103,12 @@ class POList(LoginRequiredMixin, ScreenPermissionMixin, View):
     screen_code = "purchases.po"
 
     def get(self, request):
-        qs = in_active(PurchaseOrder.objects.for_user(request.user), request).select_related("vendor", "factory")
+        qs = in_active(PurchaseOrder.objects.for_user(request.user), request).select_related("vendor", "factory", "company")
         status = request.GET.get("status")
         if status:
             qs = qs.filter(status=status)
         return render(request, "purchases/po_list.html", {
-            "pos": qs[:200], "status": status, "statuses": PurchaseOrder.Status.choices,
+            "pos": _with_next(qs[:200], guide_service.po_next, request.user), "status": status, "statuses": PurchaseOrder.Status.choices,
             "can_create": request.user.has_screen_perm("purchases.po", "create"),
             "can_edit": request.user.has_screen_perm("purchases.po", "edit"),
         })
@@ -158,12 +173,13 @@ class PODetail(LoginRequiredMixin, ScreenPermissionMixin, View):
         po = self._po(request, pk)
         lines = [{"line": l, "received": orders.received_qty(l), "pending": orders.pending_qty(l)} for l in po.lines.select_related("material", "sku__style", "sku__colour", "sku__size")]
         user = request.user
+        guide = guide_service.po_guide(po, user)
         return render(request, "purchases/po_detail.html", {
             "po": po, "lines": lines, "grns": po.grns.all(),
             "can_edit": user.has_screen_perm("purchases.po", "edit"),
             "can_approve": user.has_screen_perm("purchases.po", "approve"),
-            "can_grn": user.has_screen_perm("purchases.grn", "create"),
-            "limit": po.company.po_approval_limit,
+            "can_receive": _offers(guide, "receive"), "can_open_grn": user.has_screen_perm("purchases.grn", "view"),
+            "limit": po.company.po_approval_limit, "guide": guide,
         })
 
     def post(self, request, pk):
@@ -236,7 +252,7 @@ class GrnList(LoginRequiredMixin, ScreenPermissionMixin, View):
     def get(self, request):
         qs = in_active(Grn.objects.for_user(request.user), request).select_related("vendor", "factory", "po")
         return render(request, "purchases/grn_list.html", {
-            "grns": qs[:200], "can_create": request.user.has_screen_perm("purchases.grn", "create"),
+            "grns": _with_next(qs[:200], guide_service.grn_next, request.user), "can_create": request.user.has_screen_perm("purchases.grn", "create"),
             "can_edit": request.user.has_screen_perm("purchases.grn", "edit"),
         })
 
@@ -332,7 +348,9 @@ class GrnDetail(LoginRequiredMixin, ScreenPermissionMixin, View):
         grn = self._grn(request, pk)
         lines = grn.lines.select_related("material", "sku__style", "sku__colour", "sku__size").prefetch_related("rolls")
         return render(request, "purchases/grn_detail.html", {
-            "grn": grn, "lines": lines, "notes": grn.debit_notes.all(),
+            "grn": grn, "lines": lines, "notes": grn.debit_notes.all(), "guide": guide_service.grn_guide(grn, request.user),
+            "can_open_po": request.user.has_screen_perm("purchases.po", "view"),
+            "can_open_note": request.user.has_screen_perm("purchases.debitnote", "view"),
             "can_edit": request.user.has_screen_perm("purchases.grn", "edit"),
             "can_cancel": request.user.has_screen_perm("purchases.grn", "cancel") or request.user.has_screen_perm("purchases.grn", "edit"),
             "qc_choices": [("accepted", "Accepted"), ("rejected", "Rejected"), ("accepted_remark", "Accepted with remark")],
@@ -378,7 +396,7 @@ class InvoiceList(LoginRequiredMixin, ScreenPermissionMixin, View):
     def get(self, request):
         qs = in_active(PurchaseInvoice.objects.for_user(request.user), request).select_related("vendor", "factory")
         return render(request, "purchases/invoice_list.html", {
-            "invoices": qs[:200], "can_create": request.user.has_screen_perm("purchases.invoice", "create"),
+            "invoices": _with_next(qs[:200], guide_service.invoice_next, request.user), "can_create": request.user.has_screen_perm("purchases.invoice", "create"),
             "can_edit": request.user.has_screen_perm("purchases.invoice", "edit"),
         })
 
@@ -416,6 +434,8 @@ class InvoiceSave(LoginRequiredMixin, ScreenPermissionMixin, View):
         factory = inv.factory if inv else request.factory
         direct = inv.is_direct if inv else (d.get("mode") == "direct")
         existing = {l.grn_line_id: l for l in inv.lines.all()} if inv else {}
+        # opened from a goods receipt's Next button: its lines are ticked, the supplier's other receipts are listed unticked
+        only = "" if (posted or inv) else d.get("grn", "")
         grn_lines, rows, locations = [], [], []
         mats, skus = item_choices() if direct else ([], [])
         if direct and factory:
@@ -435,7 +455,7 @@ class InvoiceSave(LoginRequiredMixin, ScreenPermissionMixin, View):
                 if left <= 0:
                     continue
                 row = {"gl": gl, "left": left, "last": invoices.last_rate(vendor, gl, exclude=inv),
-                       "use": True, "qty": left, "rate": gl.rate}
+                       "use": not only.isdigit() or str(gl.grn_id) == only, "qty": left, "rate": gl.rate}
                 if posted:
                     row.update(use=f"use_{gl.pk}" in d, qty=d.get(f"qty_{gl.pk}", left), rate=d.get(f"rate_{gl.pk}", gl.rate))
                 elif inv:
@@ -461,12 +481,27 @@ class InvoiceSave(LoginRequiredMixin, ScreenPermissionMixin, View):
             return inv, redirect("invoice_detail", pk=inv.pk)
         return inv, None
 
+    def _other_factory(self, request):
+        """Opened from a goods receipt's Next button while another factory (or all of them) is active: the bill would be
+        for the active factory, where these goods are not. Send the user back to the goods receipt to switch first.
+        The `factory` in the link never chooses the bill's factory; the top bar does."""
+        wanted, came_from, user = request.GET.get("factory", ""), request.GET.get("grn", ""), request.user
+        if not (wanted.isdigit() and came_from.isdigit()) or (request.factory is not None and str(request.factory.pk) == wanted):
+            return None
+        if not user.has_screen_perm("purchases.grn", "view"):
+            return None
+        grn = Grn.objects.for_user(user).select_related("factory").filter(pk=came_from, factory_id=wanted).first()
+        if grn is None:
+            return None
+        messages.error(request, f"These goods were received in {grn.factory.name}. Choose it in the top bar, then press the button again.")
+        return redirect("grn_detail", pk=grn.pk)
+
     def get(self, request, pk=None):
         inv, back = self._draft_or_back(request, pk)
         if back:
             return back
         if inv is None:
-            if back := _need_factory(request, "invoice_list"):
+            if back := self._other_factory(request) or _need_factory(request, "invoice_list"):
                 return back
             return render(request, "purchases/invoice_form.html", self._ctx(request, request.GET))
         return render(request, "purchases/invoice_form.html", self._ctx(request, inv=inv))
@@ -524,14 +559,17 @@ class InvoiceDetail(LoginRequiredMixin, ScreenPermissionMixin, View):
 
     def get(self, request, pk):
         inv = self._inv(request, pk)
+        guide = guide_service.invoice_guide(inv, request.user)
+        settle = settlement(request.user, ledger=inv.vendor.payable_ledger, reference=inv.vendor_invoice_no, direction="pay",
+                            narration=f"Paid against {inv.vendor_invoice_no}") if inv.status == "posted" and inv.vendor.payable_ledger_id else None
+        if settle and not _offers(guide, "pay"):
+            settle["url"] = None                 # the amount still shows; the button is the guide's to offer
         return render(request, "purchases/invoice_detail.html", {
-            "inv": inv, "lines": inv.lines.select_related("grn_line__grn", "grn_line__material", "grn_line__sku__style", "grn_line__sku__colour", "grn_line__sku__size", "material", "sku__style", "sku__colour", "sku__size"),
+            "inv": inv, "guide": guide, "lines": inv.lines.select_related("grn_line__grn", "grn_line__material", "grn_line__sku__style", "grn_line__sku__colour", "grn_line__sku__size", "material", "sku__style", "sku__colour", "sku__size"),
             "gst": inv.tax_lines.filter(kind="gst"), "tds": inv.tax_lines.filter(kind="tds"),
             "can_edit": request.user.has_screen_perm("purchases.invoice", "edit"),
             "can_cancel": request.user.has_screen_perm("purchases.invoice", "cancel"),
-            "settle": settlement(request.user, ledger=inv.vendor.payable_ledger, reference=inv.vendor_invoice_no, direction="pay",
-                                 narration=f"Paid against {inv.vendor_invoice_no}")
-            if inv.status == "posted" and inv.vendor.payable_ledger_id else None,
+            "settle": settle,
         })
 
     def post(self, request, pk):
@@ -683,8 +721,10 @@ class DebitNoteDetail(LoginRequiredMixin, ScreenPermissionMixin, View):
 
     def get(self, request, pk):
         note = self._note(request, pk)
+        guide = guide_service.debitnote_guide(note, request.user)
         return render(request, "purchases/debitnote_detail.html", {
-            "note": note, "lines": note.lines.select_related("material", "sku__style", "sku__colour", "sku__size", "roll", "location"),
+            "note": note, "guide": guide, "can_post": guide["primary"] is not None,
+            "can_open_grn": request.user.has_screen_perm("purchases.grn", "view"), "lines": note.lines.select_related("material", "sku__style", "sku__colour", "sku__size", "roll", "location"),
             "can_edit": request.user.has_screen_perm("purchases.debitnote", "edit"),
             "can_cancel": request.user.has_screen_perm("purchases.debitnote", "cancel"),
         })

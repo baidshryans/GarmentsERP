@@ -1,6 +1,7 @@
 """The buying guide: where a purchase is on its way from order to paid, and the one thing it needs next
 (guided buying, piece 2c). One test per row of the spec's table, then agreement between the order, goods-received
 and bill guides, permissions, and each offered link followed to the screen it opens."""
+import re
 from datetime import date
 from decimal import Decimal
 from types import SimpleNamespace
@@ -8,6 +9,7 @@ from types import SimpleNamespace
 import pytest
 from django.test import Client
 from django.urls import reverse
+from django.utils.html import escape
 
 from core.models import Location, Role, RolePermission
 from ledger.models import Ledger
@@ -612,3 +614,283 @@ def test_the_unpaid_amount_is_the_ledgers_and_another_factorys_bills_are_never_r
     far = role_user("far", {"purchases.invoice": ["view"], "ledger.voucher": ["view", "create"]}, factory2)
     assert not PurchaseInvoice.objects.for_user(far).filter(pk=inv.pk).exists()
     assert login(far).get(reverse("invoice_detail", args=[inv.pk])).status_code == 404
+
+
+# ================================================================ the guide on the screens
+
+def page(user, name, *args, **query):
+    r = login(user).get(reverse(name, args=args), query)
+    assert r.status_code == 200
+    return r.content.decode()
+
+
+def guide_of(html):
+    """The guide island alone: from its opening tag to the next island."""
+    start = html.index('class="island guide"')
+    return html[start:html.index('class="island"', start)]
+
+
+def head_of(html):
+    return html[html.index('class="page-head"'):html.index('class="island guide"')]
+
+
+def row_with(html, text):
+    return next(r for r in re.findall(r"<tr>.*?</tr>", html, re.S) if text in r)
+
+
+def button(url, label):
+    return f'<a class="btn primary" href="{escape(url)}">{label}</a>'
+
+
+def test_the_order_page_opens_with_the_journey_and_one_next_button(ns):
+    po = draft_po(ns)
+    html = page(ns.owner, "po_detail", po.pk)
+    g = guide_of(html)
+    assert 'aria-label="Where this purchase is"' in g and g.count('class="sr-only"') == 5
+    assert re.search(r'<li class="now" aria-current="step">\s*<span class="j-label">Ordered</span>', g)
+    # submitting is done on this very page: the button jumps to the form instead of reloading the page
+    assert button("#do-next", "Submit order") in g
+    assert '<form method="post" id="do-next">' in html and '<button class="btn primary" name="action" value="submit">Submit order</button>' in html
+    # only labels, figures and links are shown: the permission keys stay inside the service
+    assert "purchases.po" not in html and "purchases.grn" not in html and " pcs" not in g and "pieces." not in g
+
+    po = orders.submit_po(po, user=ns.owner)
+    html = page(ns.owner, "po_detail", po.pk)
+    g = guide_of(html)
+    receive = reverse("grn_new") + f"?po={po.pk}"
+    assert button(receive, "Receive goods") in g and '<span class="j-detail">0 of 100</span>' in g
+    # the header keeps a plain button for the same step: the one violet button is the guide's
+    assert f'<a class="btn" href="{receive}">Receive goods</a>' in head_of(html) and "btn primary" not in head_of(html)
+    assert "Receive goods (GRN)" not in html
+
+    g1 = received(ns, po, qty="60")
+    html = page(ns.owner, "po_detail", po.pk)
+    also = guide_of(html)[guide_of(html).index("Also waiting"):]
+    assert f'<a href="{escape(bill_url(ns, g1))}">Enter supplier bill</a>' in also and "btn primary" not in also
+
+
+def test_the_order_page_tells_a_viewer_what_it_waits_for_and_gives_no_link(ns):
+    po = order(ns)
+    draft_grn(ns, po, qty="60")
+    looker = role_user("po_page_looker", {"purchases.po": ["view"]}, ns.factory)
+    html = page(looker, "po_detail", po.pk)
+    assert "Waiting for: Check quality" in guide_of(html) and "btn primary" not in guide_of(html)
+    # no link to a screen the role would be refused on: not the goods receipt, not a new one
+    assert reverse("grn_new") not in html and "/purchases/grn/" not in html and "Draft GRN" in html
+    assert "Receive goods" not in html
+
+
+def test_the_order_page_offers_receive_goods_only_while_the_guide_does(ns):
+    po = order(ns)
+    assert "Receive goods" in head_of(page(ns.owner, "po_detail", po.pk))
+    draft_grn(ns, po, qty="60")                             # an open goods receipt: finish that one first
+    html = page(ns.owner, "po_detail", po.pk)
+    assert "Receive goods" not in html and "Check quality" in guide_of(html)
+    po2 = order(ns, "1000", "100")                          # waits for approval
+    html = page(ns.owner, "po_detail", po2.pk)
+    assert "Receive goods" not in html and button("#do-next", "Approve order") in guide_of(html)
+    assert '<button class="btn primary" name="action" value="approve">Approve order</button>' in html
+
+
+def test_a_finished_order_and_a_closed_one_say_so(ns):
+    po = order(ns)
+    pay(ns, billed(ns, received(ns, po)), "10000")
+    g = guide_of(page(ns.owner, "po_detail", po.pk))
+    assert "This purchase is complete." in g and "btn" not in g and 'class="journey"' in g
+    other = order(ns)
+    orders.short_close(other, user=ns.owner, reason="Not needed")
+    g = guide_of(page(ns.owner, "po_detail", other.pk))
+    assert "This purchase was cancelled or closed." in g and 'class="journey closed"' in g and "sr-only" not in g
+
+
+def test_the_goods_received_page_leads_from_the_quality_check_to_posting_to_the_bill(ns):
+    g1 = draft_grn(ns)
+    html = page(ns.owner, "grn_detail", g1.pk)
+    assert button("#do-next", "Check quality") in guide_of(html) and '<form method="post" id="do-next">' in html
+    assert '<button class="btn primary" name="action" value="finish_qc">Finish QC</button>' in html
+    grns.finish_qc(g1, user=ns.owner)
+    html = page(ns.owner, "grn_detail", g1.pk)
+    assert button("#do-next", "Post goods received") in guide_of(html)
+    assert '<div class="form-actions" id="do-next">' in html and html.count('id="do-next"') == 1
+    assert '<button class="btn primary" name="action" value="post">Post goods received</button>' in html
+    assert '<button class="btn" name="action" value="finish_qc">Finish QC</button>' in html
+    c = login(ns.owner)
+    r = c.post(reverse("grn_detail", args=[g1.pk]), {"action": "post"}, follow=True)
+    html = r.content.decode()
+    # after posting, the page shows the next step
+    assert button(bill_url(ns, g1), "Enter supplier bill") in guide_of(html) and 'id="do-next"' not in html
+    assert re.search(r'<li class="now" aria-current="step">\s*<span class="j-label">Billed</span>', guide_of(html))
+
+
+def test_the_supplier_bill_page_leads_from_posting_to_paying(ns):
+    inv = draft_bill(ns, received(ns))
+    html = page(ns.owner, "invoice_detail", inv.pk)
+    assert button("#do-next", "Post supplier bill") in guide_of(html)
+    assert '<form method="post" id="do-next">' in html and 'value="post">Post supplier bill</button>' in html
+    r = login(ns.owner).post(reverse("invoice_detail", args=[inv.pk]), {"action": "post"}, follow=True)
+    html = r.content.decode()
+    link = pay_link(ns, inv, "10000.00")
+    assert button(link, "Pay Yarn House") in guide_of(html) and "10000.00 is still unpaid on bill V-1." in guide_of(html)
+    # the header shows the amount and the same link as a plain button
+    head = head_of(html)
+    assert "Outstanding 10000.00" in head and "btn primary" not in head and "Pay vendor" not in html
+    assert re.search(rf'<a class="btn" href="{re.escape(escape(link))}"[^>]*>Pay supplier</a>', head)
+
+    # someone who may not enter a payment sees the amount and what the bill waits for, and no link to Money paid
+    biller = role_user("page_biller", {"purchases.invoice": ["view", "edit"]}, ns.factory)
+    html = page(biller, "invoice_detail", inv.pk)
+    assert "Waiting for: Pay Yarn House" in guide_of(html) and "Outstanding 10000.00" in head_of(html)
+    assert reverse("voucher_payment") not in html
+    # may fill the form but could not open the voucher it makes: the guide does not offer it, so the header does not either
+    half = role_user("half", {"purchases.invoice": ["view"], "ledger.voucher": ["create"]}, ns.factory)
+    assert reverse("voucher_payment") + "?" not in page(half, "invoice_detail", inv.pk)
+
+    pay(ns, inv, "10000")
+    html = page(ns.owner, "invoice_detail", inv.pk)
+    assert "This supplier bill is paid." in guide_of(html) and "Settled" in head_of(html) and "Pay supplier" not in html
+    invoices.cancel_invoice(billed(ns, received(ns), no="V-2"), user=ns.owner, reason="wrong")
+    cancelled = PurchaseInvoice.objects.get(vendor_invoice_no="V-2")
+    assert "This supplier bill was cancelled." in guide_of(page(ns.owner, "invoice_detail", cancelled.pk))
+
+
+def test_the_return_page_offers_posting_only_when_the_return_can_be_posted(ns):
+    g1 = received(ns, rejected="20")
+    note = DebitNote.objects.get(grn=g1)
+    html = page(ns.owner, "debitnote_detail", note.pk)
+    assert escape(WAITS_FOR_BILL) in guide_of(html) and "btn primary" not in html and 'value="post"' not in html
+    billed(ns, g1, qty="100")
+    html = page(ns.owner, "debitnote_detail", note.pk)
+    assert button("#do-next", "Return rejected goods to supplier") in guide_of(html)
+    assert '<form method="post" id="do-next">' in html and 'value="post">Post return</button>' in html
+    r = login(ns.owner).post(reverse("debitnote_detail", args=[note.pk]), {"action": "post"}, follow=True)
+    html = r.content.decode()
+    assert "This return is posted." in guide_of(html) and 'value="post"' not in html
+    assert DebitNote.objects.get(pk=note.pk).status == "posted"
+    # the goods receipt names the same return while it waits, and links to it only for a role that may open it
+    g2 = received(ns, rejected="5")
+    assert reverse("debitnote_detail", args=[DebitNote.objects.get(grn=g2).pk]) in page(ns.owner, "grn_detail", g2.pk)
+    keeper = role_user("grn_only", {"purchases.grn": ["view", "edit"]}, ns.factory)
+    html = page(keeper, "grn_detail", g2.pk)
+    assert "/purchases/debit-notes/" not in html and "Draft debit note" in html
+
+
+# ---------------- the lists ----------------
+
+def test_each_list_names_the_next_step_of_every_row(ns):
+    po = order(ns, qty="200")
+    g1 = received(ns, po, qty="100")
+    inv = billed(ns, g1)
+    g2 = draft_grn(ns, po, qty="50")
+    drafted = draft_po(ns)
+
+    html = page(ns.owner, "po_list")
+    assert '<th scope="col">Next step</th>' in html
+    assert f'<a class="btn" href="{reverse("grn_detail", args=[g2.pk])}">Check quality</a>' in row_with(html, po.number)
+    assert f'<a class="btn" href="{reverse("po_detail", args=[drafted.pk])}">Submit order</a>' in html
+
+    html = page(ns.owner, "grn_list")
+    assert '<th scope="col">Next step</th>' in html
+    assert f'<a class="btn" href="{escape(pay_link(ns, inv, "10000.00"))}">Pay Yarn House</a>' in row_with(html, g1.number)
+    assert f'<a class="btn" href="{reverse("grn_detail", args=[g2.pk])}">Check quality</a>' in html
+
+    html = page(ns.owner, "invoice_list")
+    assert '<th scope="col">Next step</th>' in html
+    assert f'<a class="btn" href="{escape(pay_link(ns, inv, "10000.00"))}">Pay Yarn House</a>' in row_with(html, inv.number)
+    pay(ns, inv, "10000")
+    assert "Pay Yarn House" not in page(ns.owner, "invoice_list") and "Pay Yarn House" not in page(ns.owner, "grn_list")
+
+    # a role that may only look gets no button on any row
+    looker = role_user("list_looker", {"purchases.po": ["view"], "purchases.grn": ["view"], "purchases.invoice": ["view"]}, ns.factory)
+    for name in ("po_list", "grn_list", "invoice_list"):
+        html = page(looker, name)
+        assert "Next step" in html and 'class="btn" href' not in html[html.index("<tbody>"):html.index("</tbody>")], name
+
+
+def test_the_lists_never_show_another_factorys_documents_or_their_steps(ns, factory2):
+    po = order(ns)
+    g1 = received(ns, po)
+    inv = billed(ns, g1)
+    far = role_user("far_buyer", {"purchases.po": ["view", "edit"], "purchases.grn": ["view", "create", "edit"],
+                                  "purchases.invoice": ["view", "create", "edit"], "ledger.voucher": ["view", "create"]}, factory2)
+    for name, number in (("po_list", po.number), ("grn_list", g1.number), ("invoice_list", inv.number)):
+        html = page(far, name)
+        assert number not in html and "Pay Yarn House" not in html and "<tbody>" not in html, name
+    for name, doc in (("po_detail", po), ("grn_detail", g1), ("invoice_detail", inv)):
+        assert login(far).get(reverse(name, args=[doc.pk])).status_code == 404
+
+
+def test_the_lists_ask_each_permission_once_however_many_rows_they_show(ns):
+    from django.db import connection
+    from django.test.utils import CaptureQueriesContext
+
+    def asked(name):
+        c = login(ns.owner)
+        with CaptureQueriesContext(connection) as q:
+            assert c.get(reverse(name)).status_code == 200
+        return (len([x for x in q.captured_queries if "core_rolepermission" in x["sql"]]),
+                len([x for x in q.captured_queries if "ledger_billallocation" in x["sql"]]), len(q))
+
+    names = ("po_list", "grn_list", "invoice_list")
+    billed(ns, received(ns, order(ns)), no="V-0")
+    one = {name: asked(name) for name in names}
+    for n in range(1, 4):
+        billed(ns, received(ns, order(ns)), no=f"V-{n}")
+    four = {name: asked(name) for name in names}
+    for name in names:
+        assert four[name][0] == one[name][0], name              # three more rows, no permission asked again
+        assert four[name][1] == one[name][1] == 1, name         # one supplier: its open bills are read once for the page
+        assert four[name][2] - one[name][2] <= 3 * 7, name      # a bounded number of reads per row
+
+
+# ---------------- the supplier bill link and the active factory ----------------
+
+def test_the_bill_link_ticks_that_goods_receipts_lines_and_lists_the_suppliers_others(ns):
+    a, b = received(ns, qty="100"), received(ns, qty="40")
+    r = login(ns.owner).get(bill_url(ns, b))
+    assert r.status_code == 200
+    assert {row["gl"].grn_id: row["use"] for row in r.context["grn_lines"]} == {a.pk: False, b.pk: True}
+    html = r.content.decode()
+    assert f'name="use_{b.lines.get().pk}" checked' in html and f'name="use_{a.lines.get().pk}" checked' not in html
+    # without the goods receipt in the link the form is as before: everything left to bill is ticked
+    r = login(ns.owner).get(reverse("invoice_new"), {"vendor": ns.vendor.pk})
+    assert {row["gl"].grn_id: row["use"] for row in r.context["grn_lines"]} == {a.pk: True, b.pk: True}
+    assert not PurchaseInvoice.objects.exists()
+
+
+def test_the_bill_link_sends_you_back_when_another_factory_is_active(ns, factory2):
+    g1 = received(ns)
+    url = bill_url(ns, g1)
+    back = reverse("grn_detail", args=[g1.pk])
+    told = f"These goods were received in {ns.factory.name}. Choose it in the top bar, then press the button again."
+    c = login(ns.owner)
+    for mode in (str(factory2.pk), "all"):
+        c.post(reverse("factory_switch"), {"factory": mode})
+        r = c.get(url, follow=True)
+        assert r.redirect_chain == [(back, 302)], mode
+        assert told in r.content.decode()
+    # the link never chooses the factory: a made-up factory in it changes nothing
+    c.post(reverse("factory_switch"), {"factory": str(factory2.pk)})
+    r = c.get(reverse("invoice_new"), {"vendor": ns.vendor.pk, "factory": ns.factory.pk})
+    assert r.status_code == 200 and r.context["factory"] == factory2 and r.context["grn_lines"] == []
+    c.post(reverse("factory_switch"), {"factory": str(ns.factory.pk)})
+    r = c.get(url)
+    assert r.status_code == 200 and r.context["factory"] == ns.factory and len(r.context["grn_lines"]) == 1
+
+
+def test_the_bill_link_never_sends_anyone_to_a_goods_receipt_they_cannot_open(ns, factory2):
+    g1 = received(ns)
+    url = bill_url(ns, g1)
+    # may enter bills in both factories but may not open goods receipts: no redirect to a 403
+    biller = role_user("bills_only", {"purchases.invoice": ["create", "view"]}, ns.factory)
+    biller.allowed_factories.add(factory2)
+    c = login(biller)
+    c.post(reverse("factory_switch"), {"factory": str(factory2.pk)})
+    r = c.get(url)
+    assert r.status_code == 200 and r.context["factory"] == factory2
+    c.post(reverse("factory_switch"), {"factory": "all"})
+    r = c.get(url, follow=True)
+    assert r.redirect_chain == [(reverse("invoice_list"), 302)] and "Choose a single factory" in r.content.decode()
+    # works in the other factory only: the goods receipt is not theirs to see, so nothing about it is said
+    far = role_user("far_biller", {"purchases.invoice": ["create", "view"], "purchases.grn": ["view"]}, factory2)
+    r = login(far).get(url)
+    assert r.status_code == 200 and r.context["factory"] == factory2 and ns.factory.name not in r.content.decode()

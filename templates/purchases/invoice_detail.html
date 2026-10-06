@@ -3,7 +3,8 @@
 {% block content %}
   <div class="page-head"><h1 class="page-title">{{ inv.number|default:"Draft invoice" }}</h1>
     <span class="pill {% if inv.status == 'posted' %}success{% elif inv.status == 'cancelled' %}danger{% else %}warning{% endif %}">{{ inv.get_status_display }}</span>
-    <div class="actions">{% if inv.status == "draft" and can_edit %}{% url 'invoice_edit' inv.pk as eu %}{% url 'invoice_delete' inv.pk as du %}{% include "partials/row_actions.html" with edit_url=eu delete_url=du %}{% endif %}{% include "partials/settle.html" with label="Pay vendor" %}<a class="btn ghost" href="{% url 'invoice_list' %}">All invoices</a></div></div>
+    <div class="actions">{% if inv.status == "draft" and can_edit %}{% url 'invoice_edit' inv.pk as eu %}{% url 'invoice_delete' inv.pk as du %}{% include "partials/row_actions.html" with edit_url=eu delete_url=du %}{% endif %}{% include "partials/settle.html" with label="Pay supplier" plain=True %}<a class="btn ghost" href="{% url 'invoice_list' %}">All invoices</a></div></div>
+  {% include "purchases/_purchase_guide.html" with done="This supplier bill is paid." shut="This supplier bill was cancelled." %}
   <div class="island"><div class="field-row">
     <div><div class="label muted">Vendor</div>{{ inv.vendor.name }}</div><div><div class="label muted">Vendor invoice</div>{{ inv.vendor_invoice_no }} · {{ inv.vendor_invoice_date|date:"d M Y" }}</div>
     <div><div class="label muted">Factory</div>{{ inv.factory.code }}</div><div><div class="label muted">Booked on</div>{{ inv.date|date:"d M Y" }}</div>
@@ -37,7 +38,7 @@
     </div>
     <div class="island"><h2>Actions</h2>
       {% if inv.is_direct and inv.status == "draft" %}<p class="muted">Posting brings the goods into stock at {{ inv.location.name }} and books the purchase.</p>{% endif %}
-      {% if inv.status == "draft" and can_edit %}<form method="post">{% csrf_token %}<button class="btn primary" name="action" value="post">Post invoice</button> <button class="btn danger" name="action" value="discard">Discard draft</button></form>{% endif %}
+      {% if inv.status == "draft" and can_edit %}<form method="post" id="do-next">{% csrf_token %}<button class="btn primary" name="action" value="post">Post supplier bill</button> <button class="btn danger" name="action" value="discard">Discard draft</button></form>{% endif %}
       {% if inv.status == "posted" and can_cancel %}<form method="post" style="max-width:420px">{% csrf_token %}<input type="hidden" name="action" value="cancel"><div class="field"><label for="why">Cancel with a reason</label><input id="why" name="reason" type="text" required></div><button class="btn danger">Cancel invoice</button></form>{% endif %}
       {% if inv.status == "cancelled" %}<p class="muted">{{ inv.notes }}</p>{% endif %}
     </div>

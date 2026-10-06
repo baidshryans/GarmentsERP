@@ -6,9 +6,10 @@
   <div class="steps"><a class="step {% if not status %}current{% endif %}" href="{% url 'po_list' %}">All</a>{% for v, l in statuses %}<a class="step {% if status == v %}current{% endif %}" href="?status={{ v }}">{{ l }}</a>{% endfor %}</div>
   <div class="island">
     {% if pos %}<div class="table-wrap"><table>
-      <thead><tr><th scope="col">Number</th><th scope="col">Date</th><th scope="col">Vendor</th><th scope="col">Factory</th><th scope="col" class="num">Value</th><th scope="col">Status</th><th scope="col" aria-label="Actions"></th></tr></thead>
+      <thead><tr><th scope="col">Number</th><th scope="col">Date</th><th scope="col">Vendor</th><th scope="col">Factory</th><th scope="col" class="num">Value</th><th scope="col">Status</th><th scope="col">Next step</th><th scope="col" aria-label="Actions"></th></tr></thead>
       <tbody>{% for po in pos %}<tr><td><a href="{% url 'po_detail' po.pk %}">{{ po.number|default:"Draft" }}</a></td><td>{{ po.date|date:"d M Y" }}</td><td>{{ po.vendor.name }}</td><td>{{ po.factory.code }}</td><td class="num">{{ po.total }}</td>
         <td>{% if po.status == "received" or po.status == "approved" %}<span class="pill success">{{ po.get_status_display }}</span>{% elif po.status == "pending_approval" %}<span class="pill warning">{{ po.get_status_display }}</span>{% else %}<span class="pill">{{ po.get_status_display }}</span>{% endif %}</td>
+        <td>{% if po.next %}<a class="btn" href="{{ po.next.url }}">{{ po.next.label }}</a>{% endif %}</td>
         <td>{% if can_edit and po.status == "draft" %}{% url 'po_edit' po.pk as eu %}{% url 'po_delete' po.pk as du %}{% include "partials/row_actions.html" with edit_url=eu delete_url=du %}{% endif %}</td></tr>{% endfor %}</tbody>
     </table></div>{% else %}<div class="empty"><div class="hand">No purchase orders</div></div>{% endif %}
   </div>

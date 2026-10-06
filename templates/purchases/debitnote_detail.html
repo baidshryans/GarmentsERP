@@ -3,10 +3,11 @@
 {% block content %}
   <div class="page-head"><h1 class="page-title">{{ note.number|default:"Draft debit note" }}</h1>
     <span class="pill {% if note.status == 'posted' %}success{% elif note.status == 'cancelled' %}danger{% else %}warning{% endif %}">{{ note.get_status_display }}</span>
-    <div class="actions">{% if note.status == "draft" and note.kind == "return" and can_edit %}{% url 'debitnote_edit' note.pk as eu %}{% url 'debitnote_delete' note.pk as du %}{% include "partials/row_actions.html" with edit_url=eu delete_url=du %}{% endif %}<a class="btn ghost" href="{% url 'debitnote_list' %}">All debit notes</a></div></div>
+    <div class="actions">{% if note.status == "draft" and note.kind == "return" and can_edit %}{% url 'debitnote_edit' note.pk as eu %}{% url 'debitnote_delete' note.pk as du %}{% include "partials/row_actions.html" with edit_url=eu delete_url=du %}{% endif %}<a class="btn ghost" href="{% url 'debitnote_list' %}">All returns</a></div></div>
+  {% include "purchases/_purchase_guide.html" with done="This return is posted." shut="This return was cancelled." %}
   <div class="island"><div class="field-row">
     <div><div class="label muted">Vendor</div>{{ note.vendor.name }}</div><div><div class="label muted">Kind</div>{{ note.get_kind_display }}</div>
-    <div><div class="label muted">Date</div>{{ note.date|date:"d M Y" }}</div><div><div class="label muted">GRN</div>{% if note.grn %}<a href="{% url 'grn_detail' note.grn.pk %}">{{ note.grn.number }}</a>{% else %}—{% endif %}</div></div>
+    <div><div class="label muted">Date</div>{{ note.date|date:"d M Y" }}</div><div><div class="label muted">GRN</div>{% if note.grn and can_open_grn %}<a href="{% url 'grn_detail' note.grn.pk %}">{{ note.grn.number }}</a>{% elif note.grn %}{{ note.grn.number }}{% else %}—{% endif %}</div></div>
     <p class="muted">{{ note.reason }}</p>
     {% if note.voucher %}<p class="muted">Books: <a href="{% url 'voucher_detail' note.voucher.pk %}">{{ note.voucher.number }}</a></p>{% endif %}</div>
   <div class="island"><div class="table-scroll"><table>
@@ -14,6 +15,6 @@
     <tbody>{% for l in lines %}<tr><td>{{ l.item }}</td><td>{{ l.roll.label_code|default:"" }}</td><td class="num">{{ l.qty|floatformat:"-3" }}</td><td class="num">{{ l.rate|floatformat:"-4" }}</td><td class="num">{{ l.amount }}</td></tr>{% endfor %}</tbody>
     <tfoot><tr><td colspan="4">Total{% if note.tax_total %} (including GST {{ note.tax_total }}){% endif %}</td><td class="num">{{ note.total }}</td></tr></tfoot></table></div>
     {% if note.kind == "rejection" and note.status == "draft" %}<p class="muted">The amount is filled in when you post: it is whatever the vendor billed for these rejected pieces, and posting is only possible once that invoice is booked.</p>{% endif %}</div>
-  {% if note.status == "draft" and can_edit %}<form method="post">{% csrf_token %}<button class="btn primary" name="action" value="post">Post debit note</button></form>{% endif %}
+  {% if note.status == "draft" and can_edit and can_post %}<form method="post" id="do-next">{% csrf_token %}<button class="btn primary" name="action" value="post">Post return</button></form>{% endif %}
   {% if note.status != "cancelled" and can_cancel %}<div class="island" style="margin-top:16px"><form method="post" style="max-width:420px">{% csrf_token %}<input type="hidden" name="action" value="cancel"><div class="field"><label for="why">Cancel{% if note.status == "posted" %} (reason){% endif %}</label><input id="why" name="reason" type="text"></div><button class="btn danger">Cancel debit note</button></form></div>{% endif %}
 {% endblock %}

@@ -192,3 +192,15 @@ def test_home_for_a_user_with_no_role_still_opens(company):
 def test_page_heading_matches_the_menu_wording(company, owner, url_name, title):
     html = _client(owner).get(reverse(url_name)).content.decode()
     assert re.search(r'<h1 class="page-title">\s*' + re.escape(title) + r"\s*</h1>", html), url_name
+
+
+def test_the_menu_reads_the_users_permissions_once_not_once_per_entry(company, accountant, django_assert_max_num_queries):
+    from django.db import connection
+    from django.test.utils import CaptureQueriesContext
+
+    c = _client(accountant)
+    with CaptureQueriesContext(connection) as seen:
+        html = c.get(reverse("help")).content.decode()
+    asked = [q["sql"] for q in seen.captured_queries if "rolepermission" in q["sql"].lower()]
+    assert len(asked) <= 3, len(asked)          # the menu's one read, plus the page's own check
+    assert "Supplier bills" in html and "Reset database" not in html      # and the menu is still filtered by role

@@ -5,7 +5,7 @@ from django.urls import NoReverseMatch, reverse
 from django.utils import timezone
 
 from .help import anchor_for as help_anchor_for
-from .models import Company, Factory
+from .models import Company, Factory, RolePermission
 
 class Sub:
     """A fold-away section inside a menu group, so a long group reads as a few headings instead of one long list."""
@@ -159,10 +159,20 @@ def _built(url_name):
     return True
 
 
-def _allowed(user, screen):
+def _menu_perms(user):
+    """Every (screen, action) the user's roles grant, read once for the whole menu instead of once per entry.
+    None stands for everything (a superuser); the rule is the same as `User.has_screen_perm`."""
+    if not user.is_active:
+        return set()
+    if user.is_superuser:
+        return None
+    return set(RolePermission.objects.filter(role__users=user).values_list("screen", "action"))
+
+
+def _allowed(perms, screen):
     """'app.screen' needs view; 'app.screen.create' (or .edit ...) needs that action instead."""
     base, _, action = screen.rpartition(".") if screen.count(".") == 2 else (screen, "", "view")
-    return user.has_screen_perm(base, action or "view")
+    return perms is None or (base, action or "view") in perms
 
 
 def _asset_version():
@@ -180,13 +190,14 @@ def app_shell(request):
     if not user.is_authenticated:
         return {"today": today, "asset_v": asset_v}
     groups, index = [], []
+    perms = _menu_perms(user)
     current = request.resolver_match.url_name if getattr(request, "resolver_match", None) else None
 
     def visible(entries):
         return [
             {"url_name": e[0], "label": e[1], "current": e[0] == current, "alt": e[3] if len(e) > 3 else ""}
             for e in entries
-            if (e[2] == "core.home" or _allowed(user, e[2])) and _built(e[0])
+            if (e[2] == "core.home" or _allowed(perms, e[2])) and _built(e[0])
         ]
 
     for title, items in NAV:

@@ -44,7 +44,7 @@ Today these activities are understood to run across separate Excel files (challa
 | O1 | One integrated system for sales, purchase, inventory, production, job work and accounts | No parallel Excel registers for stock, challans or outstanding after go-live |
 | O2 | Full control of fabric and trims from purchase to finished piece | Fabric ledger reconciles by roll / lot: received = issued + balance + cut waste + remnants |
 | O3 | Visibility of every order and lot at every stage | Any order, style or lot can be traced to its current stage and fabricator in one search |
-| O4 | Control over fabricators | Issued vs received, shortage, rejection and wastage reported per fabricator, with labour paid only on accepted pieces |
+| O4 | Control over fabricators | Issued vs received, shortage, rejection and wastage reported per fabricator, with labour paid by the terms of each fabricator's rate: on accepted pieces, or on pieces received |
 | O5 | Faster, error-free billing | Barcode scan and size-colour matrix entry; GST, e-invoice and e-way bill data generated automatically |
 | O6 | Tight receivables management | Customer-wise outstanding and ageing, automated reminders, credit limit checks |
 | O7 | Profit visibility | Profitability per style and Gross / Net Profit available mid-year without manual work |
@@ -130,7 +130,7 @@ The ERP links four cycles — buy, make, job work and sell — through one stock
 
 &#91;embedded content: end-to-end process · purchase, production, job work, sales\]
 
-A made-to-order sale order raises a production order directly; ready-stock orders bill from finished goods. Pieces rejected at QC go back to the fabricator as rework, and labour is paid only on accepted pieces.
+A made-to-order sale order raises a production order directly; ready-stock orders bill from finished goods. Pieces rejected at QC go back to the fabricator as rework. Labour is paid on accepted pieces or on pieces received, as the fabricator's labour rate says (JOB-07).
 
 Printing on the cut panels follows cutting, before the panels are bundled and sent for stitching. Other value-add processes (embroidery, washing, dyeing) sit between cutting and finishing and can run through several issue and receive cycles with different vendors. Every step shown — cutting, printing, stitching, value-add, ironing, finishing, packing — can be run in-house at any of the business's factories or sent to a subcontractor, and goods can move forward, skip optional steps, go back for rework, or move between factories.
 
@@ -304,9 +304,9 @@ Stock is held in four categories, each by location:
 | JOB-04 | Warning if a lot already open with one fabricator is issued to a second fabricator | Must |
 | JOB-05 | Fabricator ledger in two parts: (a) material / cut pieces issued, (b) goods in process | Must |
 | JOB-06 | Labour rate types per fabricator: A per piece; B per piece + add-ons (embroidery, finishing); C size-wise; D flat per lot | Must |
-| JOB-07 | Labour paid only on pieces accepted at QC, with deductions for rejection, shortage and missing trims | Must |
+| JOB-07 | Each labour rate sets the pay basis: pieces accepted at QC, or every piece received back. The basis is fixed on the challan. On pieces received, rejected pieces are paid, rework earns the rework charge alone, and a shortage is deducted only if chosen; the owner can waive a deduction. Deductions for shortage and missing trims otherwise apply. No piece is paid twice, and nothing is paid on self-reported completion | Must |
 | JOB-08 | Shortage / loss report per fabricator: pieces and trims issued vs received | Must |
-| JOB-09 | Rework: rejected pieces re-issued with rework charges | Must |
+| JOB-09 | Rework: rejected pieces re-issued with rework charges. When part of a bundle is accepted, the rework pieces are split into their own bundle so the accepted pieces move on | Must |
 | JOB-10 | Later processes (washing, embroidery) issued to different vendors at their own rates | Must |
 | JOB-11 | Fabricator bill / labour statement generated from accepted quantities, posted to the fabricator's account with TDS where applicable | Must |
 | JOB-12 | Ageing of material lying with each fabricator | Should |
@@ -324,7 +324,7 @@ Stock is held in four categories, each by location:
 | MOB-07 | Supervisor view of all fabricators' bundle status, with the same QR scan to receive goods | Must |
 | MOB-08 | Usable on low-cost Android phones; entries made without signal sync when the connection returns | Should |
 
-**Basis of pay.** The client's formula pays on pieces marked Completed. This BRD keeps JOB-07: pay is calculated on pieces accepted at QC, so a fabricator cannot be paid for pieces still short, rejected or not yet received. Q19 asks the owner to confirm.
+**Basis of pay.** The client's formula pays on pieces marked Completed. The owner answered Q19 in October 2026: stitchers are paid on the pieces they stitch and return, and the owner bears rejects and losses. JOB-07 therefore makes the basis a setting on each labour rate: pieces accepted at QC, or pieces received back. Either way pay is calculated only from pieces the supervisor has counted and QC has checked, never from a fabricator's own "Done" mark, and never for pieces not returned.
 
 ### 6.11 Masters (MST)
 
@@ -420,7 +420,7 @@ These rules are enforced by the system, not left to user discipline. "Block" mea
 | BR-14 | Cash receipts from a party cross the yearly limit | Warn |
 | BR-15 | Production users never see MTO customer name or phone | System rule |
 | BR-16 | Saved invoices cannot be deleted, only cancelled or reversed with a credit note; all edits are audit-logged | System rule |
-| BR-17 | Labour is payable only on QC-accepted pieces | System rule |
+| BR-17 | Labour is payable on the pieces the challan's pay basis names (QC-accepted, or received back), once each, and only after supervisor count and QC | System rule |
 | BR-18 | Style BOM change on a re-made style keeps the previous version | Warn |
 | BR-19 | Purchase orders above a set value | Approve |
 | BR-20 | Locked periods (after GST filing or audit) cannot be edited without owner unlock | Block |
@@ -531,9 +531,9 @@ These answers change the design, so we need them before build starts. Please fil
 | # | Question | Why it matters | Owner's answer |
 | --- | --- | --- | --- |
 | Q16 | Is the Google Sheets / AppSheet tracker a stopgap until the ERP goes live, or is it being considered instead of the ERP? | A no-code tracker has no fabric ledger, GST, billing or accounts; this sets scope, cost and timeline expectations |  |
-| Q17 | Between fabricators and ironing, is there a QC check? Are outside processes (embroidery, printing, washing) used? | The client's flow lists only cutting, fabricators, ironing / finishing, stock and dispatch |  |
+| Q17 | Between fabricators and ironing, is there a QC check? Are outside processes (embroidery, printing, washing) used? | The client's flow lists only cutting, fabricators, ironing / finishing, stock and dispatch | Answered (Oct 2026): stitched pieces are checked when received from the stitcher; that check is the QC and ironing follows it. Printing and embroidery is one process before stitching, in-house or outside. |
 | Q18 | Is ₹25 the actual stitching rate? Is it the same for all 10 fabricators, all styles and all sizes? | Decides which rate types (JOB-06) are needed and how earnings are calculated |  |
-| Q19 | Should fabricators be paid on pieces they mark Done, or on pieces accepted at QC (our recommendation)? | Paying on self-reported completion invites over-claiming |  |
+| Q19 | Should fabricators be paid on pieces they mark Done, or on pieces accepted at QC (our recommendation)? | Paying on self-reported completion invites over-claiming | Answered (Oct 2026): on pieces stitched and returned, not on QC acceptance; losses and rejects are the owner's. Built as a pay basis per labour rate (JOB-07). |
 | Q20 | Low-stock alert below 50: stock of what — finished pieces per SKU, per style, all finished goods, or raw material? One level for all items? | Defines the alert rule in INV-06 |  |
 | Q21 | Who receives the 6 PM WhatsApp summary, and what must it show? Is a WhatsApp Business account in place? | Report content, recipients and integration set-up |  |
 | Q22 | Is a branded Play Store app ("YourBrand Factory App") required, or is an installable mobile web app enough? | A store app adds publishing, updates and maintenance cost |  |

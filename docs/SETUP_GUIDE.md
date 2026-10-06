@@ -224,6 +224,7 @@ Add a template for any rate or section you use that is missing. Confirm every ra
 | Allow negative stock | Off blocks any issue above stock on hand | **Off** |
 | PO approval limit | A PO above this value needs the owner's approval. 0 = every PO | `50000` |
 | BOM variance tolerance % | Fabric used more or less than the BOM by more than this is flagged at cutting | `5` |
+| Pieces per box | Pieces packed in one box. Packing then counts the boxes and prints a label for each (section 24). A style can have its own figure (10.1). Blank or 0 = boxes are not counted | Your usual box, for example `12` |
 
 A change applies from that day. Earlier stock keeps its value.
 
@@ -330,6 +331,7 @@ A process is a step of work. Each has a kind, which tells the system how to trea
 | STITCH | Stitching | Stitching |
 | EMB | Embroidery | Value-add |
 | PRINT | Printing | Value-add |
+| PRINTEMB | Printing and embroidery | Value-add |
 | WASH | Washing | Value-add |
 | DYE | Dyeing | Value-add |
 | IRON | Ironing and pressing | Finishing |
@@ -339,7 +341,9 @@ A process is a step of work. Each has a kind, which tells the system how to trea
 
 Add steps you actually use: `FLAT` Flatlock (Stitching), `BARTACK` Bartack and buttonhole (Stitching), `HEATPRESS` Heat transfer (Value-add).
 
-Keep processes **coarse**. If one fabricator does stitching, flatlock and bartack in a single job at one rate, treat it as one process `STITCH`. Split only when different people do them or you pay separately.
+Keep processes **coarse**. If one fabricator does stitching, flatlock and bartack in a single job at one rate, treat it as one process `STITCH`. Split only when different people do them or you pay separately. **Printing and embroidery** is seeded as one process for the same reason: use it when both are done together at one rate, in-house or outside.
+
+**No loss allowed.** Tick this on a process where pieces cannot be lost, such as ironing (it is ticked on **Ironing and pressing** from the start). When bundles leave that step in-house, the Loss, Rejected and Short boxes are not offered and the system refuses a count: pieces out must equal pieces in. It applies to in-house moves only; a receipt from a fabricator can still be short.
 
 ---
 
@@ -382,6 +386,22 @@ Cut in-house, stitched outside, finished in-house.
 | 9 | Packing | Yes | In-house | LDH1 | | 0 |
 
 Optional steps (embroidery, printing, washing) are ticked per lot by the planner.
+
+### 8.2a Print first, stitch outside (seeded)
+
+Cut in-house, printed and embroidered before stitching, stitched outside, ironed and packed in-house. There is no separate QC step: the stitched pieces are checked when they are received from the fabricator (23.4), and that check is the QC.
+
+| Seq | Process | Mandatory | Assignment |
+| --- | --- | --- | --- |
+| 1 | Cutting | Yes | In-house |
+| 2 | Printing and embroidery | Yes | In-house |
+| 3 | Stitching | Yes | Subcontractor |
+| 4 | Ironing and pressing | Yes | In-house |
+| 5 | Packing | Yes | In-house |
+
+Set a **Rate** on each in-house step you pay by the piece (cutting, printing and embroidery, ironing, packing): that rate times the pieces becomes in-house labour in the lot's cost. If a lot's printing and embroidery goes to an outside job worker, change that step to a fabricator on the lot (section 21) and send it by challan.
+
+An installation set up before this route existed gets it by running `python manage.py seed_defaults` once. Nothing already there is changed, and a style uses the route only when you choose it as the style's default route.
 
 ### 8.3 Route B — Jogger with embroidered logo
 
@@ -435,7 +455,7 @@ Goods moving from LDH1 to LDH2 are an **inter-factory transfer** and are valued 
 
 - Do not put a new route in for every fabricator. Use "Default party" or choose at planning time.
 - Do not use the route rate as the fabricator's pay agreement. Pay is set in **Labour rates** (Part 11). Keep both in agreement.
-- Do not leave out QC or packing. They are what lets finished goods reach stock and billing.
+- Do not leave out packing: it is what lets finished goods reach stock and billing. A QC step is needed only for a check you do in-house as its own stage; pieces back from a fabricator are always checked on the receipt.
 
 ---
 
@@ -562,11 +582,12 @@ Other fabricators in the examples: `Royal Embroidery` (embroidery, Mobile `98765
 | HSN code | 6103 |
 | Default route | Route B — Jogger with embroidered logo |
 | MRP | 699 |
+| Pieces per box | 12 (blank = the company's setting, section 5) |
 | Colours | Black, Navy, Grey Melange |
 | Sizes | S, M, L, XL, XXL |
 | Image | Photo (optional; a thumbnail is made) |
 
-Style no, Name, Product, Default route, Colours and Sizes are asked every time. **Description**, **MRP**, **Image** and **Archived** are under **More options**; so is **HSN code**, unless GST is switched on for the company, when it is asked every time.
+Style no, Name, Product, Default route, Colours and Sizes are asked every time. **Description**, **MRP**, **Pieces per box**, **Image** and **Archived** are under **More options**; so is **HSN code**, unless GST is switched on for the company, when it is asked every time.
 
 This creates **3 colours × 5 sizes = 15 SKUs**. For example:
 
@@ -633,7 +654,16 @@ Reading this: the base quantity applies to sizes M, and sizes listed in *size ov
 
 ## 11. Labour rates (what each fabricator is paid)
 
-*Make → Labour rates → New.* A rate is for one **fabricator + process**, with a start date. The first field is labelled **Fabricator or supplier**, because a supplier who also does job work can have a rate. Both start on "Choose…": the rate is not saved until you pick them ("Choose the fabricator or supplier.", "Choose the process."). A new rate never changes bills already made; it applies to challans issued after its date. Labour is paid **only on QC-accepted pieces**.
+*Make → Labour rates → New.* A rate is for one **fabricator + process**, with a start date. The first field is labelled **Fabricator or supplier**, because a supplier who also does job work can have a rate. Both start on "Choose…": the rate is not saved until you pick them ("Choose the fabricator or supplier.", "Choose the process."). A new rate never changes bills already made; it applies to challans issued after its date.
+
+**Pay on.** Every rate says which pieces the fabricator is paid for. It is fixed on each challan when the challan is made, so changing the rate later never changes a challan already out.
+
+| Pay on | What is paid | Rework | Pieces not returned (shortage) |
+| --- | --- | --- | --- |
+| **Pieces accepted at QC** (the default) | Only pieces that pass QC | Paid when the redone pieces pass: the rate plus the rework rate | Offered as a deduction, ticked |
+| **Pieces received back** | Every piece that comes back, rejected or not. The loss on rejected pieces is yours | The first pass is already paid, so redone pieces earn the rework rate alone (nothing, if it is 0) | Offered as a deduction, **not** ticked: lost pieces are yours unless you tick it |
+
+A fabricator who has no labour rate is paid the lot step's own rate, on accepted pieces.
 
 There are four rate types. Choose one under **Rate type**; the form then shows only that type's fields.
 
@@ -651,6 +681,7 @@ Every rate can also have a **rework rate per piece**: what the fabricator is pai
 | Fabricator | Process | Rate type | Details | From |
 | --- | --- | --- | --- | --- |
 | Gurpreet Garments | Stitching | Per piece | ₹26.00 per piece, rework ₹6.00 | 01-04-2026 |
+| Sharma Stitching | Stitching | Per piece | ₹25.00 per piece, **pay on pieces received back**, rework ₹0 | 01-04-2026 |
 | Gurpreet Garments | Stitching | Per piece plus extras | ₹24.00 per piece + Flatlock ₹3.00 + Bartack ₹1.50 | 01-04-2026 |
 | Gurpreet Garments | Stitching (kids) | Different rate per size | 4-6Y ₹16, 6-8Y ₹18, 8-10Y ₹20 | 01-04-2026 |
 | Royal Embroidery | Embroidery | Per piece | ₹8.00 per piece | 01-04-2026 |
@@ -658,7 +689,7 @@ Every rate can also have a **rework rate per piece**: what the fabricator is pai
 
 If a fabricator's stitching rate goes to ₹28 from 1 July 2026, add a **new** rate dated `01-07-2026`. Do not edit the old one.
 
-**Deductions at billing.** When the labour bill is made, you can deduct shortage of pieces, missing trims, rejection penalty, or other amounts, and optionally apply TDS. These are entered per bill, not stored on the rate.
+**Deductions at billing.** When the labour bill is made, the screen offers the shortage of pieces and the missing trims it found, and you can optionally apply TDS. You tick what to take off on each bill; the owner can also waive a deduction for good (25.1). These are not stored on the rate.
 
 ---
 
@@ -859,12 +890,12 @@ Part A prepared the masters. This part follows one lot from the production order
 | --- | --- | --- |
 | 1 | Make → Production orders → New order → **Release order** (or **Release** in the list) | Order numbered; one **lot** per style and colour, each with its own copy of the route |
 | 2 | Lot → Next button **Issue fabric** | Rolls move from godown to cutting floor |
-| 3 | Lot → Next button **Record cutting**, then **Make bundles** (continues to the tags) | Fabric cost goes into the lot; pieces become **bundles** with QR tags |
+| 3 | Lot → Next button **Record cutting**, then **Make bundles** (continues to the tags) | Fabric cost goes into the lot; pieces become **bundles** with QR tags, less any pieces lost in cutting |
 | 4 | Lot → Next button **Move to …** (in-house step) or **Send to … for …** (fabricator step) | Bundle moves to the next step on the route |
-| 5 | Lot → Next button **Receive from …**, then **Check received pieces** | Accepted pieces become ready for the next step |
+| 5 | Lot → Next button **Receive from …**, then **Check received pieces** | Accepted pieces become ready for the next step; pieces for rework become a bundle of their own and go back |
 | 6 | Repeat 4–5 down the route | |
-| 7 | Lot → Next button **Pack into finished goods** | Pieces become saleable stock |
-| 8 | Challan → Next button **Make labour bill for …** (or Labour bills → **New labour bill**), then **Pay fabricator** on the posted bill | Fabricator paid for accepted pieces |
+| 7 | Lot → Next button **Pack into finished goods** | Pieces become saleable stock, counted into boxes when pieces per box is set |
+| 8 | Challan → Next button **Make labour bill for …** (or Labour bills → **New labour bill**), then **Pay fabricator** on the posted bill | Fabricator paid for the pieces his rate pays: accepted, or received |
 | 9 | Sell → Sale orders → New order → **Save and confirm**, then the Next button on each page: **Pack goods** → **Finish packing and make bill** → **Post bill** (or Quick billing for a counter sale) | Stock leaves, customer owes money |
 | 10 | Posted bill → Next button **Receive money from …** (or Money → Money received) | Customer's bill settled |
 
@@ -872,7 +903,8 @@ Part A prepared the masters. This part follows one lot from the production order
 
 - Quantities always balance: pieces out of a step = pieces received at the next + loss + rejection + shortage.
 - Moving a bundle **back** to an earlier step needs a reason.
-- A fabricator is paid only for pieces that **pass QC**.
+- A fabricator is paid by the terms of his labour rate: for pieces that **pass QC**, or for every piece **received back**. No piece is paid twice.
+- A step marked **no loss allowed** (ironing) lets no piece be lost in-house.
 - Posted documents are never edited or deleted. You cancel them (with a reason) and enter a correct one.
 - You only see and post in the factories assigned to you. Pick your factory in the top bar before posting.
 
@@ -1023,6 +1055,8 @@ Lot page → Next button **Issue fabric** (or **Fabric issue** in the Correction
 
 Rules: quantity must be above zero and cannot exceed the roll's balance; only fabric can be issued; at least one roll. If you mix rolls from different shade lots you get a warning and the issue is flagged "Mixed shade lots". The lot status moves from Planned to Cutting. After you save you go straight on to cutting.
 
+**How many pieces will this fabric give?** Once fabric is issued the page shows **Planned pieces**, **Fabric with the lot** and **Should give about N pieces**, worked out from the BOM's fabric per piece (wastage and size-wise figures included) in the planned size mix. If that is fewer than planned it says how many pieces short, so you can issue more before cutting. Each issue in "Issued so far" shows its own "≈ N pieces". The estimate needs a lot, so it first appears here, not when the fabric is bought.
+
 ### 22.2 Record the cutting
 
 Lot page → Next button **Record cutting** (or **Cutting** in the Corrections row) → *Record a lay*.
@@ -1042,12 +1076,16 @@ Press **Record cutting**.
 - You cannot use more than the roll holds on the cutting floor.
 - **Variance against the BOM.** The screen shows "Against the BOM (X expected): N%". If you go beyond the tolerance set in Inventory settings (default 5%) you get a warning. It does not block you.
 
+- **Pieces expected.** Under each lay: "Fabric burnt should give about N pieces · cut N", so you can compare what the fabric should have given with what was cut.
+- If the cutting step has a **rate** and is in-house, that rate times the pieces cut is added to the lot's cost as in-house labour.
+
 Each lay is numbered 1, 2, … You can record several lays for one lot.
 
 ### 22.3 Make bundles and print tags
 
-Under the lay, enter **Pieces per bundle** (for example 20) and press **Make bundles and QR tags**. After you save you go straight on to the tags.
+Under the lay, enter **Pieces per bundle** (for example 20). If pieces were lost or spoiled in cutting, enter them per size in **Lost in cutting**. Then press **Make bundles and QR tags**. After you save you go straight on to the tags.
 
+- Pieces lost in cutting are left out of the bundles, and can be no more than the pieces cut of that size. Their fabric stays in the lot's cost, and the cutting rate is still paid on every piece cut. The lot page shows **Lost in cutting**.
 - Bundles are made per size. The last bundle of a size may be smaller. They are numbered B001, B002, … across the lot.
 - One lay can be bundled only once.
 - Pieces now sit on the cutting floor with status **Cut**.
@@ -1088,7 +1126,9 @@ What the system checks:
 - **Going back:** moving to a step at or before the bundle's completed step counts as moving back. It needs a **Reason** and flags the bundle as rework.
 - When you open the screen from the lot's Next button, saving returns you to the lot. When you open it from the menu it stays on the screen, so you can keep scanning.
 - Inter-factory moves carry the lot's cost to the receiving factory automatically.
-- When a bundle leaves an in-house step that has a rate, labour is added to the lot cost.
+- When a bundle leaves an in-house step that has a rate, labour is added to the lot cost, on the pieces that pass. A bundle sent back is paid the step's rework rate for the stage it redoes, then the normal rate again once it moves on.
+- **No loss allowed.** For a bundle at a step marked so (ironing), the three boxes are replaced by "No loss allowed at this stage".
+- **Only take out loss, do not move.** When pieces are lost at an in-house step and the next step is a fabricator's, fill Loss, Rejected or Short, type a **Reason** and press this button. The pieces come out of the bundle where it stands. Do this before the challan: a challan sends whatever is in the bundle, and the fabricator would otherwise be shown short.
 
 ### 23.2 Issue to a fabricator (challan)
 
@@ -1114,7 +1154,7 @@ The challan page tells you what to do next, like the lot page. At the top is a *
 | Waiting on an over-receipt | **Approve over-receipt** | The receipt (owner only) |
 | Received, with bundles not yet checked | **Check received pieces** | The receipt, for QC (23.4) |
 | Checked, with a bundle QC sent back | **Send back for rework** | The rework challan form, on this lot and step |
-| Checked, with accepted pieces not yet on a labour bill | **Make labour bill for …** | New labour bill with the fabricator chosen (25.1) |
+| Checked, with payable pieces not yet on a labour bill | **Make labour bill for …** | New labour bill with the fabricator chosen (25.1) |
 | Accepted pieces on a draft labour bill | **Post labour bill** | The draft bill, to check and post |
 | Billed, or nothing left to do (everything rejected, or reworked on its own challan and paid) | none: "This challan is finished." | |
 | Cancelled | none: "This challan was cancelled." | |
@@ -1157,24 +1197,24 @@ Press **Receive**. Scanning the bundle tags ticks the rows.
 | --- | --- |
 | Accepted | Pieces that pass |
 | Rejected | Pieces that fail |
-| Rework (whole bundle) | Send the entire bundle back for rework |
+| Rework (send back) | Pieces to send back to the fabricator to be redone |
 | Reject reason | Required if any piece is rejected |
 | Rejected go to | **Rejects stock** (kept) or **Scrapped** (written off as loss) |
 
 Press **Save QC**. The rules:
 
 - Accepted + Rejected + Rework must equal the pieces received.
-- If rework is above zero, accepted must be zero. The whole bundle goes back.
+- Accepted and rework can be mixed. The rework pieces are then **split into a bundle of their own**, numbered after the first (B002 gives B002-R1), so the accepted pieces move on without waiting. The receipt shows "as bundle B002-R1" with a link to **print its tag**; put that tag on the pieces going back. With nothing accepted, the whole bundle goes back as it is.
 - QC is recorded once per bundle.
 
 Results:
 
 - **No rework:** the bundle becomes **Ready for next stage** and the step counts as complete for it. Move it on (23.1, or a new challan).
-- **Rework:** the bundle becomes **Awaiting rework**. It cannot move until you issue a **Rework challan** for it (the **Send back for rework** link, or Send to fabricator with Kind = Rework under More options), on the same step it came back from. The fabricator is then paid the rework rate.
+- **Rework:** the bundle (or the split bundle) becomes **Awaiting rework**. It cannot move until you issue a **Rework challan** for it (the **Send back for rework** link, or Send to fabricator with Kind = Rework under More options), on the same step it came back from. The form opens on the fabricator who did the step. When it comes back and passes, it moves on like any other bundle; it stays a separate bundle to the end. What the rework pays follows the rate's **Pay on** (section 11).
 - **Rejected:** goes to the Rejects location (or is scrapped).
 - When every bundle on the receipt has QC, the receipt is **QC done**, and checking the last line returns you to the lot. If your role cannot open lots you stay on the receipt, where the Next button names what comes next.
 
-Only **accepted pieces are payable**.
+What is payable follows the challan's **Pay on**: the accepted pieces, or every piece received (section 11).
 
 ### 23.5 A complete example: route B, lot JGR-104 Black
 
@@ -1200,6 +1240,14 @@ When bundles reach the packing step, open the lot page and press the Next button
 
 The pieces become **finished goods stock** at that location, valued at the lot's cost per piece (fabric + trims + labour). Each bundle becomes **Packed**. The message reads "N pieces packed into finished goods."
 
+**Boxes.** When **Pieces per box** is set (on the style, or the company's in Inventory settings), boxing and packing are one step:
+
+- Before you press Pack, the box shows what the ticked bundles fill, per size: "M 2 boxes of 12 + a short box of 9".
+- One size and colour to a box. What is left over after the full boxes goes in a **short box**.
+- After packing the message adds the boxes ("33 pieces packed into finished goods: 2 boxes of 12 and 1 short box of 9"), and **Packed into boxes** on the lot page lists each packing with **Print box labels**.
+- A box label shows the style, colour and size, the pieces in that box, "Box 2 of 3", "Short box" where it applies, the SKU barcode, the lot and the date.
+- Stock stays in **pieces**. A box is a count and a label, so pack the bundles of a size together to get the fewest short boxes.
+
 Rules: bundles must be in one factory and one lot, must have reached the packing step, and must have no rework pending. Locations such as transit, rejects and fabricator premises are not offered.
 
 The lot becomes **Completed** when none of its bundles is still live; packed, written-off and scrapped bundles all count as finished. When every lot is complete the order is **Completed**.
@@ -1219,7 +1267,7 @@ The lot becomes **Completed** when none of its bundles is still live; packed, wr
 *Make → Labour bills → New labour bill*, or the Next button **Make labour bill for …** on a challan or receipt whose accepted pieces are not on a bill yet. The button opens this screen with the fabricator already chosen. The bill is always made in the factory chosen in the top bar; **Factory** on this screen only shows it and is not a choice. If the challan belongs to another factory (or "All factories" is active), the button takes you back to the challan with "These pieces are in …. Choose it in the top bar, then press the button again."
 
 1. Choose the **Fabricator** (the **Factory** shown is the one active in the top bar), then **Show what is payable**.
-2. The screen lists **accepted QC pieces not yet paid**: Challan, Lot, Bundle, Accepted, Rate, Amount. It also lists the **deductions** it found: shortage of pieces (at lot cost) and missing trims (at unit cost).
+2. The screen lists the **checked pieces not yet paid**: Challan, Lot, Bundle, Accepted, **Pieces paid**, Rate, Amount. Pieces paid is the accepted pieces, or every piece received when the rate pays on pieces received (marked "received"). It also lists the **deductions** it found: shortage of pieces (at lot cost) and missing trims (at unit cost).
 3. Set the **Bill date**. To deduct TDS or add notes, open **More options** and choose a **TDS** template; left alone it is **No TDS**.
 4. Press **Save draft and review**.
 
@@ -1238,7 +1286,9 @@ Your figures will differ; the arithmetic is the point: earned − deductions, th
 
 Details:
 
-- Challans on a **Fixed amount per lot** rate pay in proportion to accepted pieces over pieces issued.
+- Challans on a **Fixed amount per lot** rate pay in proportion to the pieces paid over pieces issued.
+- **Deductions.** A ticked line is taken off this bill. An unticked line stays pending and is offered again on the next bill. A shortage on a challan paid on pieces received starts **unticked**; everything else starts ticked.
+- **We bear this… → Waive for good.** The owner can waive a pending deduction with a reason. It is then never offered again, and nothing is posted: the loss stays in the lot's cost and is carried by the pieces that are left.
 - Errors you may meet: the fabricator has no payable ledger; nothing is payable; deductions are more than earned.
 - On the draft, check the numbers, then press **Post bill** (or **Discard draft**). While a bill is a draft, the challans on it show the Next button **Post labour bill**, which opens it.
 
@@ -1337,7 +1387,7 @@ The order's Next button **Pack goods** (also a plain button in the order's heade
 
 Pack from and Date are asked every time. Transporter, LR / docket no., LR date, Vehicle no. and Notes are under **Transport details**: open it when the goods are booked with a transporter. It opens by itself when any of them is filled in.
 
-In the **Pieces in each carton** grid, rows are order lines with "Left to pack" and columns are cartons (two to start; **Add a carton** up to 30). Fill what goes in each carton. No carton may be empty, and you cannot pack more than is left on the order.
+In the **Pieces in each carton** grid, rows are order lines with "Left to pack" and columns are cartons (two to start; **Add a carton** up to 30). When pieces per box is set, **Fill cartons from pieces per box** fills the grid for what is left to pack, one size to a carton, up to 30 cartons; change any figure before saving. Fill what goes in each carton. No carton may be empty, and you cannot pack more than is left on the order.
 
 **Save draft** opens the packing list. There, **Finish packing and make bill** finishes the list and drafts the bill for the packed pieces in one step, then opens the bill (26.4). **Finish packing** only finishes the list; its Next button is then **Make bill**. Finishing checks stock at that location (less pieces on other packed lists that are not billed yet) and numbers the list. If the pieces are not in stock, or the bill cannot be drafted, nothing changes: the list stays a draft and the message says why. Status: Draft → Packed → Invoiced.
 
@@ -1521,7 +1571,10 @@ A supplier bill posts what you owe the supplier (reference = their bill number, 
 | "is waiting for rework at …, not …" | The rework challan is for a different step than the one the bundle came back from | Make the rework challan for the step named first |
 | "There is no labour rate for X…" | No rate for that fabricator and process | Add it in Labour rates, dated on or before the challan date |
 | Receipt shows "Over-receipt, needs approval" | Counted more than issued | Owner approves, or recount |
-| Nothing payable on a labour bill | No QC-accepted unpaid pieces | Complete QC first |
+| Nothing payable on a labour bill | No checked, unpaid pieces | Complete QC first |
+| "… allows no loss" | The bundle is at a step marked no loss allowed | Move it with no count. If pieces really are lost, untick **No loss allowed** on the process |
+| "the pieces lost cannot be more than the N cut" | Lost in cutting is above the pieces cut of that size | Correct the figure |
+| "These bundles first went out on different pay terms" | One rework challan mixes bundles paid on accepted and on received pieces | Make a separate rework challan for each |
 | "Pick a single factory in the top bar before entering a voucher" | Voucher entry needs one factory | Switch factory in the top bar |
 | "No rate found; enter one" | No customer rate, price list or last invoice rate | Add a price list rate (section 12) or type the rate |
 | "only X available at <location>" when finishing packing | Not enough stock at that location | Move or pack stock there first |
@@ -1531,6 +1584,8 @@ A supplier bill posts what you owe the supplier (reference = their bill number, 
 
 ## 31. What is not available yet
 
+- **Wages of in-house workers:** in-house piece rates go into the lot's cost only. No worker is recorded and no wage is owed in the books; pay wages with a Payment voucher.
+- **Boxed stock:** boxes are counted and labelled at packing, but stock is kept in pieces.
 - **Fabricator mobile app** ("Done" marking, earnings): planned; the fabricator role has no screens yet. Your staff do receipts and QC.
 - **E-invoice and e-way bill:** only a stand-in that makes test numbers.
 - **Credit limit** on customers: stored but deliberately **not enforced**. The outstanding amount is shown when you choose a party on a Sales voucher or Journal.

@@ -52,7 +52,7 @@ These decisions shape every feature. Changing any of them later is expensive, so
 2. **The bundle is the unit of the shop floor.** Every cut bundle gets a QR. Every move, receipt, rejection and payment of labour is recorded against bundles, then rolled up to lot, production order and style.
 3. **A process step is not tied to a place.** Each step on a route is assigned at run time to an in-house factory or a subcontractor. The same step can be done in-house for one lot and outside for the next (PRD-13).
 4. **Quantities always balance.** Every stage movement satisfies: out = in at next stage + recorded loss / rejection / shortage (BR-21). The system refuses unbalanced moves.
-5. **Pay follows acceptance.** Labour — in-house piece-rate or subcontractor — is earned on pieces accepted at QC, never on self-reported completion (JOB-07).
+5. **Pay follows the labour rate, never self-reported work.** A subcontractor's labour rate says which pieces are paid: those accepted at QC, or every piece received back (owner's decision, October 2026). In-house piece-rate labour is costed on the pieces that pass a stage. Nothing is earned on self-reported completion (JOB-07).
 6. **Factory is a dimension on everything.** Every transaction carries a factory; reports run per factory and consolidated (ACC-13).
 7. **Configuration over code.** Tax slabs, rates, process routes, account groups, voucher series and permissions live in masters an admin can change.
 8. **Nothing is deleted.** Posted documents are cancelled or reversed, with a full audit trail (BR-16).
@@ -138,7 +138,7 @@ BRD: SAL-01 to SAL-15, PRC-01 to PRC-07, TAX-01 to TAX-08, ADV-01 to ADV-07.
 | E4.3 | As a billing clerk, I get the right price without looking it up | Rate is taken in this order: customer-specific style rate → customer price list with quantity slab → last rate to this customer; discount % applied; user can change within their allowed limit | R1 |
 | E4.4 | As a billing clerk, I apply GST correctly when it applies | If the company is GST registered, the invoice suggests a GST template from the HSN slab (by per-piece value) and place of supply (CGST + SGST or IGST); the user can change or remove it on the invoice, and the change is logged. If not registered, no GST is charged and the document prints without tax. Totals round as configured | R1 |
 | E4.5 | As a billing clerk, I raise e-invoice and e-way bill from the invoice | Shown only when the company is registered and e-invoicing is switched on. One click sends data; IRN, QR and e-way bill no. are saved on the invoice and printed; failures show the portal's error message | R1 |
-| E4.6 | As a dispatch clerk, I dispatch part of an order | Packing list by carton with pieces per size; invoice covers only packed qty; order shows balance pending | R1 |
+| E4.6 | As a dispatch clerk, I dispatch part of an order | Packing list by carton with pieces per size; invoice covers only packed qty; order shows balance pending. Pieces per box (company setting, style override) counts boxes and prints box labels at the production pack step, and can fill the cartons | R1 |
 | E4.7 | As a production planner, I see MTO orders without customer identity | MTO order creates a production requirement showing style, qty grid, due date; customer name and phone are hidden for production roles | R1 |
 | E4.8 | As an accountant, I adjust an advance against invoices | Advance can be linked to an order; on invoicing, it is offered for adjustment; the bill prints advance adjusted and balance due | R2 |
 | E4.9 | As a dispatch clerk, I send goods on sale-or-return | Approval challan moves stock to the customer's location; after X days a reminder appears; return brings stock back, conversion creates an invoice | R2 |
@@ -177,11 +177,11 @@ BRD: PRD-01 to PRD-18, BR-01 to BR-05, BR-10, BR-21, BR-22.
 | E7.1 | As a planner, I create a production order | For stock or from an MTO order; one order can hold several styles; size ratio and total qty entered once and spread across sizes; latest BOM and route auto-filled | R1 |
 | E7.2 | As a planner, I decide where each step happens | On each lot's route, every step is assigned to an in-house factory or a subcontractor, with rate; default comes from the style, editable until the step starts | R1 |
 | E7.3 | As a planner, I change a route mid-way | Steps not yet started can be added, removed, skipped (if optional), reordered or reassigned; the change is logged with user and reason | R1 |
-| E7.4 | As a cutting master, I issue fabric and record cutting | Issue by scanning roll labels; system blocks issue above roll balance and warns if rolls of different shade lots are mixed in one lot. Cutting entry records lay, pieces per size, fabric used, waste, remnant returned | R1 |
+| E7.4 | As a cutting master, I issue fabric and record cutting | Issue by scanning roll labels; system blocks issue above roll balance and warns if rolls of different shade lots are mixed in one lot. Cutting entry records lay, pieces per size, fabric used, waste, remnant returned, and pieces lost in cutting per size. Fabric issued shows the pieces the BOM says it should give | R1 |
 | E7.5 | As a cutting master, I create bundles with QR tags | Bundles generated from pieces per size with a chosen bundle size; each bundle has a QR tag showing lot, style, colour, size, qty, bundle no.; tags print at once | R1 |
 | E7.6 | As a supervisor, I move bundles to the next stage | Scan bundles, choose next stage (default = next on route); if the stage is in-house, select factory / line; if outside, a job work challan is created. Each move records qty out and qty received | R1 |
 | E7.7 | As a supervisor, I send bundles back for rework | Choosing an earlier stage requires a reason; rework rate applies; rework qty shown separately in WIP and cost | R1 |
-| E7.8 | As a supervisor, I split or merge bundles | A split creates child bundles with new QR tags and quantities that add up to the parent; merge allowed only for the same lot, colour and size | R2 |
+| E7.8 | As a supervisor, I split or merge bundles | A split creates child bundles with new QR tags and quantities that add up to the parent; merge allowed only for the same lot, colour and size | R2; the split of rework pieces at QC is built in R1 (E8.3) |
 | E7.9 | As a supervisor, I move a lot to another factory | Inter-factory transfer of WIP with a delivery challan; the next stage continues at the receiving factory | R1 |
 | E7.10 | As an owner, I see where everything is | Production dashboard: WIP by stage, factory and subcontractor; late lots; lot ageing; daily cut / stitched / packed; search by order, style, lot or customer reference shows current stage of every bundle | R1 |
 | E7.11 | As an owner, I know true lot cost | Lot cost = fabric issued at cost + trims + in-house labour + job work + value-add charges + share of overheads (R2); variance against BOM shown, alert beyond tolerance | R1 (overheads R2) |
@@ -194,8 +194,8 @@ BRD: JOB-01 to JOB-12, MOB-01 to MOB-08, BR-17.
 | --- | --- | --- | --- |
 | E8.1 | As a supervisor, I issue bundles to a fabricator | Challan auto-fills from scanned bundles: style, sizes, qty, trims issued per BOM, rate, expected date; prints in English with challan no. and QR; posts to the fabricator's material ledger | R1 |
 | E8.2 | As a supervisor, I receive goods back in parts | Receive by scanning bundles; partial receipt allowed; receipt above issue needs approval; shortage and missing trims recorded against the fabricator | R1 |
-| E8.3 | As a QC checker, I accept or reject pieces | For each received bundle: accepted, rejected (reason), rework. Only accepted pieces move on; rejected pieces go to rejects stock or rework | R1 |
-| E8.4 | As an accountant, I raise the fabricator's labour bill | Bill computed from accepted pieces × applicable rate (per piece, per piece + add-ons, size-wise, or flat per lot), less deductions for rejection, shortage and missing trims; TDS deducted only if selected on the bill (the fabricator's default section is a suggestion); posts to fabricator's account | R1 |
+| E8.3 | As a QC checker, I accept or reject pieces | For each received bundle: accepted, rejected (reason), rework. Only accepted pieces move on; rejected pieces go to rejects stock or rework. When some pieces of a bundle are accepted and some need rework, the rework pieces are split into their own bundle with its own QR tag | R1 |
+| E8.4 | As an accountant, I raise the fabricator's labour bill | Bill computed from payable pieces × applicable rate (per piece, per piece + add-ons, size-wise, or flat per lot). Payable pieces follow the rate's pay basis, fixed on the challan: accepted pieces, or pieces received (rejected ones included; rework then earns the rework charge alone). Less deductions for shortage and missing trims, which the user ticks per bill and the owner can waive; TDS deducted only if selected on the bill (the fabricator's default section is a suggestion); posts to fabricator's account | R1 |
 | E8.5 | As a fabricator, I log in to my app | Login with mobile and OTP; English UI; sees only own bundles and ledger | R1 |
 | E8.6 | As a fabricator, I see and update my bundles | Lists Pending, In progress, Done, overdue. Scanning a bundle QR opens it; status can move Pending → In progress → Done. "Done" notifies the supervisor and creates a pending receipt — no stock or pay changes yet | R1 |
 | E8.7 | As a fabricator, I see what I will be paid | Earnings by day and period from accepted pieces and rates, with deductions; read-only | R1 |
@@ -338,7 +338,7 @@ The fabricator sees only three statuses — Pending, In progress, Done — which
 | Time to find the stage of any order | Under 30 seconds |
 | Invoices with GST or e-way bill errors | Under 1% |
 | Month-end books closed | Within 7 days of month end |
-| Labour paid on pieces not accepted at QC | Zero |
+| Labour paid on pieces not counted and checked, or paid twice | Zero |
 
 ## 10. Platform and technical approach
 
@@ -408,8 +408,8 @@ These come from BRD Section 10 and must be answered before the stories they affe
 | Q6 | Is e-invoicing mandatory now? | E4.5 timing |
 | Q14 | Volumes: SKUs, invoices, bundles, users | Hosting size, performance tests |
 | Q16 | Is the AppSheet tracker a stopgap? | Migration (open bundles, QR numbers) |
-| Q17 | QC step before ironing; outside processes used? | Default routes |
-| Q18, Q19 | Actual rates; pay on QC acceptance confirmed? | E8.4 labour bill engine |
+| Q17 | QC step before ironing; outside processes used? Answered Oct 2026: QC is the check on receipt from the stitcher; printing and embroidery is one process before stitching | Default routes (a print-first route is seeded) |
+| Q18, Q19 | Actual rates; pay on QC acceptance confirmed? Q19 answered Oct 2026: pay on pieces received, built as a pay basis per labour rate | E8.4 labour bill engine |
 | Q22 | Branded Play Store app needed? | PWA vs Flutter |
 | New | Is the business GST registered today? Does it deduct TDS (has a TAN)? Is there a plan or date to register? | E1.9 starting settings, E4.4, E4.5, E5.4, E9.4, E9.10, which integrations go live in R1 |
 

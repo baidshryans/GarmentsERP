@@ -5,7 +5,7 @@ Custom ERP for a track pant / jogger manufacturer and trader in Ludhiana, India:
 ## Source documents (read before any work)
 
 - `docs/BRD.md` — business requirements (v0.3). Requirement IDs: CRM-, SAL-, PRC-, TAX-, ADV-, PUR-, INV-, BAR-, PRD-, JOB-, MOB-, MST-, ACC-, RPT-, SYS-, BR- (business rules), NFR-.
-- `docs/PRD.md` — product requirements (v0.3). Epics E1–E10 with user stories and acceptance criteria; lifecycles (Section 6); stack and build order (Section 10).
+- `docs/Product Requirements Document — Garment Manufacturing ERP.md` — product requirements (v0.3), called the PRD below. Epics E1–E10 with user stories and acceptance criteria; lifecycles (Section 6); stack and build order (Section 10).
 
 The PRD wins where the two differ. Do not invent requirements; if something is unclear, check the open questions (BRD Section 10, PRD Section 11) and ask me rather than guess.
 
@@ -44,7 +44,7 @@ The PRD wins where the two differ. Do not invent requirements; if something is u
 2. **One transaction per posting.** A source document, its stock movements and its GL voucher are saved inside one `transaction.atomic()` block. If any part fails, all of it rolls back.
 3. **Tax is optional.** Nothing posts to GST or TDS ledgers unless the user selects a tax template or enters tax lines on that voucher. GST and TDS are independent of each other. Company switches have effective dates (PRD E1.9, E9.4).
 4. **Quantities balance.** Every stage movement satisfies `qty_out = qty_in_next + loss + rejection + shortage` (BR-21). Moving back to an earlier stage requires a reason (BR-22).
-5. **Pay follows acceptance.** Labour is computed only on QC-accepted pieces. A fabricator marking a bundle "Done" creates a pending receipt; it does not change stock or pay (MOB-03, JOB-07).
+5. **Pay follows the labour rate, never self-reported work.** Each labour rate says which pieces are paid: those accepted at QC (the default) or every piece received back (owner's decision, Oct 2026: stitchers are paid on pieces stitched and the owner bears rejects and losses). The basis is fixed on the challan, and no piece is paid twice. Pay is computed only from pieces a supervisor has counted and QC has checked: a fabricator marking a bundle "Done" creates a pending receipt; it does not change stock or pay (MOB-03, JOB-07).
 6. **Factory scoping is enforced on the server.** Every queryset for a user is filtered to their allowed factories; never rely on the UI to hide data (BR-23).
 7. **Configuration over code.** Tax slabs, rates, routes, account groups, voucher series, print layouts and permissions live in the database, editable by an admin.
 8. **Database-neutral.**

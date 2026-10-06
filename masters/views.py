@@ -172,7 +172,7 @@ class StyleSave(LoginRequiredMixin, ScreenPermissionMixin, View):
             try:
                 d = form.cleaned_data
                 if style is None:
-                    extra = {k: d[k] for k in ("description", "hsn", "default_route", "mrp", "image", "is_archived")}
+                    extra = {k: d[k] for k in ("description", "hsn", "default_route", "mrp", "pieces_per_box", "image", "is_archived")}
                     style = styles.create_style(
                         company=_company(), style_no=d["style_no"], product=d["product"], name=d["name"],
                         colours=d["colours"], sizes=d["sizes"], **extra,

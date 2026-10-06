@@ -596,3 +596,70 @@ def test_cutting_loss_can_be_given_with_the_lay_and_cannot_exceed_the_pieces_cut
     assert cutting.create_bundles(entry, bundle_size=25, user=owner) == []     # every piece was lost: nothing to bundle
     with pytest.raises(IntegrityError), transaction.atomic():
         entry.sizes.update(loss=11)                                            # the database refuses it too
+
+
+# ---------------- boxes at packing ----------------
+
+def test_boxes_are_worked_out_from_pieces_per_box_one_sku_to_a_box(company, factory, owner):
+    from masters.models import SKU
+    from masters.services.styles import pieces_per_box
+    from production.services import boxes
+
+    ns = build(company, factory, owner, with_stock=False)
+    m = SKU.objects.get(style=ns.style, colour=ns.black, size=ns.sizes["M"])
+    s = SKU.objects.get(style=ns.style, colour=ns.black, size=ns.sizes["S"])
+    assert pieces_per_box(ns.style, company) == 0 and boxes.plan({m: 33}, company) == []      # not set: no boxes
+    company.pieces_per_box = 12
+    company.save()
+    (line,) = boxes.plan({m: 33}, company)
+    assert (line.per_box, line.full_boxes, line.short_box_qty, line.boxes) == (12, 2, 9, 3)
+    ns.style.pieces_per_box = 10                                            # the style's own setting wins
+    ns.style.save()
+    m, s = SKU.objects.get(pk=m.pk), SKU.objects.get(pk=s.pk)
+    first, second = boxes.plan({m: 33, s: 20}, company)
+    assert (first.sku, first.full_boxes, first.short_box_qty) == (s, 2, 0)                      # sizes in order
+    assert (second.sku, second.full_boxes, second.short_box_qty) == (m, 3, 3)
+    assert boxes.describe([first, second]) == "5 boxes of 10 and 1 short box of 3"
+    assert boxes.describe([]) == ""
+
+
+def test_packing_records_the_boxes_and_changes_nothing_in_stock_or_the_books(company, factory, owner):
+    from production.models import PackEntry
+    from production.services import boxes
+
+    ns = build(company, factory, owner)
+    bundles = finish_route(ns)
+    bundle_service.pack_bundles(bundles=bundles[:1], user=owner, date=DAY)          # pieces per box not set
+    assert not PackEntry.objects.exists()
+    finished, wip = gl(company, "stock_finished", factory), gl(company, "stock_wip", factory)
+    cost_before = costing.lot_cost(ns.lot, factory)
+    company.pieces_per_box = 12
+    company.save()
+    bundle_service.pack_bundles(bundles=bundles[1:3], user=owner, date=DAY)         # B002 + B003: 33 pieces of M
+    entry = PackEntry.objects.get()
+    line = entry.lines.get()
+    assert (line.pieces, line.pieces_per_box, line.full_boxes, line.short_box_qty) == (33, 12, 2, 9)
+    assert entry.boxes == 3 and entry.factory == factory and entry.location.name == "Dispatch"
+    labels = boxes.labels_for(entry)
+    assert [(l["qty"], l["no"], l["total"], l["short"]) for l in labels] == [(12, 1, 3, False), (12, 2, 3, False), (9, 3, 3, True)]
+    # the same money moved as a pack without boxes would move: 33 of the 83 pieces left
+    relieved = gl(company, "stock_finished", factory) - finished
+    assert relieved == (cost_before * 33 / 83).quantize(D("0.01")) and gl(company, "stock_wip", factory) == wip - relieved
+    dispatch = Location.objects.get(factory=factory, name="Dispatch")
+    assert StockBalance.objects.get(location=dispatch, sku=line.sku).qty == 33      # stock is in pieces, not boxes
+    assert not costing.check_wip_reconciles(company)
+
+
+def test_the_database_refuses_boxes_that_do_not_add_up(company, factory, owner):
+    from django.db import IntegrityError, transaction
+
+    from production.models import PackEntry, PackEntryLine
+
+    ns = build(company, factory, owner)
+    bundles = finish_route(ns)
+    company.pieces_per_box = 12
+    company.save()
+    bundle_service.pack_bundles(bundles=bundles[:1], user=owner, date=DAY)
+    line = PackEntry.objects.get().lines.get()
+    with pytest.raises(IntegrityError), transaction.atomic():
+        PackEntryLine.objects.filter(pk=line.pk).update(full_boxes=5)

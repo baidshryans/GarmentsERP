@@ -20,8 +20,15 @@
     {% if pack_ready and can_pack %}<form id="pack" method="post" action="{% url 'pack_bundles' lot.pk %}" style="margin-top:12px">{% csrf_token %}
       <h3>Pack into finished goods</h3><p class="muted">These bundles have reached packing.</p>
       {% for b in pack_ready %}<div class="check"><input id="pk{{ b.pk }}" type="checkbox" name="bundle" value="{{ b.pk }}" checked><label for="pk{{ b.pk }}">{{ b.bundle_no }} · {{ b.sku.size.code }} · {{ b.qty }} pieces</label></div>{% endfor %}
+      {% if box_plan %}<p class="muted">Packed together they fill: {% for l in box_plan %}{{ l.sku.size.code }} {{ l.full_boxes }} box{{ l.full_boxes|pluralize:"es" }} of {{ l.per_box }}{% if l.short_box_qty %} + a short box of {{ l.short_box_qty }}{% endif %}{% if not forloop.last %} · {% endif %}{% endfor %}</p>{% endif %}
       <div class="field" style="max-width:300px;margin-top:8px"><label for="loc">Receive into</label><select id="loc" name="location">{% for l in dispatch_locations %}<option value="{{ l.pk }}" {% if l.loc_type == "dispatch" %}selected{% endif %}>{{ l.name }}</option>{% endfor %}</select></div>
       <button class="btn primary">Pack</button></form>{% endif %}
+    {% if packs %}<h3 style="margin-top:16px">Packed into boxes</h3><div class="table-scroll"><table>
+      <thead><tr><th scope="col">Date</th><th scope="col">Boxes</th><th scope="col" class="num">Pieces</th><th scope="col"></th></tr></thead>
+      <tbody>{% for p in packs %}<tr><td>{{ p.date|date:"d M Y" }}</td>
+        <td>{% for l in p.lines.all %}{{ l.sku.size.code }}: {{ l.full_boxes }} × {{ l.pieces_per_box }}{% if l.short_box_qty %} + {{ l.short_box_qty }}{% endif %}{% if not forloop.last %} · {% endif %}{% endfor %}</td>
+        <td class="num">{% for l in p.lines.all %}{{ l.pieces }}{% if not forloop.last %} + {% endif %}{% endfor %}</td>
+        <td>{% if can_tags %}<a class="btn" href="{% url 'box_labels' p.pk %}">Print box labels</a>{% endif %}</td></tr>{% endfor %}</tbody></table></div>{% endif %}
     {% else %}<div class="empty"><div class="hand">No bundles yet</div><p>Issue fabric, record the cutting, then make bundles.</p></div>{% endif %}
   </div>
   {% if breakdown %}<div class="island"><details class="fold"><summary>Lot cost</summary>

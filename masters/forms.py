@@ -18,15 +18,16 @@ class StyleForm(forms.ModelForm):
 
     class Meta:
         model = Style
-        fields = ["style_no", "name", "product", "description", "hsn", "default_route", "mrp", "image", "is_archived"]
+        fields = ["style_no", "name", "product", "description", "hsn", "default_route", "mrp", "pieces_per_box", "image",
+                  "is_archived"]
         widgets = {"description": forms.Textarea(attrs={"rows": 2})}
         labels = {"style_no": "Style no", "hsn": "HSN code", "mrp": "MRP", "is_archived": "Archived"}
 
     def __init__(self, *args, gst_registered=False, **kwargs):
         super().__init__(*args, **kwargs)
         # the HSN code is needed every time only by a GST-registered company; otherwise it folds away with the rest
-        self.more_fields = ["description", "mrp", "image"] + ([] if gst_registered else ["hsn"]) + ["is_archived"]
-        self.more_label = "description, MRP, image, " + ("" if gst_registered else "HSN code, ") + "archived"
+        self.more_fields = ["description", "mrp", "pieces_per_box", "image"] + ([] if gst_registered else ["hsn"]) + ["is_archived"]
+        self.more_label = "description, MRP, pieces per box, image, " + ("" if gst_registered else "HSN code, ") + "archived"
         self.fields["hsn"].queryset = HSN.objects.filter(is_active=True)
         self.fields["default_route"].queryset = RouteTemplate.objects.filter(is_active=True)
         if self.instance.pk:

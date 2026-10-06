@@ -12,6 +12,7 @@
         {% include "partials/field.html" with field=form.allow_negative_stock %}
         {% include "partials/field.html" with field=form.po_approval_limit %}
         {% include "partials/field.html" with field=form.bom_tolerance_pct %}
+        {% include "partials/field.html" with field=form.pieces_per_box %}
         {% if can_edit %}<button class="btn primary">Save settings</button>{% endif %}
       </form>
     </div>

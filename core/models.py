@@ -41,6 +41,9 @@ class Company(models.Model):
         help_text="A purchase order above this value needs the owner's approval (BR-19). 0 = every PO needs approval.",
     )
 
+    pieces_per_box = models.PositiveSmallIntegerField(
+        default=0, help_text="Pieces packed in one box, unless the style says otherwise. 0 = boxes are not counted.")
+
     history = HistoricalRecords()
 
     class Meta:

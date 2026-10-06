@@ -5,7 +5,7 @@
   <link rel="stylesheet" href="{% static 'css/labels.css' %}?v={{ asset_v }}">
   <div class="page-head no-print"><h1 class="page-title">{{ labels|length }} label{{ labels|length|pluralize }}</h1>
     <div class="actions">
-      {% if kind == "roll" or kind == "carton" %}{% for key, name in layouts.items %}<a class="btn {% if key == layout %}primary{% endif %}" href="?layout={{ key }}">{{ name }}</a>{% endfor %}{% endif %}
+      {% if kind == "roll" or kind == "carton" or kind == "box" %}{% for key, name in layouts.items %}<a class="btn {% if key == layout %}primary{% endif %}" href="?layout={{ key }}">{{ name }}</a>{% endfor %}{% endif %}
       <button class="btn primary" onclick="window.print()">Print</button></div></div>
   <p class="muted no-print">Choose the paper size in the print dialog to match the layout. Labels print in black on white.</p>
   <div class="label-sheet layout-{{ layout }}">
@@ -28,6 +28,15 @@
         <div class="code">{{ l.carton.code }}</div>
         <div>{% for cl in l.carton.lines.all %}{{ cl.sku.style.style_no }} {{ cl.sku.colour }} {{ cl.sku.size }}: {{ cl.qty|floatformat:"-0" }}{% if not forloop.last %} · {% endif %}{% endfor %}</div>
         <div>From {{ l.carton.packing.factory.name }}</div>
+      </div>
+      {% elif kind == "box" %}
+      <div class="tag">
+        <div class="big">{{ l.sku.style.style_no }} · {{ l.sku.colour }} · {{ l.sku.size }}</div>
+        <div>{{ l.sku.style.name }}</div>
+        <div><strong>{{ l.qty }} pcs</strong> · Box {{ l.no }} of {{ l.total }}{% if l.short %} · <strong>Short box</strong>{% endif %}</div>
+        {{ l.svg|safe }}
+        <div class="code">{{ l.sku.barcode }}</div>
+        <div>Lot {{ l.entry.lot.lot_no }} · {{ l.entry.date|date:"d M Y" }} · {{ l.entry.factory.name }}</div>
       </div>
       {% else %}
       <div class="tag">

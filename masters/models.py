@@ -201,6 +201,8 @@ class Style(models.Model):
     hsn = models.ForeignKey("tax.HSN", on_delete=models.PROTECT, null=True, blank=True, related_name="+")
     default_route = models.ForeignKey(RouteTemplate, on_delete=models.PROTECT, null=True, blank=True, related_name="+")
     mrp = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    pieces_per_box = models.PositiveSmallIntegerField(
+        null=True, blank=True, help_text="Pieces packed in one box. Blank = the company's setting.")
     image = models.ImageField(upload_to="styles/original/", blank=True)
     thumbnail = models.ImageField(upload_to="styles/thumb/", blank=True, editable=False)
     is_archived = models.BooleanField(default=False, help_text="Discontinued; stays searchable with full history")

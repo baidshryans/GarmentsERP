@@ -12,6 +12,13 @@ from masters.services.codes import next_barcode
 THUMB_SIZE = (320, 320)
 
 
+def pieces_per_box(style, company) -> int:
+    """Pieces packed in one box for a style: its own setting, else the company's. 0 = boxes are not counted."""
+    if style.pieces_per_box:
+        return style.pieces_per_box
+    return company.pieces_per_box if company is not None else 0
+
+
 @transaction.atomic
 def sync_variants(style, *, colours, sizes, company):
     """Make the style's colours and sizes exactly these, and make sure every combination has a SKU.

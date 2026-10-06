@@ -21,9 +21,9 @@ from inventory.models import RollBalance
 from masters.models import Colour, Party, Process, Size, Style
 
 from . import labels
-from .models import Bundle, CuttingEntry, Lot, LotStep, ProductionOrder, StageMovement
+from .models import Bundle, CuttingEntry, Lot, LotStep, PackEntry, ProductionOrder, StageMovement
 from .services import bundles as bundle_service
-from .services import costing, cutting, guide, orders, routes
+from .services import boxes, costing, cutting, guide, orders, routes
 
 
 def _factories(user):
@@ -194,6 +194,7 @@ class LotDetail(LoginRequiredMixin, ScreenPermissionMixin, View):
         can_cost = request.user.can_view_field("cost")
         can_edit = request.user.has_screen_perm("production.lot", "edit")
         live = [b for b in bundles if b.is_live]
+        pack_ready = [b for b in live if guide.pack_ready(b, [s for s in steps if s.status != "skipped"])]
         expected_charges = sum((c.amount_per_piece for c in lot.bom_version.charges.all()), Decimal("0")) * sum(b.original_qty for b in bundles if not b.split_from_id) if lot.bom_version else None
         return render(request, "production/lot_detail.html", {
             "lot": lot, "guide": guide.lot_guide(lot, request.user),
@@ -212,7 +213,9 @@ class LotDetail(LoginRequiredMixin, ScreenPermissionMixin, View):
             "can_pack": request.user.has_screen_perm("production.move", "create"),
             "can_tags": request.user.has_screen_perm("production.bundle", "view"),
             "can_open_order": request.user.has_screen_perm("production.order", "view"),
-            "pack_ready": [b for b in live if guide.pack_ready(b, [s for s in steps if s.status != "skipped"])],
+            "pack_ready": pack_ready,
+            "box_plan": boxes.plan_for_bundles([b for b in pack_ready if not b.rework_qty], lot.company),   # if all of them are packed
+            "packs": lot.pack_entries.prefetch_related("lines__sku__size"),
             "dispatch_locations": Location.objects.filter(factory=lot.factory, is_active=True).exclude(loc_type__in=("transit", "rejects", "fabricator")),
         })
 
@@ -262,10 +265,29 @@ class PackBundles(LoginRequiredMixin, ScreenPermissionMixin, View):
             bundles = list(Bundle.objects.filter(pk__in=ids, lot=lot))
             location = Location.objects.filter(pk=request.POST.get("location"), factory=lot.factory).first() if request.POST.get("location") else None
             done = bundle_service.pack_bundles(bundles=bundles, user=request.user, location=location)
-            messages.success(request, f"{sum(b.qty for b in done)} pieces packed into finished goods.")
+            in_boxes = boxes.describe(boxes.plan_for_bundles(done, lot.company))
+            messages.success(request, f"{sum(b.qty for b in done)} pieces packed into finished goods"
+                             + (f": {in_boxes}. Print the box labels from this page." if in_boxes else "."))
         except BusinessRuleError as exc:
             messages.error(request, str(exc))
         return redirect("lot_detail", pk=pk)
+
+
+class BoxLabels(LoginRequiredMixin, ScreenPermissionMixin, View):
+    """A label for every box of one packing: style, colour, size, pieces and the SKU barcode."""
+
+    screen_code = "production.bundle"
+
+    def get(self, request, pk):
+        from inventory import barcode
+        from inventory.views import LAYOUTS
+
+        entry = get_object_or_404(PackEntry.objects.for_user(request.user).select_related("lot", "factory"), pk=pk)
+        found = boxes.labels_for(entry)
+        for l in found:
+            l["svg"] = barcode.svg(l["sku"].barcode)
+        return render(request, "inventory/labels.html", {
+            "labels": found, "kind": "box", "layout": request.GET.get("layout", "thermal4"), "layouts": LAYOUTS})
 
 
 # ================================================================ fabric issue and cutting (E7.4)

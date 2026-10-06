@@ -72,8 +72,15 @@ def _messages_for(request, exc):
 class SettingsForm(forms.ModelForm):
     class Meta:
         model = Company
-        fields = ["valuation_method", "allow_negative_stock", "po_approval_limit", "bom_tolerance_pct"]
+        fields = ["valuation_method", "allow_negative_stock", "po_approval_limit", "bom_tolerance_pct", "pieces_per_box"]
         widgets = {"valuation_method": forms.RadioSelect}
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["pieces_per_box"].required = False      # left blank = boxes are not counted
+
+    def clean_pieces_per_box(self):
+        return self.cleaned_data.get("pieces_per_box") or 0
 
 
 class InventorySettings(LoginRequiredMixin, ScreenPermissionMixin, View):

@@ -20,6 +20,7 @@ from core.viewutils import company as _company, day as _day, dec as _dec, report
 from inventory import barcode
 from inventory.views import LAYOUTS
 from masters.models import SKU, Party, Style
+from masters.services.styles import pieces_per_box
 from tax.models import TaxTemplate
 
 from .models import (
@@ -378,6 +379,7 @@ class PackingSave(LoginRequiredMixin, ScreenPermissionMixin, View):
                     "lr_no": packing.lr_no, "lr_date": packing.lr_date.isoformat() if packing.lr_date else "",
                     "vehicle_no": packing.vehicle_no, "remarks": packing.remarks}
         return {"order": order, "packing": packing, "rows": rows, "n": n, "cartons": list(range(1, n + 1)),
+                "can_fill": packing is None and any(pieces_per_box(l.sku.style, order.company) for l in lines),
                 "locations": _locations(order.factory), "transporters": Party.objects.filter(is_transporter=True, is_active=True),
                 "vals": vals or {}}
 
@@ -390,7 +392,31 @@ class PackingSave(LoginRequiredMixin, ScreenPermissionMixin, View):
             n = max(1, min(30, int(request.GET.get("cartons", 2))))
         except ValueError:
             n = 2
-        return render(request, "sales/packing_form.html", self._ctx(request, order, packing, n))
+        cells = None
+        if packing is None and request.GET.get("fill") == "box":
+            cells, n, cut_short = self._boxes(order)
+            if not cells:
+                messages.error(request, "No style on this order has its pieces per box set.")
+            elif cut_short:
+                messages.warning(request, "Only the first 30 cartons are filled in. Save this list, then make another for the rest.")
+        return render(request, "sales/packing_form.html", self._ctx(request, order, packing, n, cells))
+
+    @staticmethod
+    def _boxes(order, limit=30):
+        """Cartons filled from each style's pieces per box, one SKU to a carton, for what is left to pack:
+        ({(carton no, sku id): pieces}, cartons, whether the limit cut it short)."""
+        cells, no, cut_short = {}, 0, False
+        for l in order.lines.select_related("sku__style"):
+            per = pieces_per_box(l.sku.style, order.company)
+            left = int(l.qty - packing_service.packed_qty(l))
+            while per and left > 0:
+                if no >= limit:
+                    cut_short = True
+                    break
+                no += 1
+                cells[(no, l.sku_id)] = str(min(per, left))
+                left -= per
+        return cells, max(no, 2), cut_short
 
     def post(self, request, order_pk=None, pk=None):
         order, packing = self._objs(request, order_pk, pk)

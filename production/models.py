@@ -335,6 +335,51 @@ class StageMovement(FactoryScopedModel):
         ]
 
 
+class PackEntry(FactoryScopedModel):
+    """One packing of a lot's bundles into finished goods, with the boxes the pieces filled. A box is a count and
+    a label: stock stays in pieces."""
+
+    company = models.ForeignKey("core.Company", on_delete=models.PROTECT, related_name="+")
+    lot = models.ForeignKey(Lot, on_delete=models.PROTECT, related_name="pack_entries")
+    date = models.DateField()
+    location = models.ForeignKey("core.Location", on_delete=models.PROTECT, related_name="+")
+    created_by = models.ForeignKey("core.User", on_delete=models.PROTECT, null=True, related_name="+")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    history = HistoricalRecords()
+
+    class Meta:
+        ordering = ["-id"]
+
+    def __str__(self):
+        return f"{self.lot} packed {self.date}"
+
+    @property
+    def boxes(self):
+        return sum(l.boxes for l in self.lines.all())
+
+
+class PackEntryLine(models.Model):
+    entry = models.ForeignKey(PackEntry, on_delete=models.CASCADE, related_name="lines")
+    sku = models.ForeignKey("masters.SKU", on_delete=models.PROTECT, related_name="+")
+    pieces = models.PositiveIntegerField()
+    pieces_per_box = models.PositiveSmallIntegerField(help_text="The setting when these pieces were packed")
+    full_boxes = models.PositiveIntegerField(default=0)
+    short_box_qty = models.PositiveIntegerField(default=0, help_text="Pieces in the last, part-filled box")
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=["entry", "sku"], name="uniq_pack_entry_sku"),
+            models.CheckConstraint(condition=Q(pieces_per_box__gt=0) & Q(short_box_qty__lt=F("pieces_per_box"))
+                                   & Q(pieces=F("full_boxes") * F("pieces_per_box") + F("short_box_qty")),
+                                   name="pack_boxes_add_up"),
+        ]
+
+    @property
+    def boxes(self):
+        return self.full_boxes + (1 if self.short_box_qty else 0)
+
+
 class LotCostEntry(models.Model):
     """Money on a lot: what it has cost so far, and where that cost sits (E7.11). Signed amounts."""
 

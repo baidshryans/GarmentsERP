@@ -427,3 +427,46 @@ def test_qc_screen_splits_rework_pieces_and_offers_their_tag(company, factory, o
     assert "from B002" in lot_page
     form = c.get(reverse("challan_new"), {"lot": ns.lot.pk, "kind": "rework", "step": step(ns, "STITCH").pk}).content.decode()
     assert "B002-R1" in form and f'<option value="{fab.pk}" selected' in form.replace("  ", " ")     # back to the same stitcher
+
+
+# ---------------- boxes on the screens ----------------
+
+def test_packing_into_boxes_and_box_labels_through_the_screens(company, factory, factory2, owner):
+    from production.models import PackEntry
+    from production.services import bundles as bundle_service
+
+    ns = build(company, factory, owner)
+    routes.reassign_step(step(ns, "STITCH"), user=owner, reason="in-house", assignment="in_house", rate=D("10"))
+    for code in ("EMB", "PRINT", "WASH"):
+        routes.skip_step(step(ns, code), user=owner, reason="n/a")
+    bundles = cut(ns)
+    for code in ("STITCH", "IRON", "FINISH", "QC", "PACK"):
+        bundle_service.move_bundles(bundles=bundles, to_step=step(ns, code), user=owner, date=DAY)
+    c = login(owner)
+    r = c.post(reverse("inventory_settings"), {"valuation_method": "weighted_average", "po_approval_limit": "50000",
+                                               "bom_tolerance_pct": "5", "pieces_per_box": "12"})
+    company.refresh_from_db()
+    assert r.status_code == 302 and company.pieces_per_box == 12
+    page = c.get(reverse("lot_detail", args=[ns.lot.pk])).content.decode()
+    assert "Packed together they fill" in page and "M 2 boxes of 12 + a short box of 9" in page
+    r = c.post(reverse("pack_bundles", args=[ns.lot.pk]), {"bundle": [bundles[1].pk, bundles[2].pk]}, follow=True)   # 33 of M
+    assert b"33 pieces packed into finished goods: 2 boxes of 12 and 1 short box of 9" in r.content
+    entry = PackEntry.objects.get()
+    assert reverse("box_labels", args=[entry.pk]) in r.content.decode()
+    labels = c.get(reverse("box_labels", args=[entry.pk])).content.decode()
+    assert labels.count('<div class="tag">') == 3 and "Box 1 of 3" in labels and "Box 3 of 3" in labels
+    assert "Short box" in labels and "<strong>9 pcs</strong>" in labels and "<svg" in labels and ns.lot.lot_no in labels
+
+    stranger = user_with("unit2", "Production Supervisor", factory2)
+    assert login(stranger).get(reverse("box_labels", args=[entry.pk])).status_code == 404        # another factory's packing
+    acct = make_user("acct")
+    acct.roles.add(Role.objects.get(name="Accountant"))
+    acct.allowed_factories.add(factory)
+    assert login(acct).get(reverse("box_labels", args=[entry.pk])).status_code == 403            # no production screens
+
+
+def test_a_style_can_set_its_own_pieces_per_box(company, factory, owner):
+    ns = build(company, factory, owner, with_stock=False)
+    c = login(owner)
+    form = c.get(reverse("style_edit", args=[ns.style.pk])).content.decode()
+    assert 'name="pieces_per_box"' in form

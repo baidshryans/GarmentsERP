@@ -335,3 +335,23 @@ def test_sales_entries_use_the_active_factory_and_all_mode_is_view_only(ns, owne
         assert r.status_code == 302 and "single factory" in str(list(r.wsgi_request._messages)[-1]), name
     owner_c.post(reverse("saleorder_new"), order_form)
     assert SaleOrder.objects.count() == 1                                # nothing was saved in All mode
+
+
+def test_the_packing_form_fills_cartons_from_pieces_per_box(ns, owner_c, company):
+    order = confirmed_order(ns)
+    plain = owner_c.get(reverse("packing_new", args=[order.pk])).content.decode()
+    assert "Fill cartons from pieces per box" not in plain                  # nothing is set yet
+    none = owner_c.get(reverse("packing_new", args=[order.pk]), {"fill": "box"}).content.decode()
+    assert "No style on this order has its pieces per box set" in none
+    company.pieces_per_box = 12
+    company.save()
+    assert "Fill cartons from pieces per box" in owner_c.get(reverse("packing_new", args=[order.pk])).content.decode()
+    html = owner_c.get(reverse("packing_new", args=[order.pk]), {"fill": "box"}).content.decode()
+    lines = list(order.lines.order_by("id"))
+    first = lines[0]
+    full, rest = divmod(int(first.qty), 12)
+    assert f'name="c1_{first.sku_id}" value="{12 if full else rest}"' in html           # one SKU to a carton
+    cartons = sum(-(-int(l.qty) // 12) for l in lines)
+    assert f'name="c{min(cartons, 30)}_' in html and f'name="c{min(cartons, 30) + 1}_' not in html
+    if rest:
+        assert f'name="c{full + 1}_{first.sku_id}" value="{rest}"' in html              # the short last carton

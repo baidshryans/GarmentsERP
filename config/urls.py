@@ -203,6 +203,7 @@ urlpatterns = [
     path("production/lots/<int:pk>/tags/", prod.LotTags.as_view(), name="lot_tags"),
     path("production/lots/<int:pk>/tags.zpl", prod.LotZpl.as_view(), name="lot_zpl"),
     path("production/lots/<int:pk>/pack/", prod.PackBundles.as_view(), name="pack_bundles"),
+    path("production/packs/<int:pk>/labels/", prod.BoxLabels.as_view(), name="box_labels"),
     path("production/move/", prod.MoveView.as_view(), name="move_bundles"),
     path("production/dashboard/", prod.Dashboard.as_view(), name="production_dashboard"),
     path("production/track/", prod.Track.as_view(), name="production_track"),

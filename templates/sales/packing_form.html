@@ -20,6 +20,7 @@
       <div class="field"><label for="remarks">Notes</label><input id="remarks" name="remarks" type="text" value="{{ vals.remarks }}"></div>
     </div>{% endmore %}</div>
     <div class="island"><h2>Pieces in each carton</h2>
+      {% if can_fill %}<p><a class="btn" href="?fill=box">Fill cartons from pieces per box</a> <span class="muted">one size to a carton, for what is left to pack</span></p>{% endif %}
       <div class="table-scroll"><table>
         <thead><tr><th scope="col">Style</th><th scope="col">Colour</th><th scope="col">Size</th><th scope="col" class="num">Left to pack</th>{% for c in cartons %}<th scope="col" class="num">Carton {{ c }}</th>{% endfor %}</tr></thead>
         <tbody>{% for r in rows %}<tr><td>{{ r.line.sku.style.style_no }}</td><td>{{ r.line.sku.colour }}</td><td>{{ r.line.sku.size }}</td><td class="num">{{ r.left|floatformat:"-0" }}</td>

@@ -20,8 +20,8 @@ from core.services.factories import dispatch_location, process_location, rejects
 from inventory.models import StockMovement
 from inventory.services import stock
 from ledger.services.posting import LineSpec, post_voucher
-from production.models import Bundle, Lot, LotCostEntry, LotStep, StageMovement
-from production.services import costing, orders
+from production.models import Bundle, Lot, LotCostEntry, LotStep, PackEntry, PackEntryLine, StageMovement
+from production.services import boxes, costing, orders
 
 T = StockMovement.Type
 ZERO = Decimal("0.00")
@@ -329,10 +329,12 @@ def _packing_step(lot):
 
 @transaction.atomic
 def pack_bundles(*, bundles, user, date=None, location=None) -> list:
-    """Pack bundles and receive them into finished goods at lot cost (Dr Finished Goods, Cr WIP)."""
+    """Pack bundles and receive them into finished goods at lot cost (Dr Finished Goods, Cr WIP). When pieces per
+    box are set, the boxes the pieces fill are recorded with the pack (a PackEntry), for the box labels."""
     date = date or timezone.localdate()
     bundles = [Bundle.objects.select_related("lot", "lot__factory", "lot__company", "location", "location__factory",
-                                             "current_step", "sku").get(pk=b.pk) for b in bundles]
+                                             "current_step", "sku", "sku__style", "sku__colour", "sku__size").get(pk=b.pk)
+               for b in bundles]
     if not bundles:
         raise BusinessRuleError("Choose at least one bundle to pack.")
     _check_same_lot(bundles)
@@ -394,5 +396,11 @@ def pack_bundles(*, bundles, user, date=None, location=None) -> list:
                    LineSpec(ledger=costing.ledger_for(company, "stock_wip"), credit=relief)])
         costing.add_cost(lot=lot, factory=factory, kind=LotCostEntry.Kind.RELIEF, amount=-relief, date=date,
                          note=f"{packed} pieces to finished goods", source=lot, voucher=voucher)
+    box_lines = boxes.plan_for_bundles(bundles, company)
+    if box_lines:
+        entry = PackEntry.objects.create(company=company, factory=factory, lot=lot, date=date, location=target, created_by=user)
+        for l in box_lines:
+            PackEntryLine.objects.create(entry=entry, sku=l.sku, pieces=l.pieces, pieces_per_box=l.per_box,
+                                         full_boxes=l.full_boxes, short_box_qty=l.short_box_qty)
     refresh_steps(lot)
     return bundles

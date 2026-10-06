@@ -258,6 +258,14 @@ def invoice_from_packing(packing, *, user, date=None, **kwargs) -> SaleInvoice:
         lr_no=packing.lr_no, vehicle_no=packing.vehicle_no, **kwargs)
 
 
+@transaction.atomic
+def finish_packing_and_bill(packing, *, user, date=None) -> SaleInvoice:
+    """Finish a draft packing list and draft the bill for its pieces in one go (the packing list's "Finish packing
+    and make bill"). One transaction: if the bill cannot be drafted, the list stays a draft and no number is used.
+    The bill is a draft; GST is chosen or waived on it and posting stays a separate step."""
+    return invoice_from_packing(packing_service.finalize_packing(packing, user=user), user=user, date=date)
+
+
 # ---------------------------------------------------------------- posting
 
 @transaction.atomic

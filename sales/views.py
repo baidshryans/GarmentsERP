@@ -204,6 +204,8 @@ class OrderSave(LoginRequiredMixin, ScreenPermissionMixin, View):
                     "due_date": order.due_date.isoformat() if order.due_date else "", "order_type": order.order_type,
                     "remarks": order.remarks}
         return {"order": order, "factory": order.factory if order else request.factory, "customers": _customers(), "grids": grids,
+                # confirming is the order page's `edit` action: a new order can be saved and confirmed by a role that has it
+                "can_confirm": order is None and _can(request, "sales.order", "edit"),
                 "styles": Style.objects.filter(is_archived=False), "vals": vals or {}, "types": SaleOrder.Type.choices,
                 "today": timezone.localdate().isoformat()}
 
@@ -219,6 +221,9 @@ class OrderSave(LoginRequiredMixin, ScreenPermissionMixin, View):
     def post(self, request, pk=None):
         order = get_object_or_404(SaleOrder.objects.for_user(request.user), pk=pk) if pk else None
         p = request.POST
+        confirm_now = order is None and p.get("then") == "confirm"
+        if confirm_now:
+            _need(request, "sales.order", "edit")
         customer = Party.objects.filter(pk=_pk(p.get("customer"))).first()
         grids = []
         try:
@@ -236,7 +241,7 @@ class OrderSave(LoginRequiredMixin, ScreenPermissionMixin, View):
             customer = _choose(_customers(), p.get("customer"), "customer")
             due = _day(p.get("due_date"), "Due date", default=None) if p.get("due_date") else None
             if order is None:
-                order = orders.create_order(
+                order = (orders.create_and_confirm if confirm_now else orders.create_order)(
                     company=_company(), factory=require_active_factory(request),
                     customer=customer, date=_day(p.get("date"), "Date"), lines=specs, user=request.user,
                     order_type=p.get("order_type", "stock"), due_date=due, remarks=p.get("remarks", ""))
@@ -246,8 +251,16 @@ class OrderSave(LoginRequiredMixin, ScreenPermissionMixin, View):
         except ERRORS as exc:
             _msgs(request, exc)
             return render(request, "sales/order_form.html", self._ctx(request, order, p, grids))
-        messages.success(request, "Order saved as a draft. Confirm it when it is final.")
+        if confirm_now:
+            messages.success(request, self.confirmed(order))
+        else:
+            messages.success(request, "Order saved as a draft. Confirm it when it is final.")
         return redirect("saleorder_detail", pk=order.pk)
+
+    @staticmethod
+    def confirmed(order):
+        raised = f" Production requirement {order.production_order.number or 'draft'} raised." if order.production_order_id else ""
+        return f"Order {order.number} confirmed.{raised}"
 
 
 class OrderGrid(LoginRequiredMixin, ScreenPermissionMixin, View):
@@ -293,8 +306,7 @@ class OrderDetail(LoginRequiredMixin, ScreenPermissionMixin, View):
         try:
             if action == "confirm":
                 order = orders.confirm_order(order, user=request.user)
-                messages.success(request, f"Order {order.number} confirmed."
-                                 + (f" Production requirement {order.production_order.number or 'draft'} raised." if order.production_order_id else ""))
+                messages.success(request, OrderSave.confirmed(order))
             elif action == "cancel":
                 orders.cancel_order(order, user=request.user, reason=reason)
                 messages.success(request, "Order cancelled.")
@@ -436,6 +448,13 @@ class PackingDetail(LoginRequiredMixin, ScreenPermissionMixin, View):
                 messages.success(request, "Bill drafted for the packed pieces. Check it, then post it.")
                 return redirect("saleinvoice_detail", pk=inv.pk)
             _need(request, "sales.packing", "edit")
+            if action == "finish_and_bill":
+                # every right the two steps and the bill's own page ask for
+                _need(request, "sales.invoice", "create")
+                _need(request, "sales.invoice", "view")
+                inv = invoices.finish_packing_and_bill(p, user=request.user, date=timezone.localdate())
+                messages.success(request, "Packing finished and the bill drafted. Check the GST and the total, then post it.")
+                return redirect("saleinvoice_detail", pk=inv.pk)
             if action == "finalize":
                 packing_service.finalize_packing(p, user=request.user)
                 messages.success(request, "Packing finished.")

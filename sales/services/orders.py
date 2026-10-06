@@ -116,6 +116,14 @@ def confirm_order(order, *, user) -> SaleOrder:
 
 
 @transaction.atomic
+def create_and_confirm(*, user, **details) -> SaleOrder:
+    """Take an order and confirm it in one go (the form's "Save and confirm"). `details` are the arguments of
+    `create_order`. One transaction: if confirming fails, no draft is left behind, no number is used and no
+    production requirement is raised."""
+    return confirm_order(create_order(user=user, **details), user=user)
+
+
+@transaction.atomic
 def cancel_order(order, *, user, reason) -> SaleOrder:
     order = SaleOrder.objects.select_related("factory", "production_order").get(pk=order.pk)
     assert_factory_access(user, order.factory)

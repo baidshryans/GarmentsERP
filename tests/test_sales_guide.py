@@ -971,3 +971,259 @@ def test_the_lists_ask_each_permission_once_however_many_rows_they_show(ns):
         assert four[name][0] == one[name][0], name              # three more rows, no permission asked again
         assert four[name][1] == one[name][1] == 1, name         # one customer: its open bills are read once for the page
         assert four[name][2] - one[name][2] <= 3 * 14, name     # a bounded number of reads per row
+
+
+# ================================================================ fewer steps
+
+# ---------------- Save and confirm a new order ----------------
+
+def order_form(ns, cells=None, **extra):
+    """Every field the browser sends from the new-order form with one style's grid loaded."""
+    sid = ns.style.pk
+    cells = {("Black", "M"): "20", ("Navy", "S"): "5"} if cells is None else cells
+    grid = {f"q_{sid}_{ns.colours[c].pk}_{ns.sizes[s].pk}": cells.get((c, s), "") for c in ns.colours for s in ns.sizes}
+    return {"customer": ns.local.pk, "date": "2026-06-15", "due_date": "2026-06-30", "order_type": "stock",
+            "remarks": "Urgent", "style_pick": "", "style": sid, f"rate_{sid}": "500", f"disc_{sid}": "0", **grid, **extra}
+
+
+CONFIRM = '<button class="btn primary" name="then" value="confirm">Save and confirm</button>'
+DRAFT = '<button class="btn" name="then" value="draft">Save draft</button>'
+
+
+def test_save_and_confirm_takes_the_order_and_confirms_it_in_one_step(ns):
+    html = page(ns.owner, "saleorder_new")
+    # Save draft comes first, so Enter in a field saves a draft and never confirms; Save and confirm is the violet one
+    assert html.index(DRAFT) < html.index(CONFIRM)
+    r = login(ns.owner).post(reverse("saleorder_new"), order_form(ns, then="confirm"), follow=True)
+    o = SaleOrder.objects.get()
+    assert r.redirect_chain == [(reverse("saleorder_detail", args=[o.pk]), 302)]
+    assert o.status == "confirmed" and o.number == "SO/LDH1/26-27/0001" and o.total_qty == D("25") and o.remarks == "Urgent"
+    assert o.production_order_id is None
+    done = r.content.decode()
+    assert f"Order {o.number} confirmed." in done and "saved as a draft" not in done
+    assert button(reverse("packing_new", args=[o.pk]), "Pack goods") in guide_of(done)
+
+
+def test_save_and_confirm_of_a_made_to_order_order_raises_the_production_requirement(bare):
+    from production.models import ProductionOrder
+
+    ns = bare
+    r = login(ns.owner).post(reverse("saleorder_new"), order_form(ns, then="confirm", order_type="mto"), follow=True)
+    o = SaleOrder.objects.get()
+    po = ProductionOrder.objects.get()
+    assert o.status == "confirmed" and o.production_order_id == po.pk and po.order_reference == o.number
+    done = r.content.decode()
+    assert f"Order {o.number} confirmed. Production requirement" in done
+    assert "Waiting for: goods from production" in guide_of(done)
+
+
+def test_the_draft_button_still_saves_a_draft(ns):
+    c = login(ns.owner)
+    for n, extra in enumerate(({"then": "draft"}, {}), start=1):
+        r = c.post(reverse("saleorder_new"), order_form(ns, **extra), follow=True)
+        assert SaleOrder.objects.count() == n
+        o = SaleOrder.objects.order_by("-id").first()
+        assert o.status == "draft" and o.number is None and "Order saved as a draft." in r.content.decode()
+
+
+def test_without_edit_only_the_draft_button_shows_and_a_forged_confirm_is_refused(ns):
+    taker = role_user("draft_only", {"sales.order": ["view", "create"]}, ns.factory)
+    html = page(taker, "saleorder_new")
+    assert "Save and confirm" not in html and '<button class="btn primary">Save draft</button>' in html
+    r = login(taker).post(reverse("saleorder_new"), order_form(ns, then="confirm"))
+    assert r.status_code == 403 and not SaleOrder.objects.exists()
+    assert login(taker).post(reverse("saleorder_new"), order_form(ns)).status_code == 302
+    assert SaleOrder.objects.get().status == "draft"
+
+
+def test_editing_a_draft_order_offers_no_save_and_confirm_and_never_confirms(ns):
+    o = draft_order(ns)
+    html = page(ns.owner, "saleorder_edit", o.pk)
+    assert "Save and confirm" not in html and '<button class="btn primary">Save draft</button>' in html
+    login(ns.owner).post(reverse("saleorder_edit", args=[o.pk]), order_form(ns, {("Black", "M"): "7"}, then="confirm"))
+    o = order_of(o)
+    assert o.status == "draft" and o.number is None and o.total_qty == D("7")
+
+
+def test_if_confirming_fails_nothing_is_saved_and_the_form_comes_back(bare, monkeypatch):
+    from production.models import ProductionOrder
+
+    ns = bare
+
+    def fails(**kwargs):
+        # the last thing confirming a made-to-order order does, after the lines were written and the number was drawn
+        assert kwargs["order_reference"] == "SO/LDH1/26-27/0001"
+        raise BusinessRuleError("The production requirement could not be raised.")
+
+    monkeypatch.setattr(orders.production_orders, "create_order", fails)
+    moves, vouchers = StockMovement.objects.count(), Voucher.objects.count()
+    c = login(ns.owner)
+    r = c.post(reverse("saleorder_new"), order_form(ns, then="confirm", order_type="mto"))
+    html = r.content.decode()
+    assert r.status_code == 200 and "The production requirement could not be raised." in html
+    assert not SaleOrder.objects.exists() and not SaleOrder.history.exists()          # no draft left behind
+    assert not ProductionOrder.objects.exists()
+    assert (StockMovement.objects.count(), Voucher.objects.count()) == (moves, vouchers)
+    # the form comes back with both buttons and what was typed
+    assert CONFIRM in html and DRAFT in html and 'value="Urgent"' in html and 'value="20"' in html
+    assert '<option value="mto" selected>' in html
+    # the number drawn by the failed attempt was given back: the next order is the first of the series
+    monkeypatch.undo()
+    assert c.post(reverse("saleorder_new"), order_form(ns, then="confirm", order_type="mto")).status_code == 302
+    assert SaleOrder.objects.get().number == "SO/LDH1/26-27/0001" and ProductionOrder.objects.count() == 1
+
+
+def test_a_validation_error_shows_for_both_buttons_and_saves_nothing(ns):
+    c = login(ns.owner)
+    for then in ("confirm", "draft"):
+        r = c.post(reverse("saleorder_new"), order_form(ns, {("Black", "M"): "2.5"}, then=then))
+        html = r.content.decode()
+        assert r.status_code == 200 and "whole pieces" in html and CONFIRM in html and 'value="2.5"' in html
+        assert not SaleOrder.objects.exists()
+
+
+def test_save_and_confirm_in_a_locked_period_does_exactly_what_confirming_a_draft_does(ns):
+    """An order posts nothing to the books or to stock, so the period lock has never applied to it: the one-step
+    button must not differ from Save draft followed by Confirm order."""
+    from core.services.periods import lock_period
+
+    lock_period(user=ns.owner, company=ns.company, upto=date(2026, 6, 30))
+    two_steps = orders.confirm_order(draft_order(ns), user=ns.owner)
+    r = login(ns.owner).post(reverse("saleorder_new"), order_form(ns, then="confirm"), follow=True)
+    one_step = SaleOrder.objects.exclude(pk=two_steps.pk).get()
+    assert (one_step.status, one_step.number) == ("confirmed", "SO/LDH1/26-27/0002") and two_steps.status == "confirmed"
+    assert "is locked" not in r.content.decode()
+
+
+# ---------------- Finish packing and make the bill ----------------
+
+BOTH = '<button class="btn primary" name="action" value="finish_and_bill">Finish packing and make bill</button>'
+FINISH = '<button class="btn" name="action" value="finalize">Finish packing</button>'
+FINISH_ONLY = '<button class="btn primary" name="action" value="finalize">Finish packing</button>'
+
+
+def test_finish_packing_and_make_bill_does_both_and_opens_the_draft_bill(ns, company):
+    h.gst_on(company)
+    o = confirmed_order(ns)
+    p = draft_pack(ns, o, [{"S": "10", "M": "5"}, {"S": "5"}])
+    c = login(ns.owner)
+    url = reverse("packing_detail", args=[p.pk])
+    html = c.get(url).content.decode()
+    assert html.index(FINISH) < html.index(BOTH)                    # the smaller step first; the violet one does both
+    moves, vouchers = StockMovement.objects.count(), Voucher.objects.count()
+    r = c.post(url, {"action": "finish_and_bill"}, follow=True)
+    p, inv = packing_of(p), SaleInvoice.objects.get()
+    assert r.redirect_chain == [(reverse("saleinvoice_detail", args=[inv.pk]), 302)]
+    assert p.status == "packed" and p.number == "PKL/LDH1/26-27/0001"
+    assert inv.status == "draft" and inv.number is None and inv.packing_id == p.pk and inv.order_id == o.pk
+    assert {l.sku.size.code: l.qty for l in inv.lines.all()} == {"S": D("15"), "M": D("5")}
+    assert inv.subtotal == D("10000.00") and inv.gst_total == D("500.00")       # the slab's GST, as Make bill suggests it
+    # nothing left stock and nothing reached the books: posting is still its own step
+    assert (StockMovement.objects.count(), Voucher.objects.count()) == (moves, vouchers)
+    assert order_of(o).status == "confirmed"
+    done = r.content.decode()
+    assert "Packing finished and the bill drafted." in done and button("#do-next", "Post bill") in guide_of(done)
+    assert 'name="tax_mode"' in done and "No GST on this bill" in done           # GST can be chosen or waived first
+    c.post(reverse("saleinvoice_detail", args=[inv.pk]), {"action": "tax", "tax_mode": "none", "gst_template": "",
+                                                          "tax_note": "Sold under a bond"})
+    r = c.post(reverse("saleinvoice_detail", args=[inv.pk]), {"action": "post"}, follow=True)
+    inv = inv_of(inv)
+    assert inv.status == "posted" and inv.gst_total == D("0.00") and packing_of(p).status == "invoiced"
+    assert button(receive_link(inv, "10000.00"), WHO) in guide_of(r.content.decode())
+
+
+def test_finish_and_bill_needs_every_right_of_both_steps_and_the_packing_lists_factory(ns, factory2):
+    o = confirmed_order(ns)
+    p = draft_pack(ns, o, ALL)
+    url = reverse("packing_detail", args=[p.pk])
+
+    def untouched():
+        fresh = packing_of(p)
+        return fresh.status == "draft" and fresh.number is None and not SaleInvoice.objects.exists()
+
+    # a packer finishes the list and no more
+    packer = role_user("fb_packer", {"sales.packing": ["view", "edit"]}, ns.factory)
+    html = page(packer, "packing_detail", p.pk)
+    assert FINISH_ONLY in html and "Finish packing and make bill" not in html
+    assert login(packer).post(url, {"action": "finish_and_bill"}).status_code == 403 and untouched()
+    # the right to make bills without the right to open them, or without the right to finish the list: refused
+    for n, grants in enumerate(({"sales.packing": ["view", "edit"], "sales.invoice": ["create"]},
+                                {"sales.packing": ["view"], "sales.invoice": ["view", "create"]})):
+        who = role_user(f"fb_short{n}", grants, ns.factory)
+        assert "Finish packing and make bill" not in page(who, "packing_detail", p.pk)
+        assert login(who).post(url, {"action": "finish_and_bill"}).status_code == 403 and untouched()
+    # every right, in another factory: the packing list is not theirs to find
+    far = role_user("fb_far", {"sales.packing": ["view", "edit"], "sales.invoice": ["view", "create"]}, factory2)
+    assert login(far).post(url, {"action": "finish_and_bill"}).status_code == 404 and untouched()
+    # every right, here: both steps happen
+    both = role_user("fb_both", {"sales.packing": ["view", "edit"], "sales.invoice": ["view", "create"]}, ns.factory)
+    assert BOTH in page(both, "packing_detail", p.pk)
+    r = login(both).post(url, {"action": "finish_and_bill"}, follow=True)
+    assert r.status_code == 200 and packing_of(p).status == "packed" and SaleInvoice.objects.get().packing_id == p.pk
+    # once finished the one-step button is gone
+    assert "finish_and_bill" not in page(both, "packing_detail", p.pk)
+
+
+def test_if_the_bill_cannot_be_drafted_the_packing_list_stays_a_draft(ns, monkeypatch):
+    from sales.models import Carton, SaleInvoiceLine
+
+    o = confirmed_order(ns)
+    p = draft_pack(ns, o, [{"S": "10", "M": "5"}])
+    real = SaleInvoice.save
+
+    def fails(self, *args, **kwargs):
+        # the very last thing drafting the bill does, after the list was numbered and the bill's lines were written
+        if self.total:
+            raise BusinessRuleError("The bill could not be drafted.")
+        return real(self, *args, **kwargs)
+
+    monkeypatch.setattr(SaleInvoice, "save", fails)
+    moves, vouchers, history = StockMovement.objects.count(), Voucher.objects.count(), PackingList.history.count()
+    packed = {l.sku.size.code: l.qty_packed for l in o.lines.all()}
+    c = login(ns.owner)
+    url = reverse("packing_detail", args=[p.pk])
+    r = c.post(url, {"action": "finish_and_bill"}, follow=True)
+    html = r.content.decode()
+    assert r.redirect_chain == [(url, 302)] and "The bill could not be drafted." in html and BOTH in html
+    fresh = packing_of(p)
+    assert fresh.status == "draft" and fresh.number is None and PackingList.history.count() == history
+    assert not SaleInvoice.objects.exists() and not SaleInvoice.history.exists() and not SaleInvoiceLine.objects.exists()
+    assert (StockMovement.objects.count(), Voucher.objects.count()) == (moves, vouchers)
+    assert {l.sku.size.code: l.qty_packed for l in o.lines.all()} == packed and Carton.objects.filter(packing=p).count() == 1
+    assert order_of(o).status == "confirmed"
+    # the number drawn by the failed attempt was given back: the list is the first of its series when it does go through
+    monkeypatch.undo()
+    r = c.post(url, {"action": "finish_and_bill"}, follow=True)
+    assert packing_of(p).number == "PKL/LDH1/26-27/0001" and SaleInvoice.objects.get().status == "draft"
+
+
+def test_if_the_goods_are_not_in_stock_nothing_is_finished_or_billed(bare):
+    ns = bare
+    o = orders.confirm_order(draft_order(ns), user=ns.owner)
+    p = draft_pack(ns, o, ALL)
+    url = reverse("packing_detail", args=[p.pk])
+    r = login(ns.owner).post(url, {"action": "finish_and_bill"}, follow=True)
+    assert r.redirect_chain == [(url, 302)] and "only 0 available at LDH1 / Main Godown" in r.content.decode()
+    assert packing_of(p).status == "draft" and packing_of(p).number is None and not SaleInvoice.objects.exists()
+
+
+def test_finish_and_bill_in_a_locked_period_drafts_as_the_two_steps_do_and_posting_is_still_refused(ns):
+    """Finishing a packing list and drafting a bill post nothing to the books or to stock, so the period lock does not
+    stop them, one step or two. Posting the bill is where the lock applies, and that step is untouched."""
+    from core.services.periods import lock_period
+
+    o = confirmed_order(ns)
+    two = draft_bill(ns, pack(ns, o, [{"S": "5"}]))
+    p = draft_pack(ns, o, [{"M": "5"}])
+    lock_period(user=ns.owner, company=ns.company, upto=date(2030, 12, 31))
+    c = login(ns.owner)
+    r = c.post(reverse("packing_detail", args=[p.pk]), {"action": "finish_and_bill"}, follow=True)
+    one = SaleInvoice.objects.exclude(pk=two.pk).get()
+    assert "is locked" not in r.content.decode() and packing_of(p).status == "packed" and one.status == "draft"
+    moves, vouchers = StockMovement.objects.count(), Voucher.objects.count()
+    for inv in (one, two):
+        r = c.post(reverse("saleinvoice_detail", args=[inv.pk]), {"action": "post"}, follow=True)
+        fresh = inv_of(inv)
+        assert "is locked" in r.content.decode() and fresh.status == "draft" and fresh.number is None
+    assert (StockMovement.objects.count(), Voucher.objects.count()) == (moves, vouchers)
+    assert packing_of(p).status == "packed" and order_of(o).status == "confirmed"

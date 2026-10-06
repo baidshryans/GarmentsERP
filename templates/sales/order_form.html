@@ -21,7 +21,7 @@
     </div></div>
     <div id="grids">{% for g in grids %}{% include "sales/_order_grid.html" %}{% endfor %}</div>
 
-    <div class="form-actions"><button class="btn primary">Save draft</button><a class="btn ghost" href="{% url 'saleorder_list' %}">Cancel</a></div>
+    <div class="form-actions">{% if can_confirm %}<button class="btn" name="then" value="draft">Save draft</button><button class="btn primary" name="then" value="confirm">Save and confirm</button>{% else %}<button class="btn primary">Save draft</button>{% endif %}<a class="btn ghost" href="{% url 'saleorder_list' %}">Cancel</a></div>
   </form>
   <script src="{% static 'js/sales.js' %}?v={{ asset_v }}" defer></script>
 {% endblock %}

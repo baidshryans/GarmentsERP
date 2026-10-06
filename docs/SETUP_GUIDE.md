@@ -930,7 +930,10 @@ Challans and receipts guide you the same way (section 23.2). On Home, **Receive 
 - The order page shows the steps of all its packing lists and bills; the packing list shows its own and its bill's; the bill shows its own and its draft returns'. The same step has the same name and opens the same screen wherever you see it.
 - What is furthest behind comes first: with pieces still to pack and a finished list waiting for its bill, the Next button is **Pack goods** and **Make bill** is listed under **Also waiting**.
 - While a packing list of an order is a draft, the order's Next button points at that one. A second packing list can still be started: the order page keeps a plain **Pack goods** button in its header for as long as pieces are on no packing list.
-- **Made to order.** Until some of the ordered pieces are in finished stock at the factory, the order page says **Waiting for: goods from production** and gives no button; the Sale orders list says the same on that row. The pills under "Where the pieces are in production" show how far they are. Once production packs them into finished goods (section 24) the Next button becomes **Pack goods**. Production screens never show the customer.
+- **Made to order.** Until some of the ordered pieces are in finished stock at the factory, the order page says **Waiting for: goods from production** and gives no button; the Sale orders list says the same on that row. The pills under "Where the pieces are in production" show how far they are. Once production packs them into finished goods (section 24) the Next button becomes **Pack goods**. Production screens never show the customer. The order waits only while its production order can still deliver: once that production order is completed or closed and nothing is in stock, the Next button is **Pack goods** with the note below, and **Close the balance** is there if the pieces will never come.
+- **Nothing in stock.** Pieces already on another finished packing list that is not billed yet do not count as stock, exactly as when you finish a list. When none of the pieces still to pack is in stock, **Pack goods** is still offered (for a ready-stock order, and for a made-to-order order whose production is over) with the note "None of these pieces is in finished stock yet; the list can be saved but not finished."
+- **Money the customer already has with you.** If the customer has an advance or a credit on account, the Receive money button still asks for the whole bill, and its note adds "This customer also has … on account from advances or returns." Receive the difference, or set the advance against the bill with the Bill options (section 27). When nothing is left to receive on a bill and the customer still has such money, the bill page and the return page say "… is held on the customer's account. Adjust it against the next bill, or refund it from Money paid."
+- **Drafts that can no longer be posted.** A draft return whose bill was cancelled says "Its bill was cancelled. Discard this draft return." A draft bill whose packing list is no longer a finished one says "Its packing list was cancelled. Discard this draft bill." Neither offers posting; press **Discard draft**.
 - **What a return does to the bill.** A posted return is set against its bill: the **Outstanding** figure in the bill's header and the Receive money button both show the bill less the return (bill 30,000, return 2,000: 28,000 to receive). If the bill was already paid, the credit goes on the customer's account instead and the bill asks for nothing more.
 - The amount on the Receive money button is the same figure as **Outstanding** in the bill's header. The header also has a plain **Receive money** button that opens the same voucher.
 - On the new order form **Save draft** comes first, so pressing Enter in a field saves a draft; **Save and confirm** is the violet button and is offered only to roles that may confirm orders. Editing a draft has **Save draft** only.
@@ -1303,7 +1306,7 @@ Order statuses: Draft → Confirmed → Partly dispatched → Fully invoiced. Al
 - **Credit limit:** it is stored on the customer but is **not enforced**; nothing is blocked. To see what a customer already owes, choose them on a **Sales voucher** or **Journal voucher** (section 28): the outstanding amount appears beside the choice. The receivables ageing (section 29) shows it for every customer.
 - Ready-stock orders reserve nothing at order time. Stock is checked when you finish the packing list.
 
-*Sell → Sale orders → Order book* shows open orders with their pending balance.
+*Sell → Sale orders → Order book* shows open orders with their pending balance, for the factory chosen in the top bar (every factory of yours when "All factories" is chosen). "Orders waiting to be packed" on *Packing and dispatch* follows the same rule.
 
 ### 26.3 Packing and dispatch
 
@@ -1321,7 +1324,7 @@ In the **Pieces in each carton** grid, rows are order lines with "Left to pack" 
 
 **Save draft** opens the packing list. There, **Finish packing and make bill** finishes the list and drafts the bill for the packed pieces in one step, then opens the bill (26.4). **Finish packing** only finishes the list; its Next button is then **Make bill**. Finishing checks stock at that location (less pieces on other packed lists that are not billed yet) and numbers the list. If the pieces are not in stock, or the bill cannot be drafted, nothing changes: the list stays a draft and the message says why. Status: Draft → Packed → Invoiced.
 
-Then **Print list** and **Carton labels**. Carton codes look like `C000123-01`; scanning one at billing adds the whole carton. A finished list cannot be reopened: cancel it (with a reason) and pack again. **Discard** cancels a draft list.
+Then **Print list** and **Carton labels**. Carton codes look like `C000123-01`; scanning one at billing adds the whole carton. A finished list cannot be reopened: cancel it (with a reason) and pack again. A list that has a bill, draft or posted, cannot be cancelled: the page says "Discard or cancel its bill before cancelling this packing list." Discard the draft bill (or cancel the posted one) first. **Discard** cancels a draft list.
 
 A role that packs but does not bill sees only **Finish packing**; the page then says **Waiting for: Make bill**.
 
@@ -1347,7 +1350,7 @@ On screen a sale invoice is called a **bill**; the printed document is still the
 | **One GST template for all items** | Special case; needs a reason if it differs from the suggestion |
 | **No GST on this bill** | Needs a reason; the suggestion is kept in the bill's log |
 
-If a style has no HSN or no slab you get an error naming the style. Fix it in the masters (section 4) and retry; a bill from a packing list cannot be drafted until then. On a draft, **Change the GST on this bill** → **Update GST** re-works the tax.
+If a style has no HSN code, or its HSN has no slab for the value and date, GST cannot be suggested. From a packing list (**Make bill** or **Finish packing and make bill**) the message names the style and where to put it right, for example "JGR-104 has no HSN code. Set it in Masters → Styles, then make the bill again." or "JGR-104: HSN 6112 has no GST slab for this value and date. Add it in Masters → Setup → HSN and GST slabs, then make the bill again." Nothing is saved, and the bill cannot be drafted until the master is fixed (section 4). In Quick billing the message is "The style has no HSN code; set it, or choose a GST template or no GST for this invoice.": there you can also pick one of the other GST options. On a draft, **Change the GST on this bill** → **Update GST** re-works the tax.
 
 Amount per line = quantity × rate × (100 − disc%) ÷ 100. The due date = bill date + the customer's credit days (Mehta Traders: 45).
 
@@ -1391,7 +1394,7 @@ On screen a credit note is called a **return from customer**. Open the posted bi
 | Reason | Required. "6 pieces wrong colour" |
 | Returning | Quantity per line, up to "Can be returned" |
 
-**Save draft** → **Post return** (the return's Next button; the bill and the order show it as their Next button too). The pieces come back into stock at their original cost, sales returns and GST are reversed pro rata, and the customer is credited: first against that bill's open amount, any excess **on account**. So after a return the bill's **Outstanding** and its Receive money button show the bill less the return. **Cancel return** needs a reason.
+**Save draft** → **Post return** (the return's Next button; the bill and the order show it as their Next button too). The pieces come back into stock at their original cost, sales returns and GST are reversed pro rata, and the customer is credited: first against that bill's open amount, any excess **on account**. So after a return the bill's **Outstanding** and its Receive money button show the bill less the return. If the bill was already paid, the return page and the bill page say how much is held on the customer's account. **Cancel return** needs a reason. If the bill itself is cancelled while a return is still a draft, the draft can no longer be posted; the page says so and you discard it.
 
 ---
 

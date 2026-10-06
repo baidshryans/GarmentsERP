@@ -163,6 +163,7 @@ def test_an_over_receipt_waits_for_approval_and_its_bundles_are_not_counted_agai
     assert seen(g) == [(f"Receive from {ns.fab.name}", reverse("receipt_new", args=[ch.pk]), 25),   # only B002 is asked for
                        ("Approve over-receipt", reverse("receipt_detail", args=[r.pk]), 0)]
     assert states(g)["Received"] == "now" and pieces(g)["Received"] is None  # counted, but nothing has moved yet
+    follow_links(ns, g)   # the receipt form lists exactly the 25 pieces the button names
     receive(ns, ch, {b2: 25})
     g = guide(ns, ch)
     assert [a["label"] for a in offered(g)] == ["Approve over-receipt", "Check received pieces"]

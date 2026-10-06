@@ -212,8 +212,9 @@ class ReceiptNew(LoginRequiredMixin, ScreenPermissionMixin, View):
     screen_action = "create"
 
     def _ctx(self, request, challan, d=None):
+        counted = receipts.awaiting_approval(challan)   # on an over-receipt the owner has yet to approve
         lines = [cb for cb in challan.bundles.select_related("bundle__sku__size", "bundle__sku__colour")
-                 if not (cb.qty_received or cb.qty_shortage)]
+                 if not (cb.qty_received or cb.qty_shortage) and cb.pk not in counted]
         for cb in lines:
             cb.scan = scan_text(cb.bundle)
         return {"ch": challan, "lines": lines, "trims": [t for t in challan.trims.select_related("material")],

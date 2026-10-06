@@ -194,6 +194,37 @@ def test_receiving_more_than_was_issued_waits_for_the_owner_and_moves_nothing(ns
     assert move.qty_extra == 2 and move.qty_out + move.qty_extra == move.qty_in  # BR-21 with the approved extra
 
 
+def test_a_bundle_on_a_receipt_awaiting_approval_cannot_be_received_again(ns):
+    from django.test import Client
+    from django.urls import reverse
+
+    ch = issue(ns, ns.fab, ns.bundles[:2])  # B001 S17, B002 M25
+    b1, b2 = ch.bundles.order_by("id")
+    over = receive(ns, ch, {b1: 19})
+    assert over.status == "pending_approval"
+    # the form offers only the bundle that has not been counted
+    c = Client()
+    c.force_login(ns.owner)
+    assert [cb.bundle.bundle_no for cb in c.get(reverse("receipt_new", args=[ch.pk])).context["lines"]] == ["B002"]
+    with pytest.raises(BusinessRuleError, match="Bundle B001 is on a receipt waiting for the owner's approval"):
+        receive(ns, ch, {b1: 17})
+    with pytest.raises(BusinessRuleError, match="waiting for the owner's approval"):
+        receive(ns, ch, {b2: 25, b1: 17})   # refused whole: nothing of it is saved
+    assert Receipt.objects.filter(challan=ch).count() == 1
+    # a hand-made post of the form is refused the same way
+    r = c.post(reverse("receipt_new", args=[ch.pk]), {"date": "2026-06-16", f"use_{b1.pk}": "on", f"count_{b1.pk}": "17"})
+    assert r.status_code == 200 and "waiting for the owner" in r.content.decode() and Receipt.objects.filter(challan=ch).count() == 1
+    # the other bundle is received as usual, and approving the first receipt then moves B001 exactly once
+    receive(ns, ch, {b2: 25})
+    receipts.approve_receipt(over, user=ns.owner)
+    b = Bundle.objects.get(pk=ns.bundles[0].pk)
+    assert b.qty == 19 and b.status == "received" and b.movements.filter(kind="receipt").count() == 1
+    ch.refresh_from_db()
+    assert ch.status == "fully_received"
+    with pytest.raises(BusinessRuleError):
+        receive(ns, ch, {b1: 17})
+
+
 def test_returned_trims_go_back_to_stock_and_missing_ones_are_recorded(ns, company, factory):
     ch = issue(ns, ns.fab, ns.bundles[:1])  # 17 zippers issued
     trim = ch.trims.get()

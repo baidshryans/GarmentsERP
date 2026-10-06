@@ -9,7 +9,8 @@ used (BR-15). Nothing here changes what is paid: labour is still computed by the
 from django.db.models import Sum
 from django.urls import reverse
 
-from jobwork.models import JobWorkChallan, QcResult, Receipt, ReceiptLine
+from jobwork.models import JobWorkChallan, QcResult, Receipt
+from jobwork.services import receipts as receipt_service
 
 S = JobWorkChallan.Status
 # what is furthest behind comes first (the lot guide ranks its own send / move / rework actions around these)
@@ -87,10 +88,8 @@ def _actions(challan, lines, receipts):
         return [issue_action(challan, lines)]
     found = []
     if challan.is_open:
-        counted = set()
-        if any(r.status == Receipt.Status.PENDING_APPROVAL for r in receipts):
-            counted = set(ReceiptLine.objects.filter(receipt__challan=challan, receipt__status=Receipt.Status.PENDING_APPROVAL)
-                          .values_list("challan_bundle_id", flat=True))
+        pending = any(r.status == Receipt.Status.PENDING_APPROVAL for r in receipts)
+        counted = receipt_service.awaiting_approval(challan) if pending else set()
         found.append(receive_action(challan, lines, counted))
     for r in sorted(receipts, key=lambda r: r.pk):
         r.challan = challan                      # already loaded: the hint names its fabricator

@@ -41,6 +41,13 @@ def _cost_per_piece(lot, factory):
     return costing.r2(costing.lot_cost(lot, factory) / pieces) if pieces else ZERO
 
 
+def awaiting_approval(challan) -> set:
+    """Challan lines already counted on an over-receipt that waits for approval (BR-03). Nothing has moved for
+    them yet, but they must not be counted again: {ChallanBundle pk}."""
+    return set(ReceiptLine.objects.filter(receipt__challan=challan, receipt__status=Receipt.Status.PENDING_APPROVAL)
+               .values_list("challan_bundle_id", flat=True))
+
+
 @transaction.atomic
 def create_receipt(*, challan, counts, user, date, location=None, trims=None) -> Receipt:
     """Count bundles back. counts = [Counted]; trims = {ChallanTrim: (returned, missing)}.
@@ -61,6 +68,7 @@ def create_receipt(*, challan, counts, user, date, location=None, trims=None) ->
                                      location=place, created_by=user)
     over = False
     seen = set()
+    pending = awaiting_approval(challan)
     for c in counts:
         cb = ChallanBundle.objects.select_related("bundle").get(pk=c.challan_bundle.pk, challan=challan)
         if cb.pk in seen:
@@ -68,6 +76,9 @@ def create_receipt(*, challan, counts, user, date, location=None, trims=None) ->
         seen.add(cb.pk)
         if cb.qty_received or cb.qty_shortage:
             raise BusinessRuleError(f"Bundle {cb.bundle.bundle_no} has already been received.")
+        if cb.pk in pending:
+            # counted once already: approving that receipt will move the bundle, so a second count would move it twice
+            raise BusinessRuleError(f"Bundle {cb.bundle.bundle_no} is on a receipt waiting for the owner's approval.")
         if c.counted < 0:
             raise BusinessRuleError("The counted pieces cannot be negative.")
         over_qty = max(0, c.counted - cb.qty_issued)

@@ -90,6 +90,12 @@ def create_challan(*, company, factory, party, lot, step, bundles, date, user, e
         if kind == JobWorkChallan.Kind.REWORK:
             if b.status != Bundle.Status.REWORK or not b.rework_qty:
                 raise BusinessRuleError(f"Bundle {b.bundle_no} is not waiting for rework.")
+            if b.current_step_id != step.pk:
+                # a bundle sent back keeps the step of the challan it came back on: rework is that fabricator's step again
+                where = b.current_step.process.name if b.current_step_id else "no step"
+                raise BusinessRuleError(
+                    f"Bundle {b.bundle_no} is waiting for rework at {where}, not {step.process.name}. "
+                    f"Make the rework challan for {where}.")
             base = (ChallanBundle.objects.filter(bundle=b, challan__kind="issue").order_by("-id").first())
             price = (base.rate if base else ZERO) + rate.rework
             qty = b.qty

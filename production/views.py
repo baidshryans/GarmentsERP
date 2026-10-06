@@ -401,11 +401,11 @@ class MoveView(LoginRequiredMixin, ScreenPermissionMixin, View):
         if lot:
             bundles = list(lot.bundles.filter(status__in=("cut", "ready", "at_stage")).select_related(
                 "sku__size", "location", "current_step__process").order_by("bundle_no"))
+            steps = [s for s in lot.steps.select_related("process", "factory", "party").order_by("sequence") if s.status != "skipped"]
             for b in bundles:
-                b.next = bundle_service.next_step(b)
+                b.next = bundle_service.next_stage(b, steps)
                 b.scan = labels.scan_text(b)
-            ctx.update(bundles=bundles, steps=[s for s in lot.steps.select_related("process", "factory", "party") if s.status != "skipped"],
-                       factories=_factories(request.user))
+            ctx.update(bundles=bundles, steps=steps, factories=_factories(request.user))
         return ctx
 
     def get(self, request):

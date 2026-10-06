@@ -811,3 +811,43 @@ def test_the_orders_list_shares_what_it_learns_between_orders(company, factory, 
     assert len(three) - len(one) <= 2 * 4
     asked = [q["sql"] for q in three.captured_queries if "core_rolepermission" in q["sql"] and "production.cutting" in q["sql"]]
     assert len(asked) == 2  # create and view, once each for the whole page, not once per order
+
+
+# ================================================================ the move screen names the same next stage
+
+def next_stages(ns, user=None):
+    """{bundle number: what the move screen's "Next stage" column says for it}."""
+    html = login(user or ns.owner).get(reverse("move_bundles"), {"lot": ns.lot.pk}).content.decode()
+    rows = re.findall(r'<tr data-scan=.*?</tr>', html, re.S)
+    return {re.search(r'data-no="([^"]+)"', r).group(1): re.findall(r"<td>(.*?)</td>", r, re.S)[-1] for r in rows}
+
+
+def test_the_move_screen_names_the_next_mandatory_stage_after_where_each_bundle_is(ns):
+    stitch_in_house(ns)
+    assert set(next_stages(ns).values()) == {"Stitching"}  # cut, nothing done yet
+    go(ns, ns.bundles[HALF], "STITCH")
+    seen = next_stages(ns)
+    # a bundle sitting at stitching has stitching behind it, and the optional steps are not what it must do next
+    assert {seen[b.bundle_no] for b in ns.bundles[HALF]} == {"Ironing and pressing"}
+    assert {seen[b.bundle_no] for b in ns.bundles[3:]} == {"Stitching"}
+    # the column and the lot's buttons say the same thing
+    assert labels(lot_guide(ns.lot, ns.owner))[:2] == ["Move to Stitching", "Move to Ironing and pressing"]
+
+
+def test_the_move_screen_agrees_with_the_guide_for_bundles_back_from_a_fabricator(ns):
+    stitched(ns)  # ready, with stitching completed: embroidery, printing and washing are optional
+    assert set(next_stages(ns).values()) == {"Ironing and pressing"}
+    assert primary(ns)["label"] == "Move to Ironing and pressing"
+
+
+def test_the_move_screen_falls_back_to_the_next_optional_stage_when_nothing_mandatory_is_left(ns):
+    stitch_in_house(ns)
+    for code in ("IRON", "FINISH", "QC", "PACK"):
+        routes.remove_step(step(ns, code), user=ns.owner, reason="test: a route that ends in optional steps")
+    go(ns, ns.bundles, "STITCH")
+    assert set(next_stages(ns).values()) == {"Embroidery"}
+    routes.skip_step(step(ns, "EMB"), user=ns.owner, reason="plain")
+    assert set(next_stages(ns).values()) == {"Printing"}
+    for code in ("PRINT", "WASH"):
+        routes.skip_step(step(ns, code), user=ns.owner, reason="plain")
+    assert set(next_stages(ns).values()) == {"—"}  # nothing is left on the route

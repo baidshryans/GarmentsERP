@@ -41,6 +41,22 @@ def next_step(bundle):
             .exclude(status=LotStep.Status.SKIPPED).order_by("sequence").first())
 
 
+def steps_ahead(bundle, steps):
+    """(the next mandatory step or None, every step still ahead) for a bundle, counted from where it actually is:
+    a bundle sitting at a stage has that stage behind it, any other has what it completed. `steps` is the lot's
+    route in order without the skipped steps. The lot guide's button and the move screen both ask here."""
+    at_stage = bundle.status == Bundle.Status.AT_STAGE and bundle.current_step_id
+    done = bundle.current_step.sequence if at_stage else bundle.completed_seq
+    later = [s for s in steps if s.sequence > done]
+    return next((s for s in later if s.is_mandatory), None), later   # optional steps may be jumped over (see check_entry)
+
+
+def next_stage(bundle, steps):
+    """The stage a bundle goes to next: the next mandatory step, or the next optional one when no mandatory step is left."""
+    mandatory, later = steps_ahead(bundle, steps)
+    return mandatory or (later[0] if later else None)
+
+
 def refresh_steps(lot):
     """Mark steps in progress or done from what the bundles have completed, then the lot and order status."""
     bundles = list(Bundle.objects.filter(lot=lot).exclude(status=Bundle.Status.SCRAPPED))

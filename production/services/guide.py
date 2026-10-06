@@ -8,6 +8,7 @@ from django.urls import reverse
 from core.models import Location
 from jobwork.models import JobWorkChallan, Receipt, ReceiptLine
 from production.models import Bundle, LotStep
+from production.services import bundles as bundle_service
 
 B = Bundle.Status
 AT_A_STAGE = (B.AT_STAGE, B.DONE, B.RECEIVED, B.REWORK)
@@ -156,9 +157,7 @@ def _actions(lot, steps, bundles, cuts, issued):
             add(("pack",), 10_000, "Pack into finished goods", "These bundles have reached packing.",
                 reverse("lot_detail", args=[lot.pk]) + "#pack", (("production.move", "create"), ("production.lot", "view")), b.qty)
             continue
-        done = here if b.status == B.AT_STAGE else b.completed_seq
-        later = [s for s in steps if s.sequence > done]
-        nxt = next((s for s in later if s.is_mandatory), None)   # optional steps may be jumped over (see check_entry)
+        nxt, later = bundle_service.steps_ahead(b, steps)
         if nxt is not None:
             onward(nxt, b)
         for s in later:

@@ -265,6 +265,52 @@ def test_rework_goes_out_on_its_own_challan_at_the_rework_rate_and_comes_back_ac
     assert res.is_rework_pass and Bundle.objects.get(pk=b.pk).status == "ready"
 
 
+def embroidery_sent_back(ns):
+    """B001 stitched and accepted, then sent out for embroidery and sent back by QC: it waits for rework at embroidery."""
+    emb = step(ns, "EMB")
+    rates.save_rate(party=ns.fab, process=emb.process, rate_type="A", base_rate=D("8"), rework_rate=D("2"), effective_from=date(2026, 4, 1))
+    qc(ns, receive(ns, issue(ns, ns.fab, ns.bundles[:1])).lines.get(), accepted=17)
+    out = challans.issue_challan(challans.create_challan(company=ns.company, factory=ns.factory, party=ns.fab, lot=ns.lot, step=emb,
+                                                         bundles=ns.bundles[:1], date=DAY, user=ns.owner), user=ns.owner)
+    qc(ns, receive(ns, out).lines.get(), accepted=0, rework=17)
+    b = Bundle.objects.get(pk=ns.bundles[0].pk)
+    assert b.status == "rework" and b.current_step_id == emb.pk
+    return b, emb
+
+
+def test_a_rework_challan_takes_only_bundles_waiting_at_its_own_step(ns):
+    b, emb = embroidery_sent_back(ns)
+    before = JobWorkChallan.objects.count()
+    with pytest.raises(BusinessRuleError, match=r"Bundle B001 is waiting for rework at Embroidery, not Stitching"):
+        challans.create_challan(company=ns.company, factory=ns.factory, party=ns.fab, lot=ns.lot, step=step(ns, "STITCH"),
+                                bundles=[b], date=DAY, user=ns.owner, kind="rework")
+    assert JobWorkChallan.objects.count() == before  # nothing was saved
+    rw = challans.create_challan(company=ns.company, factory=ns.factory, party=ns.fab, lot=ns.lot, step=emb,
+                                 bundles=[b], date=DAY, user=ns.owner, kind="rework")
+    assert rw.kind == "rework" and rw.step_id == emb.pk and rw.bundles.get().rate == D("10.00")  # 8 + 2 rework charge
+
+
+def test_the_rework_form_lists_only_the_rework_bundles_of_the_chosen_step(ns):
+    from django.test import Client
+    from django.urls import reverse
+
+    b, emb = embroidery_sent_back(ns)
+    qc(ns, receive(ns, issue(ns, ns.fab, ns.bundles[2:3])).lines.get(), accepted=0, rework=8)  # B003 waits at stitching
+    c = Client()
+    c.force_login(ns.owner)
+
+    def listed(code):
+        page = c.get(reverse("challan_new"), {"lot": ns.lot.pk, "kind": "rework", "step": step(ns, code).pk})
+        return [x.bundle_no for x in page.context["bundles"]]
+
+    assert listed("EMB") == ["B001"] and listed("STITCH") == ["B003"] and listed("WASH") == []
+    # a hand-made post for the wrong step is refused by the service and says where the bundle waits
+    r = c.post(reverse("challan_new"), {"lot": ns.lot.pk, "step": step(ns, "STITCH").pk, "kind": "rework", "factory": ns.factory.pk,
+                                        "party": ns.fab.pk, "date": "2026-06-16", "bundle": [b.pk]})
+    assert r.status_code == 200 and "waiting for rework at Embroidery, not Stitching" in r.content.decode()
+    assert not ns.lot.challans.filter(kind="rework").exists()
+
+
 def test_a_bundle_waiting_for_rework_cannot_be_moved_on_or_packed(ns):
     ch = issue(ns, ns.fab, ns.bundles[:1])
     qc(ns, receive(ns, ch).lines.get(), accepted=0, rework=17)

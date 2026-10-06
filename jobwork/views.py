@@ -79,7 +79,8 @@ class ChallanNew(LoginRequiredMixin, ScreenPermissionMixin, View):
             for b in lot.bundles.filter(status__in=("cut", "ready", "at_stage", "rework")).select_related(
                     "sku__size", "location__factory", "current_step__process", "lot").order_by("bundle_no"):
                 if ctx["kind"] == "rework":
-                    if b.status == "rework":
+                    # rework goes back on the step it came from (create_challan refuses any other)
+                    if b.status == "rework" and step is not None and b.current_step_id == step.pk:
                         eligible.append(b)
                     continue
                 if step is None or b.status == "rework":

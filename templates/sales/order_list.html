@@ -6,9 +6,10 @@
   <div class="steps"><a class="step {% if not status %}current{% endif %}" href="{% url 'saleorder_list' %}">All</a>{% for v, l in statuses %}<a class="step {% if status == v %}current{% endif %}" href="?status={{ v }}">{{ l }}</a>{% endfor %}</div>
   <div class="island">
     {% if orders %}<div class="table-wrap"><table>
-      <thead><tr><th scope="col">Number</th><th scope="col">Date</th><th scope="col">Customer</th><th scope="col">Type</th><th scope="col">Factory</th><th scope="col" class="num">Pieces</th><th scope="col" class="num">Value</th><th scope="col">Status</th></tr></thead>
+      <thead><tr><th scope="col">Number</th><th scope="col">Date</th><th scope="col">Customer</th><th scope="col">Type</th><th scope="col">Factory</th><th scope="col" class="num">Pieces</th><th scope="col" class="num">Value</th><th scope="col">Status</th><th scope="col">Next step</th></tr></thead>
       <tbody>{% for o in orders %}<tr><td><a href="{% url 'saleorder_detail' o.pk %}">{{ o.number|default:"Draft" }}</a></td><td>{{ o.date|date:"d M Y" }}</td><td>{{ o.customer.name }}</td><td>{{ o.get_order_type_display }}</td><td>{{ o.factory.code }}</td><td class="num">{{ o.total_qty|floatformat:"-0" }}</td><td class="num">{{ o.total }}</td>
-        <td><span class="pill {% if o.status == 'dispatched' %}success{% elif o.status == 'cancelled' %}danger{% elif o.status == 'draft' or o.status == 'partly_dispatched' %}warning{% endif %}">{{ o.get_status_display }}</span></td></tr>{% endfor %}</tbody>
+        <td><span class="pill {% if o.status == 'dispatched' %}success{% elif o.status == 'cancelled' %}danger{% elif o.status == 'draft' or o.status == 'partly_dispatched' %}warning{% endif %}">{{ o.get_status_display }}</span></td>
+        <td>{% if o.next %}<a class="btn" href="{{ o.next.url }}">{{ o.next.label }}</a>{% elif o.waits_for %}<span class="muted">Waiting for: {{ o.waits_for }}</span>{% endif %}</td></tr>{% endfor %}</tbody>
     </table></div>{% else %}<div class="empty"><div class="hand">No sale orders</div></div>{% endif %}
   </div>
 {% endblock %}

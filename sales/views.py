@@ -23,7 +23,7 @@ from tax.models import TaxTemplate
 from .models import (
     Carton, PackingList, SaleCreditNote, SaleInvoice, SaleOrder, SaleSetting, SaleInvoiceLine,
 )
-from .services import credit_notes, einvoice, invoices, orders, packing as packing_service, pricing
+from .services import credit_notes, einvoice, guide as guide_service, invoices, orders, packing as packing_service, pricing
 from .services.common import settings_for
 from ledger.settlement import settlement
 
@@ -69,6 +69,24 @@ def _can(request, screen, action):
 def _need(request, screen, action):
     if not _can(request, screen, action):
         raise PermissionDenied
+
+
+def _with_next(rows, next_step, user):
+    """The rows shown on a list, each with its next step. One memo serves the page: every permission and every
+    customer's open bills are asked once."""
+    rows, memo = list(rows), {}
+    for row in rows:
+        row.next = next_step(row, user, memo)
+    return rows
+
+
+def _orders_with_next(rows, user):
+    """Sale orders for a list: the next step, or what a made-to-order order waits for from production."""
+    rows, memo = list(rows), {}
+    for row in rows:
+        guide = guide_service.order_guide(row, user, memo)
+        row.next, row.waits_for = guide["primary"], guide["waiting"] if guide["blocked"] else ""
+    return rows
 
 
 # ================================================================ settings
@@ -160,7 +178,7 @@ class OrderList(LoginRequiredMixin, ScreenPermissionMixin, View):
         if status:
             qs = qs.filter(status=status)
         return render(request, "sales/order_list.html", {
-            "orders": qs[:200], "status": status, "statuses": SaleOrder.Status.choices,
+            "orders": _orders_with_next(qs[:200], request.user), "status": status, "statuses": SaleOrder.Status.choices,
             "can_create": _can(request, "sales.order", "create")})
 
 
@@ -263,7 +281,8 @@ class OrderDetail(LoginRequiredMixin, ScreenPermissionMixin, View):
             "order": order, "lines": order.lines.select_related("sku__style", "sku__colour", "sku__size"),
             "packings": order.packing_lists.all(), "invoices": order.invoices.all(),
             "can_edit": _can(request, "sales.order", "edit"), "can_cancel": _can(request, "sales.order", "cancel"),
-            "can_pack": _can(request, "sales.packing", "create"),
+            "guide": guide_service.order_guide(order, u), "can_open_packing": _can(request, "sales.packing", "view"),
+            "can_open_invoice": _can(request, "sales.invoice", "view"),
             "show_phone": u.can_view_field("customer_phone"), "stages": orders.production_stages(order),
             "can_production": _can(request, "production.order", "view")})
 
@@ -303,7 +322,10 @@ class PackingListView(LoginRequiredMixin, ScreenPermissionMixin, View):
 
     def get(self, request):
         qs = in_active(PackingList.objects.for_user(request.user), request).select_related("order__customer", "factory")
-        return render(request, "sales/packing_list.html", {"lists": qs[:200], "book": orders.order_book(request.user)})
+        return render(request, "sales/packing_list.html", {
+            "lists": _with_next(qs[:200], guide_service.packing_next, request.user), "book": orders.order_book(request.user),
+            # the form needs `create`, and saving it lands on the packing list's page
+            "can_pack": _can(request, "sales.packing", "create")})
 
 
 class PackingSave(LoginRequiredMixin, ScreenPermissionMixin, View):
@@ -383,7 +405,7 @@ class PackingSave(LoginRequiredMixin, ScreenPermissionMixin, View):
         except ERRORS as exc:
             _msgs(request, exc)
             return render(request, "sales/packing_form.html", self._ctx(request, order, packing, n, cells, p))
-        messages.success(request, "Packing list saved as a draft. Finalise it when the cartons are closed.")
+        messages.success(request, "Packing list saved as a draft. Finish packing when the cartons are closed.")
         return redirect("packing_detail", pk=saved.pk)
 
 
@@ -399,7 +421,10 @@ class PackingDetail(LoginRequiredMixin, ScreenPermissionMixin, View):
         return render(request, "sales/packing_detail.html", {
             "p": p, "cartons": p.cartons.prefetch_related("lines__sku__style", "lines__sku__colour", "lines__sku__size"),
             "invoice": p.invoices.exclude(status="cancelled").first(),
-            "can_edit": _can(request, "sales.packing", "edit"), "can_invoice": _can(request, "sales.invoice", "create")})
+            "guide": guide_service.packing_guide(p, request.user), "can_edit": _can(request, "sales.packing", "edit"),
+            # making the bill opens the bill, so it needs both rights on bills
+            "can_invoice": _can(request, "sales.invoice", "create") and _can(request, "sales.invoice", "view"),
+            "can_open_order": _can(request, "sales.order", "view"), "can_open_invoice": _can(request, "sales.invoice", "view")})
 
     def post(self, request, pk):
         p = self._p(request, pk)
@@ -408,12 +433,12 @@ class PackingDetail(LoginRequiredMixin, ScreenPermissionMixin, View):
             if action == "invoice":
                 _need(request, "sales.invoice", "create")
                 inv = invoices.invoice_from_packing(p, user=request.user, date=timezone.localdate())
-                messages.success(request, "Invoice drafted for the packed pieces. Check it, then post it.")
+                messages.success(request, "Bill drafted for the packed pieces. Check it, then post it.")
                 return redirect("saleinvoice_detail", pk=inv.pk)
             _need(request, "sales.packing", "edit")
             if action == "finalize":
                 packing_service.finalize_packing(p, user=request.user)
-                messages.success(request, "Packing list finalised.")
+                messages.success(request, "Packing finished.")
             elif action == "cancel":
                 packing_service.cancel_packing(p, user=request.user, reason=request.POST.get("reason", ""))
                 messages.success(request, "Packing list cancelled.")
@@ -481,7 +506,7 @@ class InvoiceList(LoginRequiredMixin, ScreenPermissionMixin, View):
         if status:
             qs = qs.filter(status=status)
         return render(request, "sales/invoice_list.html", {
-            "invoices": qs[:200], "status": status, "statuses": SaleInvoice.Status.choices,
+            "invoices": _with_next(qs[:200], guide_service.invoice_next, request.user), "status": status, "statuses": SaleInvoice.Status.choices,
             "can_create": _can(request, "sales.invoice", "create")})
 
 
@@ -518,13 +543,13 @@ class Billing(LoginRequiredMixin, ScreenPermissionMixin, View):
                 date=_day(p.get("date"), "Date"), lines=_line_specs(p), user=request.user,
                 location=_choose(_locations(factory), p.get("location"), "location"), notes=p.get("notes", ""), **_tax_args(p))
             if p.get("action") == "post":
-                invoices.post_invoice(inv, user=request.user)
-                messages.success(request, f"Invoice {inv.number} posted.")
+                inv = invoices.post_invoice(inv, user=request.user)
+                messages.success(request, f"Bill {inv.number} posted.")
                 return redirect("saleinvoice_detail", pk=inv.pk)
         except ERRORS as exc:
             _msgs(request, exc)
             return render(request, "sales/billing.html", self._ctx(request, p, rows))
-        messages.success(request, "Invoice saved as a draft. Check the figures, then post it.")
+        messages.success(request, "Bill saved as a draft. Check the figures, then post it.")
         return redirect("saleinvoice_detail", pk=inv.pk)
 
 
@@ -570,14 +595,21 @@ class InvoiceDetail(LoginRequiredMixin, ScreenPermissionMixin, View):
             "customer", "factory", "gst_template", "voucher", "order", "packing", "location", "company"), pk=pk)
 
     def _ctx(self, request, inv):
-        return {"inv": inv, "lines": inv.lines.select_related("sku__style", "sku__colour", "sku__size"),
+        guide = guide_service.invoice_guide(inv, request.user)
+        settle = None
+        if inv.status == "posted" and inv.customer.customer_ledger_id:
+            settle = settlement(request.user, ledger=inv.customer.customer_ledger, reference=inv.number, direction="receive",
+                                narration=f"Received against {inv.number}")
+            # the pill shows what the ledger holds open on the bill; the button is the guide's step, so a role that
+            # could not open the voucher it leads to gets no button
+            settle["url"] = next((a["url"] for a in [guide["primary"], *guide["others"]] if a and a["kind"] == "receive"), None)
+        return {"inv": inv, "guide": guide, "lines": inv.lines.select_related("sku__style", "sku__colour", "sku__size"),
                 "taxes": inv.tax_lines.all(), "can_edit": _can(request, "sales.invoice", "edit"),
                 "can_cancel": _can(request, "sales.invoice", "cancel"),
                 "can_return": _can(request, "sales.creditnote", "create"),
-                "einvoice": einvoice.is_available(inv), "credit_notes": inv.credit_notes.all(),
-                "settle": settlement(request.user, ledger=inv.customer.customer_ledger, reference=inv.number, direction="receive",
-                                     narration=f"Received against {inv.number}")
-                if inv.status == "posted" and inv.customer.customer_ledger_id else None,
+                "can_open_order": _can(request, "sales.order", "view"), "can_open_packing": _can(request, "sales.packing", "view"),
+                "can_open_return": _can(request, "sales.creditnote", "view"), "can_open_voucher": _can(request, "ledger.voucher", "view"),
+                "einvoice": einvoice.is_available(inv), "credit_notes": inv.credit_notes.all(), "settle": settle,
                 "gst": invoices.gst_on(inv.company, inv.factory, inv.date), **_tax_ctx()}
 
     def get(self, request, pk):
@@ -599,7 +631,7 @@ class InvoiceDetail(LoginRequiredMixin, ScreenPermissionMixin, View):
                 messages.success(request, "Tax updated.")
             elif action == "post":
                 invoices.post_invoice(inv, user=request.user)
-                messages.success(request, "Invoice posted.")
+                messages.success(request, "Bill posted.")
             elif action == "discard":
                 invoices.discard_draft(inv, user=request.user)
                 messages.success(request, "Draft discarded.")
@@ -608,7 +640,7 @@ class InvoiceDetail(LoginRequiredMixin, ScreenPermissionMixin, View):
                 if not _can(request, "sales.invoice", "cancel"):
                     raise PermissionDenied
                 invoices.cancel_invoice(inv, user=request.user, reason=p.get("reason", ""))
-                messages.success(request, "Invoice cancelled; the goods are back in stock.")
+                messages.success(request, "Bill cancelled; the goods are back in stock.")
             elif action == "einvoice":
                 if not _can(request, "sales.invoice", "edit"):
                     raise PermissionDenied
@@ -652,7 +684,7 @@ class CreditNoteList(LoginRequiredMixin, ScreenPermissionMixin, View):
 
     def get(self, request):
         qs = in_active(SaleCreditNote.objects.for_user(request.user), request).select_related("customer", "factory", "invoice")
-        return render(request, "sales/creditnote_list.html", {"notes": qs[:200]})
+        return render(request, "sales/creditnote_list.html", {"notes": qs[:200], "can_open_invoice": _can(request, "sales.invoice", "view")})
 
 
 class CreditNoteNew(LoginRequiredMixin, ScreenPermissionMixin, View):
@@ -683,7 +715,7 @@ class CreditNoteNew(LoginRequiredMixin, ScreenPermissionMixin, View):
         except ERRORS as exc:
             _msgs(request, exc)
             return render(request, "sales/creditnote_form.html", self._ctx(request, inv, p))
-        messages.success(request, "Credit note saved as a draft. Check the figures, then post it.")
+        messages.success(request, "Return saved as a draft. Check the figures, then post it.")
         return redirect("salecn_detail", pk=note.pk)
 
 
@@ -701,9 +733,12 @@ class CreditNoteDetail(LoginRequiredMixin, ScreenPermissionMixin, View):
         for l in lines:
             for t in l.taxes.all():
                 taxes[(t.component, t.rate)] = taxes.get((t.component, t.rate), Decimal("0")) + t.amount
+        guide = guide_service.creditnote_guide(note, request.user)
         return render(request, "sales/creditnote_detail.html", {
-            "note": note, "lines": lines, "taxes": [{"component": c, "rate": r, "amount": a} for (c, r), a in sorted(taxes.items())],
-            "can_edit": _can(request, "sales.creditnote", "edit"), "can_cancel": _can(request, "sales.creditnote", "cancel")})
+            "note": note, "guide": guide, "can_post": guide["primary"] is not None,
+            "lines": lines, "taxes": [{"component": c, "rate": r, "amount": a} for (c, r), a in sorted(taxes.items())],
+            "can_cancel": _can(request, "sales.creditnote", "cancel"),
+            "can_open_invoice": _can(request, "sales.invoice", "view"), "can_open_voucher": _can(request, "ledger.voucher", "view")})
 
     def post(self, request, pk):
         note, action = self._note(request, pk), request.POST.get("action")
@@ -712,12 +747,12 @@ class CreditNoteDetail(LoginRequiredMixin, ScreenPermissionMixin, View):
                 if not _can(request, "sales.creditnote", "create"):
                     raise PermissionDenied
                 credit_notes.post_credit_note(note, user=request.user)
-                messages.success(request, "Credit note posted.")
+                messages.success(request, "Return posted.")
             elif action == "cancel":
                 if not _can(request, "sales.creditnote", "cancel"):
                     raise PermissionDenied
                 credit_notes.cancel_credit_note(note, user=request.user, reason=request.POST.get("reason", ""))
-                messages.success(request, "Credit note cancelled.")
+                messages.success(request, "Return cancelled.")
         except ERRORS as exc:
             _msgs(request, exc)
         return redirect("salecn_detail", pk=pk)

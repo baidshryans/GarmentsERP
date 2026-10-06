@@ -4,7 +4,7 @@
 {% block content %}
   <link rel="stylesheet" href="{% static 'css/sales.css' %}?v={{ asset_v }}">
   <div class="page-head"><h1 class="page-title">Quick billing</h1><span class="muted">Scan a tag or a carton label; each scan adds a piece at the customer's rate</span>
-    <div class="actions"><a class="btn ghost" href="{% url 'saleinvoice_list' %}">All invoices</a></div></div>
+    <div class="actions"><a class="btn ghost" href="{% url 'saleinvoice_list' %}">All bills</a></div></div>
   <form method="post" novalidate>{% csrf_token %}
     <button hidden tabindex="-1" name="action" value="draft" aria-hidden="true"></button>
     <div class="island"><div class="field-row">
@@ -33,7 +33,7 @@
     <div class="island"><h2>GST</h2>
       {% if gst %}
       <div class="field-row">
-        <div class="field"><label for="tax_mode">GST on this invoice</label><select id="tax_mode" name="tax_mode"><option value="auto" {% if p.tax_mode == "auto" or not p.tax_mode %}selected{% endif %}>From the HSN slab and place of supply (suggested)</option><option value="template" {% if p.tax_mode == "template" %}selected{% endif %}>One GST template for all items</option><option value="none" {% if p.tax_mode == "none" %}selected{% endif %}>No GST on this invoice</option></select></div>
+        <div class="field"><label for="tax_mode">GST on this bill</label><select id="tax_mode" name="tax_mode"><option value="auto" {% if p.tax_mode == "auto" or not p.tax_mode %}selected{% endif %}>From the HSN slab and place of supply (suggested)</option><option value="template" {% if p.tax_mode == "template" %}selected{% endif %}>One GST template for all items</option><option value="none" {% if p.tax_mode == "none" %}selected{% endif %}>No GST on this bill</option></select></div>
         <div class="field" data-tax-show="template" hidden><label for="gst_template">GST template</label><select id="gst_template" name="gst_template">{% for t in gst_templates %}<option value="{{ t.pk }}" {% if p.gst_template == t.pk|stringformat:"s" %}selected{% endif %}>{{ t.name }}</option>{% endfor %}</select></div>
         <div class="field" data-tax-show="template none" hidden><label for="tax_note">Reason for changing the GST</label><input id="tax_note" name="tax_note" type="text" value="{{ p.tax_note }}"></div>
       </div>
@@ -41,7 +41,7 @@
       {% else %}<p class="muted">GST is not switched on for this factory, so no tax is charged.</p>{% endif %}
       <div class="field"><label for="notes">Notes</label><input id="notes" name="notes" type="text" value="{{ p.notes }}"></div>
     </div>
-    <div class="form-actions"><button class="btn primary" name="action" value="post">Post invoice</button><button class="btn" name="action" value="draft">Save as draft</button></div>
+    <div class="form-actions"><button class="btn primary" name="action" value="post">Post bill</button><button class="btn" name="action" value="draft">Save as draft</button></div>
   </form>
   <script src="{% static 'js/sales.js' %}?v={{ asset_v }}" defer></script>
 {% endblock %}

@@ -271,7 +271,7 @@ def test_roles_and_scoping_on_the_sales_screens(ns, company, factory, factory2, 
     assert sales_person.get(reverse("sale_scan"), {"code": "x"}).status_code == 403
     stranger = login(user_with("Billing Clerk", "other", factory2))
     assert stranger.get(reverse("saleinvoice_detail", args=[inv.pk])).status_code == 404
-    assert "No invoices yet" in stranger.get(reverse("saleinvoice_list")).content.decode()
+    assert "No bills yet" in stranger.get(reverse("saleinvoice_list")).content.decode()
     order = confirmed_order(ns)
     assert stranger.get(reverse("saleorder_detail", args=[order.pk])).status_code == 404
     assert stranger.get(reverse("packing_new", args=[order.pk])).status_code == 404

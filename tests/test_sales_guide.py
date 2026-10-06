@@ -676,3 +676,298 @@ def test_goods_still_in_production_do_not_count_and_production_never_sees_the_cu
     g = order_guide(order_of(so), owner)
     assert [a["label"] for a in offered(g)] == ["Pack goods"] and not g["blocked"]
     assert login(owner).get(g["primary"]["url"]).status_code == 200
+
+
+# ================================================================ the guide on the screens
+
+def page(user, name, *args, **query):
+    r = login(user).get(reverse(name, args=args), query)
+    assert r.status_code == 200
+    return r.content.decode()
+
+
+def guide_of(html):
+    """The guide island alone: from its opening tag to the next island."""
+    start = html.index('class="island guide"')
+    return html[start:html.index('class="island"', start)]
+
+
+def head_of(html):
+    return html[html.index('class="page-head"'):html.index('class="island guide"')]
+
+
+def row_with(html, text):
+    return next(r for r in re.findall(r"<tr>.*?</tr>", html, re.S) if text in r)
+
+
+def button(url, label):
+    return f'<a class="btn primary" href="{escape(url)}">{label}</a>'
+
+
+def plain(url, label):
+    return f'<a class="btn" href="{escape(url)}">{label}</a>'
+
+
+def header_button(url):
+    """The bill page's own plain button for the money step (it carries a tooltip)."""
+    return (f'<a class="btn" href="{escape(url)}" title="Opens the voucher with this bill filled in; nothing is posted '
+            'until you press Post">Receive money</a>')
+
+
+def test_the_order_page_leads_from_confirming_to_packing(ns):
+    o = draft_order(ns)
+    html = page(ns.owner, "saleorder_detail", o.pk)
+    g = guide_of(html)
+    assert 'aria-label="Where this sale is"' in g and button("#do-next", "Confirm order") in g
+    assert re.search(r'<form method="post" id="do-next">.*?name="action" value="confirm">Confirm order</button>', html, re.S)
+    assert "Pack goods" not in html
+    c = login(ns.owner)
+    r = c.post(reverse("saleorder_detail", args=[o.pk]), {"action": "confirm"}, follow=True)
+    html = r.content.decode()
+    pack_url = reverse("packing_new", args=[o.pk])
+    assert button(pack_url, "Pack goods") in guide_of(html)
+    # the header's own button for the same step is a plain one: one violet button says what is next
+    assert plain(pack_url, "Pack goods") in head_of(html) and "btn primary" not in head_of(html)
+
+
+def test_the_order_page_keeps_a_way_to_a_second_packing_list_while_one_is_a_draft(ns):
+    o = confirmed_order(ns)
+    p = draft_pack(ns, o, [{"S": "10"}])
+    html = page(ns.owner, "saleorder_detail", o.pk)
+    assert button(reverse("packing_detail", args=[p.pk]), "Finish packing") in guide_of(html)
+    assert plain(reverse("packing_new", args=[o.pk]), "Pack goods") in head_of(html)
+    # the route works: a second draft is saved beside the first
+    s_id, m_id = ns.sku("Black", "S").pk, ns.sku("Black", "M").pk
+    r = login(ns.owner).post(reverse("packing_new", args=[o.pk]), {
+        "n": "1", "location": ns.godown.pk, "date": "2026-06-15", "transporter": "", "lr_no": "", "lr_date": "",
+        "vehicle_no": "", "remarks": "", f"c1_{s_id}": "5", f"c1_{m_id}": ""})
+    assert r.status_code == 302 and PackingList.objects.filter(order=o, status="draft").count() == 2
+    # with everything on packing lists there is nothing more to start
+    packing.cancel_packing(PackingList.objects.exclude(pk=p.pk).get(), user=ns.owner)
+    packing.cancel_packing(p, user=ns.owner)
+    draft_pack(ns, o, ALL)
+    assert "Pack goods" not in page(ns.owner, "saleorder_detail", o.pk)
+
+
+def test_the_order_page_tells_a_seller_what_it_waits_for_and_links_nowhere_they_cannot_go(ns):
+    o = confirmed_order(ns)
+    p = pack(ns, o, [{"S": "10"}])
+    inv = billed(ns, p)
+    seller = seeded("Salesperson", "page_seller", ns.factory)
+    html = page(seller, "saleorder_detail", o.pk)
+    g = guide_of(html)
+    assert "Waiting for: Pack goods" in g and "<a " not in g and "Pack goods" not in head_of(html)
+    # the packing list and the bill are named, as plain text: the seller cannot open either
+    assert p.number in html and inv.number in html
+    for name, doc in (("packing_detail", p), ("saleinvoice_detail", inv), ("packing_new", o)):
+        url = reverse(name, args=[doc.pk])
+        assert url not in html and login(seller).get(url).status_code == 403
+    # the owner gets both as links
+    html = page(ns.owner, "saleorder_detail", o.pk)
+    assert f'<a href="{reverse("packing_detail", args=[p.pk])}">{p.number}</a>' in html
+    assert f'<a href="{reverse("saleinvoice_detail", args=[inv.pk])}">{inv.number}</a>' in html
+
+
+def test_a_made_to_order_page_says_it_waits_for_production_and_gives_no_link(bare):
+    ns = bare
+    o = orders.confirm_order(draft_order(ns, qty="40", order_type="mto", sizes=("M",)), user=ns.owner)
+    html = page(ns.owner, "saleorder_detail", o.pk)
+    g = guide_of(html)
+    assert "Waiting for: goods from production" in g and "<a " not in g
+    row = row_with(page(ns.owner, "saleorder_list"), o.number)
+    assert '<span class="muted">Waiting for: goods from production</span>' in row and 'class="btn"' not in row
+    post_opening_stock(company=ns.company, factory=ns.factory, location=ns.godown, user=ns.owner,
+                       entries=[OpeningItem(ns.sku("Black", "M"), D("40"), D("300"))])
+    assert button(reverse("packing_new", args=[o.pk]), "Pack goods") in guide_of(page(ns.owner, "saleorder_detail", o.pk))
+    assert plain(reverse("packing_new", args=[o.pk]), "Pack goods") in row_with(page(ns.owner, "saleorder_list"), o.number)
+
+
+def test_a_finished_sale_and_a_cancelled_one_say_so(ns):
+    o = confirmed_order(ns)
+    inv = billed(ns, pack(ns, o, ALL))
+    receive(ns, inv, "30000")
+    g = guide_of(page(ns.owner, "saleorder_detail", o.pk))
+    assert "This sale is complete." in g and "<a " not in g
+    assert "This bill is settled." in guide_of(page(ns.owner, "saleinvoice_detail", inv.pk))
+    c = orders.cancel_order(confirmed_order(ns), user=ns.owner, reason="customer left")
+    g = guide_of(page(ns.owner, "saleorder_detail", c.pk))
+    assert "This sale was cancelled or closed." in g and "<a " not in g
+
+
+def test_the_packing_page_leads_from_finishing_to_the_bill(ns):
+    o = confirmed_order(ns)
+    p = draft_pack(ns, o, ALL)
+    c = login(ns.owner)
+    url = reverse("packing_detail", args=[p.pk])
+    html = c.get(url).content.decode()
+    assert button("#do-next", "Finish packing") in guide_of(html)
+    assert re.search(r'<form method="post" id="do-next">.*?name="action" value="finalize">Finish packing</button>', html, re.S)
+    assert f'<a href="{reverse("saleorder_detail", args=[o.pk])}">{o.number}</a>' in html
+    html = c.post(url, {"action": "finalize"}, follow=True).content.decode()
+    assert "Packing finished." in html and button("#do-next", "Make bill") in guide_of(html)
+    assert re.search(r'<form method="post" id="do-next">.*?name="action" value="invoice">Make bill</button>', html, re.S)
+    r = c.post(url, {"action": "invoice"}, follow=True)
+    inv = SaleInvoice.objects.get()
+    bill_url = reverse("saleinvoice_detail", args=[inv.pk])
+    assert r.redirect_chain == [(bill_url, 302)]
+    # back on the packing list, the next step is on the bill, and no second bill can be made
+    html = c.get(url).content.decode()
+    assert button(bill_url, "Post bill") in guide_of(html) and 'value="invoice"' not in html
+    assert f'<a href="{bill_url}">Draft bill</a>' in html
+    # a packer who has no right on bills gets no bill button and no link to the bill
+    packer = role_user("packer", {"sales.packing": ["view", "create", "edit"]}, ns.factory)
+    html = page(packer, "packing_detail", p.pk)
+    assert "Waiting for: Post bill" in guide_of(html) and bill_url not in html and "Draft bill" in html
+    assert reverse("saleorder_detail", args=[o.pk]) not in html and o.number in html
+
+
+def test_the_bill_page_leads_from_posting_to_receiving_the_money(ns, company):
+    h.gst_on(company)
+    o = confirmed_order(ns)
+    inv = draft_bill(ns, pack(ns, o, ALL))
+    c = login(ns.owner)
+    url = reverse("saleinvoice_detail", args=[inv.pk])
+    html = c.get(url).content.decode()
+    assert button("#do-next", "Post bill") in guide_of(html)
+    assert re.search(r'<form method="post" id="do-next">.*?name="action" value="post">Post bill</button>', html, re.S)
+    # GST can still be chosen or waived on the draft before it is posted
+    assert 'name="tax_mode"' in html and "No GST on this bill" in html and 'name="tax_note"' in html
+    assert inv.gst_total == D("1500.00")
+    c.post(url, {"action": "tax", "tax_mode": "none", "gst_template": "", "tax_note": "Export under bond"})
+    inv.refresh_from_db()
+    assert inv.gst_total == D("0.00") and inv.total == D("30000.00") and inv.status == "draft"
+    html = c.post(url, {"action": "post"}, follow=True).content.decode()
+    inv.refresh_from_db()
+    link = receive_link(inv, "30000.00")
+    assert "Bill posted." in html and button(link, WHO) in guide_of(html)
+    head = head_of(html)
+    assert "Outstanding 30000.00" in head and header_button(link) in head and "btn primary" not in head
+    receive(ns, inv, "10000")
+    html = c.get(url).content.decode()
+    link = receive_link(inv, "20000.00")
+    assert "Outstanding 20000.00" in head_of(html) and header_button(link) in head_of(html)
+    assert button(link, WHO) in guide_of(html) and "20000.00 to receive" in guide_of(html)
+
+
+def test_the_bill_page_shows_a_clerk_what_is_owed_and_no_way_into_the_books(ns):
+    inv = billed(ns, pack(ns, confirmed_order(ns), ALL))
+    clerk = seeded("Billing Clerk", "page_clerk", ns.factory)
+    html = page(clerk, "saleinvoice_detail", inv.pk)
+    assert f"Waiting for: {WHO}" in guide_of(html) and "<a " not in guide_of(html)
+    assert "Outstanding 30000.00" in head_of(html) and reverse("voucher_receipt") not in html
+    voucher_url = reverse("voucher_detail", args=[inv.voucher_id])
+    assert inv.voucher.number in html and voucher_url not in html and login(clerk).get(voucher_url).status_code == 403
+    assert f'<a href="{voucher_url}">' in page(ns.owner, "saleinvoice_detail", inv.pk)
+
+
+def test_the_return_page_offers_posting_to_those_who_may_post(ns):
+    inv = quick_invoice(ns)
+    note = draft_return(ns, inv)
+    c = login(ns.owner)
+    url = reverse("salecn_detail", args=[note.pk])
+    html = c.get(url).content.decode()
+    g = guide_of(html)
+    assert 'aria-label="Where this return is"' in g and button("#do-next", "Post return") in g
+    assert re.search(r'<form method="post" id="do-next">.*?name="action" value="post">Post return</button>', html, re.S)
+    # the bill names the draft return as its next step, with the money after it
+    bill = guide_of(page(ns.owner, "saleinvoice_detail", inv.pk))
+    assert button(url, "Post return") in bill and "Also waiting" in bill and WHO in bill
+    looker = role_user("cn_looker", {"sales.creditnote": ["view"]}, ns.factory)
+    html = page(looker, "salecn_detail", note.pk)
+    assert "Waiting for: Post return" in guide_of(html) and 'value="post"' not in html
+    assert reverse("saleinvoice_detail", args=[inv.pk]) not in html and inv.number in html
+    assert login(looker).post(url, {"action": "post"}).status_code == 403
+    html = c.post(url, {"action": "post"}, follow=True).content.decode()
+    assert "Return posted." in html and "This return is posted." in guide_of(html)
+
+
+def test_quick_billing_still_posts_in_one_step_and_its_bill_starts_at_billed(ns):
+    c = login(ns.owner)
+    form = c.get(reverse("billing")).content.decode()
+    assert "Quick billing" in form and "Post bill" in form and "Save as draft" in form
+    sku = ns.sku("Black", "M")
+    r = c.post(reverse("billing"), {"customer": ns.local.pk, "location": ns.godown.pk, "date": "2026-06-15", "action": "post",
+                                    "notes": "", "sku": [sku.pk], "qty": ["4"], "rate": ["500"], "disc": [""]}, follow=True)
+    inv = SaleInvoice.objects.get()
+    assert inv.status == "posted" and inv.order_id is None and inv.total == D("2000.00")
+    html = r.content.decode()
+    g = guide_of(html)
+    assert f"Bill {inv.number} posted." in html and button(receive_link(inv, "2000.00"), WHO) in g
+    assert "Billed" in g and "Paid" in g and "Ordered" not in g and "Packed" not in g
+
+
+# ---------------- the lists ----------------
+
+def test_each_list_names_the_next_step_of_every_row(ns):
+    o1 = confirmed_order(ns)
+    p1 = pack(ns, o1, [{"S": "10"}])
+    inv1 = billed(ns, p1)
+    p2 = draft_pack(ns, o1, [{"M": "10"}])
+    drafted = draft_order(ns)
+    o2 = confirmed_order(ns)
+    p3 = pack(ns, o2, ALL)
+    inv3 = draft_bill(ns, p3)
+    money = receive_link(inv1, "5000.00")
+
+    html = page(ns.owner, "saleorder_list")
+    assert '<th scope="col">Next step</th>' in html
+    assert plain(reverse("packing_detail", args=[p2.pk]), "Finish packing") in row_with(html, o1.number)
+    assert plain(reverse("saleinvoice_detail", args=[inv3.pk]), "Post bill") in row_with(html, o2.number)
+    assert plain(reverse("saleorder_detail", args=[drafted.pk]), "Confirm order") in html
+
+    html = page(ns.owner, "packing_list")
+    assert '<th scope="col">Next step</th>' in html
+    assert plain(money, WHO) in row_with(html, p1.number)
+    assert plain(reverse("saleinvoice_detail", args=[inv3.pk]), "Post bill") in row_with(html, p3.number)
+    assert plain(reverse("packing_detail", args=[p2.pk]), "Finish packing") in html
+
+    html = page(ns.owner, "saleinvoice_list")
+    assert '<th scope="col">Next step</th>' in html
+    assert plain(money, WHO) in row_with(html, inv1.number)
+    assert plain(reverse("saleinvoice_detail", args=[inv3.pk]), "Post bill") in html
+    receive(ns, inv1, "5000")
+    assert WHO not in page(ns.owner, "saleinvoice_list") and WHO not in page(ns.owner, "packing_list")
+
+    # a role that may only look gets no button on any row, and no Pack button beside the open orders
+    looker = role_user("list_looker", {"sales.order": ["view"], "sales.packing": ["view"], "sales.invoice": ["view"]}, ns.factory)
+    for name in ("saleorder_list", "packing_list", "saleinvoice_list"):
+        html = page(looker, name)
+        assert "Next step" in html and 'class="btn" href' not in html[html.index("<tbody>"):], name
+    assert plain(reverse("packing_new", args=[o1.pk]), "Pack") in page(ns.owner, "packing_list")
+
+
+def test_the_lists_never_show_another_factorys_documents_or_their_steps(ns, factory2):
+    o = confirmed_order(ns)
+    p = pack(ns, o, ALL)
+    inv = billed(ns, p)
+    far = role_user("far_seller", {"sales.order": ["view", "edit"], "sales.packing": ["view", "create", "edit"],
+                                   "sales.invoice": ["view", "create", "edit"], "ledger.voucher": ["view", "create"]}, factory2)
+    for name, number in (("saleorder_list", o.number), ("packing_list", p.number), ("saleinvoice_list", inv.number)):
+        html = page(far, name)
+        assert number not in html and WHO not in html and "<tbody>" not in html, name
+
+
+def test_the_lists_ask_each_permission_once_however_many_rows_they_show(ns):
+    from django.db import connection
+    from django.test.utils import CaptureQueriesContext
+
+    def asked(name):
+        c = login(ns.owner)
+        with CaptureQueriesContext(connection) as q:
+            assert c.get(reverse(name)).status_code == 200
+        return (len([x for x in q.captured_queries if "core_rolepermission" in x["sql"]]),
+                len([x for x in q.captured_queries if "ledger_billallocation" in x["sql"]]), len(q))
+
+    def sale():
+        billed(ns, pack(ns, confirmed_order(ns, qty="5"), [{"S": "5", "M": "5"}]))
+
+    names = ("saleorder_list", "packing_list", "saleinvoice_list")
+    sale()
+    one = {name: asked(name) for name in names}
+    for _ in range(3):
+        sale()
+    four = {name: asked(name) for name in names}
+    for name in names:
+        assert four[name][0] == one[name][0], name              # three more rows, no permission asked again
+        assert four[name][1] == one[name][1] == 1, name         # one customer: its open bills are read once for the page
+        assert four[name][2] - one[name][2] <= 3 * 14, name     # a bounded number of reads per row

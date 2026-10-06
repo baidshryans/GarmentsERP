@@ -103,7 +103,7 @@ def test_voucher_screens_load_the_position_script(client):
 def test_posted_invoice_offers_receive_payment_with_the_bill_prefilled(ns, client):
     inv = quick_invoice(ns, qty="10", rate="500")
     page = client.get(reverse("saleinvoice_detail", args=[inv.pk])).content.decode()
-    assert "Receive payment" in page and f"Outstanding {inv.total}" in page
+    assert "Receive money" in page and f"Outstanding {inv.total}" in page
     s = settlement(ns.owner, ledger=inv.customer.customer_ledger, reference=inv.number, direction="receive")
     assert s["due"] == inv.total and s["url"].startswith(reverse("voucher_receipt"))
     form = client.get(s["url"]).content.decode()
@@ -119,7 +119,7 @@ def test_receiving_the_money_settles_the_invoice_and_hides_the_button(ns, client
         **rows({"ledger": inv.customer.customer_ledger, "amount": str(s["due"]), "ref_type": "against", "reference": inv.number})})
     assert r.status_code == 302
     page = client.get(reverse("saleinvoice_detail", args=[inv.pk])).content.decode()
-    assert "Settled" in page and "Receive payment" not in page
+    assert "Settled" in page and "Receive money" not in page
 
 
 def test_vendor_bill_offers_pay_and_the_prefill_ignores_other_voucher_types(client, factory, supplier, owner):

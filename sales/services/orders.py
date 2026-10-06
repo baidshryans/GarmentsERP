@@ -132,7 +132,7 @@ def cancel_order(order, *, user, reason) -> SaleOrder:
     if order.status != S.DRAFT and not reason.strip():
         raise BusinessRuleError("Give a reason to cancel the order.")
     if order.invoices.exclude(status="cancelled").exists() or order.packing_lists.exclude(status="cancelled").exists():
-        raise BusinessRuleError("The order has packing lists or invoices; cancel them first, or close the order instead.")
+        raise BusinessRuleError("The order has packing lists or bills; cancel them first, or close the order instead.")
     po = order.production_order
     if po is not None and po.status != "draft":
         raise BusinessRuleError(f"Production {po.number} has been released for this order; close that production order first.")
@@ -152,7 +152,7 @@ def close_order(order, *, user, reason) -> SaleOrder:
     if not reason.strip():
         raise BusinessRuleError("Give a reason to close the order.")
     if order.packing_lists.filter(status__in=("draft", "packed")).exists():
-        raise BusinessRuleError("There is a packing list not yet invoiced; invoice or cancel it first.")
+        raise BusinessRuleError("There is a packing list not yet billed; bill or cancel it first.")
     order.status = S.CLOSED
     order.close_reason = reason.strip()[:255]
     order.save()

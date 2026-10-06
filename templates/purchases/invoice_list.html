@@ -5,11 +5,11 @@
     <div class="actions">{% if can_create %}<a class="btn primary" href="{% url 'invoice_new' %}"><svg width="16" height="16"><use href="#i-plus"/></svg> New supplier bill</a>{% endif %}</div></div>
   <div class="island">
     {% if invoices %}<div class="table-wrap"><table>
-      <thead><tr><th scope="col">Number</th><th scope="col">Vendor invoice</th><th scope="col">Date</th><th scope="col">Vendor</th><th scope="col" class="num">Payable</th><th scope="col">Status</th><th scope="col">Next step</th><th scope="col" aria-label="Actions"></th></tr></thead>
+      <thead><tr><th scope="col">Number</th><th scope="col">Supplier's bill no.</th><th scope="col">Date</th><th scope="col">Supplier</th><th scope="col" class="num">Payable</th><th scope="col">Status</th><th scope="col">Next step</th><th scope="col" aria-label="Actions"></th></tr></thead>
       <tbody>{% for i in invoices %}<tr><td><a href="{% url 'invoice_detail' i.pk %}">{{ i.number|default:"Draft" }}</a></td><td>{{ i.vendor_invoice_no }}</td><td>{{ i.date|date:"d M Y" }}</td><td>{{ i.vendor.name }}</td><td class="num">{{ i.payable }}</td>
         <td>{% if i.status == "posted" %}<span class="pill success">Posted</span>{% elif i.status == "cancelled" %}<span class="pill danger">Cancelled</span>{% else %}<span class="pill warning">Draft</span>{% endif %}</td>
         <td>{% if i.next %}<a class="btn" href="{{ i.next.url }}">{{ i.next.label }}</a>{% endif %}</td>
         <td>{% if can_edit and i.status == "draft" %}{% url 'invoice_edit' i.pk as eu %}{% url 'invoice_delete' i.pk as du %}{% include "partials/row_actions.html" with edit_url=eu delete_url=du %}{% endif %}</td></tr>{% endfor %}</tbody>
-    </table></div>{% else %}<div class="empty"><div class="hand">No purchase invoices yet</div><p>Receive goods on a GRN, then book the vendor's bill here.</p></div>{% endif %}
+    </table></div>{% else %}<div class="empty"><div class="hand">No supplier bills yet</div><p>Receive the goods first (Goods received), then enter the supplier's bill here.</p></div>{% endif %}
   </div>
 {% endblock %}

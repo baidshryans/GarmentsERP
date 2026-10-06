@@ -20,7 +20,7 @@
         <input id="date" name="date" type="date" value="{{ v.date|default:today }}" required></div>
 
       {% if vtype == "journal" %}
-      <div class="field"><label for="vendor_invoice_no">Vendor invoice no.</label>
+      <div class="field"><label for="vendor_invoice_no">Supplier's bill no.</label>
         <input id="vendor_invoice_no" name="vendor_invoice_no" type="text" maxlength="40" autocomplete="off" value="{{ v.vendor_invoice_no }}">
         <div class="help">Optional. Used as the bill reference on rows set to <em>New bill</em> when their reference is blank.</div></div>
       {% endif %}

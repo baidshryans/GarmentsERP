@@ -1259,7 +1259,7 @@ def test_a_packing_list_with_a_bill_cannot_be_cancelled(ns):
     assert "Cancel packing list" in c.get(url).content.decode()
     # a cancelled bill does not hold the list either
     inv = billed(ns, p)
-    with pytest.raises(BusinessRuleError, match="has been invoiced"):
+    with pytest.raises(BusinessRuleError, match="has been billed"):
         packing.cancel_packing(p, user=ns.owner, reason="wrong goods")
     invoices.cancel_invoice(inv, user=ns.owner, reason="wrong")
     assert packing.cancel_packing(p, user=ns.owner, reason="wrong goods").status == "cancelled"
@@ -1278,7 +1278,7 @@ def stranded_bill(ns):
 
 def test_a_draft_bill_of_a_cancelled_packing_list_is_never_offered_for_posting(ns):
     o, p, inv = stranded_bill(ns)
-    with pytest.raises(BusinessRuleError, match="no longer a finalised packing list"):
+    with pytest.raises(BusinessRuleError, match="no longer a finished packing list"):
         invoices.post_invoice(inv, user=ns.owner)
     g = invoice_guide(inv_of(inv), ns.owner)
     assert offered(g) == [] and g["waiting"] == "" and g["idle"] == LIST_GONE and not g["complete"] and not g["closed"]
@@ -1486,7 +1486,7 @@ def test_a_bill_that_cannot_be_drafted_for_want_of_an_hsn_code_names_the_style(n
     # quick billing, which does offer the choice, keeps its own message
     from masters.models import SKU
 
-    with pytest.raises(BusinessRuleError, match="choose a GST template or no GST for this invoice"):
+    with pytest.raises(BusinessRuleError, match="choose a GST template or no GST for this bill"):
         invoices.save_invoice(company=ns.company, factory=ns.factory, customer=ns.local, date=DAY, user=ns.owner,
                               location=ns.godown, lines=[invoices.InvoiceLineSpec(SKU.objects.get(pk=ns.sku("Navy", "M").pk), D("1"), D("500"), D("0"))])
 

@@ -398,7 +398,7 @@ class GrnDetail(LoginRequiredMixin, ScreenPermissionMixin, View):
                 grn_service.record_qc(grn, user=user, rolls=rolls, lines=lines)
                 if action == "finish_qc":
                     grn_service.finish_qc(grn, user=user)
-                    messages.success(request, "QC recorded. The GRN is ready to post.")
+                    messages.success(request, "QC recorded. The goods received are ready to post.")
                 else:
                     messages.success(request, "QC saved.")
             elif action == "accept_all":
@@ -416,7 +416,7 @@ class GrnDetail(LoginRequiredMixin, ScreenPermissionMixin, View):
                 messages.success(request, f"{grn.number} posted. Stock and books are updated.")
             elif action == "cancel":
                 grn_service.cancel_grn(grn, user=user, reason=p.get("reason", ""))
-                messages.success(request, "GRN cancelled; stock and books reversed.")
+                messages.success(request, "Goods received cancelled; stock and books reversed.")
         except (ValueError, BusinessRuleError) as exc:
             _msgs(request, exc)
         return redirect("grn_detail", pk=pk)
@@ -635,7 +635,7 @@ class InvoiceDetail(LoginRequiredMixin, ScreenPermissionMixin, View):
                 if not user.has_screen_perm("purchases.invoice", "cancel"):
                     raise PermissionDenied
                 invoices.cancel_invoice(inv, user=user, reason=p.get("reason", ""))
-                messages.success(request, "Invoice cancelled; books and stock value reversed.")
+                messages.success(request, "Supplier bill cancelled; books and stock value reversed.")
             else:
                 if not user.has_screen_perm("purchases.invoice", "edit"):
                     raise PermissionDenied
@@ -799,7 +799,7 @@ class DebitNoteDetail(LoginRequiredMixin, ScreenPermissionMixin, View):
                 if not user.has_screen_perm("purchases.debitnote", "cancel"):
                     raise PermissionDenied
                 debit_notes.cancel_debit_note(note, user=user, reason=request.POST.get("reason", ""))
-                messages.success(request, "Debit note cancelled.")
+                messages.success(request, "Return to supplier cancelled.")
         except BusinessRuleError as exc:
             messages.error(request, str(exc))
         return redirect("debitnote_detail", pk=pk)
@@ -832,21 +832,21 @@ class PODelete(_DraftDelete):
 
 
 class GrnDelete(_DraftDelete):
-    screen_code, success_url_name, noun, model = "purchases.grn", "grn_list", "GRN", Grn
+    screen_code, success_url_name, noun, model = "purchases.grn", "grn_list", "goods received entry", Grn
     draft_states = ("draft", "qc_done")
-    cancel_hint = "Cancel a posted GRN instead; that reverses its stock and books."
+    cancel_hint = "Cancel posted goods received instead; that reverses the stock and books."
 
 
 class InvoiceDelete(_DraftDelete):
-    screen_code, success_url_name, noun, model = "purchases.invoice", "invoice_list", "purchase invoice", PurchaseInvoice
-    cancel_hint = "Cancel a posted invoice instead; that reverses its books."
+    screen_code, success_url_name, noun, model = "purchases.invoice", "invoice_list", "supplier bill", PurchaseInvoice
+    cancel_hint = "Cancel a posted supplier bill instead; that reverses its books."
 
 
 class DebitNoteDelete(_DraftDelete):
-    screen_code, success_url_name, noun, model = "purchases.debitnote", "debitnote_list", "debit note", DebitNote
-    cancel_hint = "Cancel a posted debit note instead."
+    screen_code, success_url_name, noun, model = "purchases.debitnote", "debitnote_list", "return to supplier", DebitNote
+    cancel_hint = "Cancel a posted return to supplier instead."
 
     def blocked_reason(self, obj):
         if obj.kind != DebitNote.Kind.RETURN:
-            return "This note was raised automatically from a GRN rejection, so it cannot be deleted. Cancel it from its page if it is not needed."
+            return "This return was raised automatically from rejected goods received, so it cannot be deleted. Cancel it from its page if it is not needed."
         return super().blocked_reason(obj)

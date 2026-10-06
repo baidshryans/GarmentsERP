@@ -13,12 +13,12 @@
     <form method="get" class="field-row" style="margin-bottom:16px">
       <div><label for="type">Type</label><select id="type" name="type"><option value="">All</option>{% for v, label in types %}<option value="{{ v }}" {% if f.type == v %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></div>
       <div><label for="status">Status</label><select id="status" name="status"><option value="">All</option><option value="posted" {% if f.status == "posted" %}selected{% endif %}>Posted</option><option value="draft" {% if f.status == "draft" %}selected{% endif %}>Draft</option></select></div>
-      <div><label for="q">Voucher or vendor invoice no.</label><input id="q" name="q" type="search" value="{{ f.q|default:'' }}"></div>
+      <div><label for="q">Voucher or supplier's bill no.</label><input id="q" name="q" type="search" value="{{ f.q|default:'' }}"></div>
       <div style="align-self:end"><button class="btn">Filter</button></div>
     </form>
     {% if vouchers %}
     <div class="table-wrap"><table>
-      <thead><tr><th scope="col">Number</th><th scope="col">Type</th><th scope="col">Date</th><th scope="col">Factory</th><th scope="col">Narration</th><th scope="col" class="num">Amount</th><th scope="col">Status</th></tr></thead>
+      <thead><tr><th scope="col">Number</th><th scope="col">Type</th><th scope="col">Date</th><th scope="col">Factory</th><th scope="col">Notes</th><th scope="col" class="num">Amount</th><th scope="col">Status</th></tr></thead>
       <tbody>{% for v in vouchers %}
         <tr><td><a href="{% url 'voucher_detail' v.pk %}">{{ v.number|default:"Draft" }}</a></td><td>{{ v.get_voucher_type_display }}</td>
           <td>{{ v.date|date:"d M Y" }}</td><td>{{ v.factory.code }}</td><td class="muted">{% if v.vendor_invoice_no %}<strong>{{ v.vendor_invoice_no }}</strong> · {% endif %}{{ v.narration|truncatechars:50 }}</td>

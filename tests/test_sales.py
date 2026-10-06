@@ -331,7 +331,7 @@ def test_the_invoice_cannot_cover_more_than_was_packed_and_a_cancelled_list_free
 
 def test_an_invoice_against_an_order_cannot_exceed_the_order(ns):
     order = confirmed_order(ns, qty="10")
-    with pytest.raises(BusinessRuleError, match="left to invoice"):
+    with pytest.raises(BusinessRuleError, match="left to bill"):
         invoices.save_invoice(company=ns.company, factory=ns.factory, customer=ns.local, date=DAY, user=ns.owner,
                               location=ns.godown, order=order,
                               lines=[InvoiceLineSpec(ns.sku("Black", "S"), D("11"), D("500"), D("0"))])
@@ -398,7 +398,7 @@ def test_cancelling_a_credit_note_puts_everything_back(ns, company, factory):
     inv = quick_invoice(ns, qty="10", rate="500")
     note = credit_notes.post_credit_note(credit_notes.save_credit_note(
         invoice=inv, location=ns.godown, date=DAY, user=ns.owner, lines=[(inv.lines.get(), D("5"))], reason="Return"), user=ns.owner)
-    with pytest.raises(BusinessRuleError, match="credit note has been posted"):
+    with pytest.raises(BusinessRuleError, match="return from customer has been posted"):
         invoices.cancel_invoice(inv, user=ns.owner, reason="x")
     credit_notes.cancel_credit_note(note, user=ns.owner, reason="entered by mistake")
     assert stock_at(ns, ns.sku("Black", "M")) == D("90") and inv.lines.get().qty_returned == 0

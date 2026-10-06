@@ -324,8 +324,8 @@ class VoucherEntry(LoginRequiredMixin, ScreenPermissionMixin, View):
 
 PARTY_TITLES = {
     "sales": ("Sales voucher", "A sale you book by hand against a customer. Choose a GST template if the sale carries GST; otherwise no tax is added."),
-    "purchase": ("Purchase voucher", "A purchase or expense bill from a vendor. Choose a GST template and, if you deduct it, a TDS template; otherwise no tax is added."),
-    "debit_note": ("Debit note", "Goods or value sent back to a vendor, settling their bill. A GST template reverses the GST claimed."),
+    "purchase": ("Purchase voucher", "A purchase or expense bill from a supplier. Choose a GST template and, if you deduct it, a TDS template; otherwise no tax is added."),
+    "debit_note": ("Debit note", "Goods or value sent back to a supplier, settling their bill. A GST template reverses the GST claimed."),
     "credit_note": ("Credit note", "Goods or value taken back from a customer, settling their bill. A GST template reverses the GST charged."),
 }
 

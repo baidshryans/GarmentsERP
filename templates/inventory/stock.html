@@ -18,6 +18,6 @@
         <td class="num">{{ r.b.qty|floatformat:"-3" }}</td>
         {% if can_cost %}<td class="num">{{ r.b.value }}</td><td class="num">{{ r.avg|default_if_none:"" }}</td>{% endif %}</tr>{% endfor %}</tbody>
     </table></div>
-    {% else %}<div class="empty"><svg viewBox="0 0 120 90" aria-hidden="true"><path d="M20 70h80M30 70V45h20v25M55 70V30h20v40M80 70V50h15v20"/></svg><div class="hand">No stock yet</div><p>Receive goods on a GRN, or enter <a href="{% url 'opening_stock' %}">opening stock</a>.</p></div>{% endif %}
+    {% else %}<div class="empty"><svg viewBox="0 0 120 90" aria-hidden="true"><path d="M20 70h80M30 70V45h20v25M55 70V30h20v40M80 70V50h15v20"/></svg><div class="hand">No stock yet</div><p>Receive goods (Goods received), or enter <a href="{% url 'opening_stock' %}">opening stock</a>.</p></div>{% endif %}
   </div>
 {% endblock %}

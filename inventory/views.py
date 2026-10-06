@@ -163,7 +163,7 @@ class RollLabels(LoginRequiredMixin, ScreenPermissionMixin, View):
             rolls = list(FabricRoll.objects.filter(source_type="purchases.grn", source_id=grn_pk)
                          .select_related("material", "supplier"))
             if not rolls:
-                messages.error(request, "That GRN has no rolls to label.")
+                messages.error(request, "Those goods received have no rolls to label.")
                 return redirect("grn_list")
         labels = [{"roll": r, "svg": barcode.svg(r.label_code)} for r in rolls]
         return render(request, "inventory/labels.html", {

@@ -8,7 +8,7 @@
       <h2>Kept</h2>
       <p class="help">Company, financial years, factories and locations, users and roles, chart of accounts (with no balances), tax setup, and all masters: styles, SKUs, BOMs, materials, parties, price lists, processes, routes, units, sizes, colours, labour rates, reorder levels. Document numbers start again from 1.</p>
       <h2>Deleted</h2>
-      <p class="help">Vouchers and opening balances, stock and rolls, purchase orders, GRNs, invoices and debit notes, production orders, lots and bundles, job work challans, receipts and bills, sale orders, invoices, packing lists and credit notes, alerts, period locks and the login log.</p>
+      <p class="help">Vouchers and opening balances, stock and rolls, purchase orders, goods received, supplier bills and returns to supplier, production orders, lots and bundles, job work challans, receipts and bills, sale orders, bills, packing lists and returns from customers, alerts, period locks and the login log.</p>
       <form method="post" novalidate>
         {% csrf_token %}
         <div class="field"><label for="phrase">Type {{ phrase }} to confirm</label><input id="phrase" name="phrase" autocomplete="off" required></div>

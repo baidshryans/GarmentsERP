@@ -3,10 +3,10 @@
 {% block content %}
   <div class="page-head"><h1 class="page-title">Sales settings</h1></div>
   <form method="post" class="island" style="max-width:640px" novalidate>{% csrf_token %}
-    <div class="field"><label for="rounding">Invoice total</label><select id="rounding" name="rounding">{% for v, l in rounding %}<option value="{{ v }}" {% if s.rounding == v %}selected{% endif %}>{{ l }}</option>{% endfor %}</select><div class="help">The difference posts to the Round Off ledger.</div></div>
+    <div class="field"><label for="rounding">Bill total</label><select id="rounding" name="rounding">{% for v, l in rounding %}<option value="{{ v }}" {% if s.rounding == v %}selected{% endif %}>{{ l }}</option>{% endfor %}</select><div class="help">The difference posts to the Round Off ledger.</div></div>
     <div class="field"><label for="max_discount_pct">Discount limit %</label><input id="max_discount_pct" name="max_discount_pct" type="text" inputmode="decimal" value="{{ s.max_discount_pct }}"><div class="help">A bigger discount needs the "Discount above the limit" permission.</div></div>
-    <div class="field check"><input id="einvoice_enabled" name="einvoice_enabled" type="checkbox" {% if s.einvoice_enabled %}checked{% endif %}><label for="einvoice_enabled">E-invoicing is switched on</label><div class="help">Shows the e-invoice and e-way bill button on taxed invoices to buyers with a GSTIN. Until a GST suvidha provider is chosen, a stand-in produces test numbers only.</div></div>
-    <div class="field"><label for="eway_threshold">E-way bill needed from invoice value</label><input id="eway_threshold" name="eway_threshold" type="text" inputmode="decimal" value="{{ s.eway_threshold }}"></div>
+    <div class="field check"><input id="einvoice_enabled" name="einvoice_enabled" type="checkbox" {% if s.einvoice_enabled %}checked{% endif %}><label for="einvoice_enabled">E-invoicing is switched on</label><div class="help">Shows the e-invoice and e-way bill button on taxed bills to buyers with a GSTIN. Until a GST suvidha provider is chosen, a stand-in produces test numbers only.</div></div>
+    <div class="field"><label for="eway_threshold">E-way bill needed from bill value</label><input id="eway_threshold" name="eway_threshold" type="text" inputmode="decimal" value="{{ s.eway_threshold }}"></div>
     {% if can_edit %}<div class="form-actions"><button class="btn primary">Save</button></div>{% endif %}
   </form>
 {% endblock %}

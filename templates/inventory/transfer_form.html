@@ -15,7 +15,7 @@
       <div class="field"><label for="date">Date</label><input id="date" name="date" type="date" value="{{ d.date|default:today }}" required></div>
       <div class="field"><label for="document_type">Document (between different GSTINs)</label><select id="document_type" name="document_type">{% for v, l in documents %}<option value="{{ v }}" {% if d.document_type == v %}selected{% endif %}>{{ l }}</option>{% endfor %}</select></div>
       <div class="field"><label for="vehicle_no">Vehicle no.</label><input id="vehicle_no" name="vehicle_no" type="text" value="{{ d.vehicle_no }}"></div>
-      <div class="field"><label for="remarks">Remarks</label><input id="remarks" name="remarks" type="text" value="{{ d.remarks }}"></div>
+      <div class="field"><label for="remarks">Notes</label><input id="remarks" name="remarks" type="text" value="{{ d.remarks }}"></div>
     </div></div>
     <div class="island"><h2>Items</h2>
       <p class="muted">For fabric, choose the roll to move. Between factories the stock arrives in the destination's In Transit location until it is received.</p>

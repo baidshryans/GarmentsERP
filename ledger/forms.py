@@ -34,6 +34,7 @@ class GroupForm(forms.ModelForm):
     class Meta:
         model = AccountGroup
         fields = ["name", "parent", "is_active"]
+        labels = {"is_active": "Active"}
 
     def __init__(self, *args, company=None, **kwargs):
         super().__init__(*args, **kwargs)
@@ -83,6 +84,7 @@ class LedgerForm(forms.ModelForm):
     class Meta:
         model = Ledger
         fields = ["name", "group", "code", "bill_wise", "is_active"]
+        labels = {"is_active": "Active"}
 
     def __init__(self, *args, company=None, **kwargs):
         super().__init__(*args, **kwargs)

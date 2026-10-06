@@ -12,7 +12,7 @@
       <div><div class="label muted">Factory</div>{{ v.factory }}</div>
       <div><div class="label muted">Financial year</div>{{ v.financial_year }}</div>
     </div>
-    {% if v.vendor_invoice_no %}<p class="muted">Vendor invoice no.: <strong>{{ v.vendor_invoice_no }}</strong></p>{% endif %}
+    {% if v.vendor_invoice_no %}<p class="muted">Supplier's bill no.: <strong>{{ v.vendor_invoice_no }}</strong></p>{% endif %}
     {% if v.narration %}<p class="muted">{{ v.narration }}</p>{% endif %}
     {% if v.reverses %}<p>Reverses <a href="{% url 'voucher_detail' v.reverses.pk %}">{{ v.reverses }}</a> — {{ v.reversal_reason }}</p>{% endif %}
     {% if reversal %}<p>Cancelled by <a href="{% url 'voucher_detail' reversal.pk %}">{{ reversal }}</a> — {{ reversal.reversal_reason }}</p>{% endif %}

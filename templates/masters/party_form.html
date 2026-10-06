@@ -13,26 +13,25 @@
         {% if "gstin" not in more.names %}{% include "partials/field.html" with field=form.gstin %}{% endif %}
       </div>
       {% if "gstin" not in more.names %}<p class="muted">The GSTIN's state code sets the State, which decides CGST + SGST or IGST.</p>{% endif %}
-      <div class="label" id="party-is">This party is a</div>
-      <div class="field-row" role="group" aria-labelledby="party-is">
+      <fieldset class="choices"><legend>This party is a</legend><div class="field-row">
         {% include "partials/field.html" with field=form.is_customer %}
         {% include "partials/field.html" with field=form.is_vendor %}
         {% include "partials/field.html" with field=form.is_fabricator %}
-      </div>
+      </div></fieldset>
       {% more more.label open=more.open %}
-        <h3>Contact</h3>
+        <h2>Contact</h2>
         <div class="field-row">
           {% include "partials/field.html" with field=form.contact_person %}{% include "partials/field.html" with field=form.mobile2 %}
           {% include "partials/field.html" with field=form.mobile3 %}{% include "partials/field.html" with field=form.landline %}
           {% include "partials/field.html" with field=form.email %}
         </div>
-        <h3>Tax</h3>
+        <h2>Tax</h2>
         <div class="field-row">
           {% if "gstin" in more.names %}{% include "partials/field.html" with field=form.gstin %}{% endif %}
           {% include "partials/field.html" with field=form.pan %}{% include "partials/field.html" with field=form.tds_section %}
         </div>
         {% if "gstin" in more.names %}<p class="muted">The GSTIN's state code sets the State, which decides CGST + SGST or IGST.</p>{% endif %}
-        <h3>Selling terms</h3>
+        <h2>Selling terms</h2>
         <div class="field-row">
           {% include "partials/field.html" with field=form.category %}{% include "partials/field.html" with field=form.price_list %}
           {% include "partials/field.html" with field=form.discount_pct %}{% include "partials/field.html" with field=form.credit_limit %}
@@ -40,11 +39,10 @@
           {% include "partials/field.html" with field=form.agent %}{% include "partials/field.html" with field=form.transporter %}
           {% include "partials/field.html" with field=form.destination %}
         </div>
-        <div class="label" id="party-also">This party is also an</div>
-        <div class="field-row" role="group" aria-labelledby="party-also">
+        <fieldset class="choices"><legend>This party is also an</legend><div class="field-row">
           {% include "partials/field.html" with field=form.is_agent %}
           {% include "partials/field.html" with field=form.is_transporter %}
-        </div>
+        </div></fieldset>
         {% include "partials/field.html" with field=form.is_active %}
       {% endmore %}
     </div>

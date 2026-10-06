@@ -97,9 +97,9 @@ def update_return_note(note, *, vendor, date, lines, user, reason, gst_template=
     note = DebitNote.objects.select_related("factory").get(pk=note.pk)
     assert_factory_access(user, note.factory)
     if note.status != DebitNote.Status.DRAFT:
-        raise BusinessRuleError("Only a draft debit note can be edited.")
+        raise BusinessRuleError("Only a draft return to supplier can be edited.")
     if note.kind != DebitNote.Kind.RETURN:
-        raise BusinessRuleError("A note raised from a GRN rejection cannot be edited.")
+        raise BusinessRuleError("A return raised from rejected goods received cannot be edited.")
     _check_return_header(vendor, gst_template)
     note.vendor, note.date, note.reason = vendor, date, reason
     note.gst_template, note.itc_claimable = gst_template, itc_claimable
@@ -173,7 +173,7 @@ def post_debit_note(note, *, user) -> DebitNote:
     note = DebitNote.objects.select_related("factory", "vendor", "company", "gst_template").get(pk=note.pk)
     assert_factory_access(user, note.factory)
     if note.status != DebitNote.Status.DRAFT:
-        raise BusinessRuleError("This debit note has already been posted or cancelled.")
+        raise BusinessRuleError("This return to supplier has already been posted or cancelled.")
     vendor_ledger = note.vendor.payable_ledger
     if vendor_ledger is None:
         raise BusinessRuleError(f"{note.vendor.name} has no payable ledger.")
@@ -189,8 +189,8 @@ def post_debit_note(note, *, user) -> DebitNote:
             remaining = _remaining_recoverable(line.grn_line)
             if remaining <= 0:
                 raise BusinessRuleError(
-                    f"The vendor has not billed the rejected {line.item} yet (or it is already debited); "
-                    "post the vendor's invoice first."
+                    f"The supplier has not billed the rejected {line.item} yet (or it is already returned); "
+                    "post the supplier's bill first."
                 )
             for inv, part in _traced_to_bills(line.grn_line, remaining).items():
                 traced[inv] = traced.get(inv, ZERO) + part
@@ -248,9 +248,9 @@ def cancel_debit_note(note, *, user, reason) -> DebitNote:
         note.save()
         return note
     if note.status != DebitNote.Status.POSTED:
-        raise BusinessRuleError("This debit note is already cancelled.")
+        raise BusinessRuleError("This return to supplier is already cancelled.")
     if not reason.strip():
-        raise BusinessRuleError("Give a reason to cancel the debit note.")
+        raise BusinessRuleError("Give a reason to cancel the return to supplier.")
     when = max(timezone.localdate(), note.date)
     for m in StockMovement.objects.filter(source_type=note._meta.label_lower, source_id=note.pk,
                                           movement_type=T.RETURN_OUT).select_related("material", "sku", "roll", "location", "factory"):

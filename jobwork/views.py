@@ -358,7 +358,7 @@ class RateNew(LoginRequiredMixin, ScreenPermissionMixin, View):
             addons = [(n.strip(), vu.dec(a, "Add-on amount")) for n, a in zip(p.getlist("addon_name"), p.getlist("addon_amount")) if n.strip()]
             size_rates = {s: vu.dec(p.get(f"size_{s.pk}"), "Size rate") for s in Size.objects.all() if p.get(f"size_{s.pk}", "").strip()}
             rates.save_rate(
-                party=vu.chosen(Party.objects.all(), p.get("party"), "fabricator"),
+                party=vu.chosen(Party.objects.all(), p.get("party"), "fabricator or supplier"),
                 process=vu.chosen(Process.objects.all(), p.get("process"), "process"),
                 rate_type=p.get("rate_type"), effective_from=vu.day(p.get("effective_from")),
                 base_rate=vu.dec(p.get("base_rate"), "Rate", Decimal("0")), flat_amount=vu.dec(p.get("flat_amount"), "Flat amount", Decimal("0")),

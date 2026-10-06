@@ -43,7 +43,7 @@ def _pk(value):
 def _choose(qs, value, what):
     obj = qs.filter(pk=_pk(value)).first() if _pk(value) is not None else None
     if obj is None:
-        raise BusinessRuleError(f"Choose a {what}.")
+        raise BusinessRuleError(f"Choose the {what}.")
     return obj
 
 
@@ -110,7 +110,7 @@ class SalesSettings(LoginRequiredMixin, ScreenPermissionMixin, View):
         try:
             rounding = p.get("rounding")
             if rounding not in dict(SaleSetting.Rounding.choices):
-                raise ValueError("Choose how the invoice total is rounded.")
+                raise ValueError("Choose how the bill total is rounded.")
             limit = _dec(p.get("max_discount_pct"), "Discount limit")
             if not 0 <= limit <= 100:
                 raise ValueError("The discount limit must be between 0 and 100.")

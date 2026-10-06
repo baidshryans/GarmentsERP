@@ -326,7 +326,7 @@ def test_billing_more_than_is_left_or_a_foreign_grn_is_refused(company, factory,
     with pytest.raises(BusinessRuleError, match="left to bill"):
         bill(company, factory, vendor, owner, g.lines.get(), "201", "200")
     other = parties.create_party(company=company, name="Other Vendor", mobile="9844444444", is_vendor=True)
-    with pytest.raises(BusinessRuleError, match="not a posted GRN"):
+    with pytest.raises(BusinessRuleError, match="not posted goods received"):
         bill(company, factory, other, owner, g.lines.get(), "10", "200")
 
 
@@ -361,7 +361,7 @@ def test_billing_rejected_pieces_parks_them_as_recoverable_until_the_debit_note(
     # the vendor's debit, GST included, is set against the bill that billed the rejected rolls (E5.6)
     assert outstanding_bills(vendor.payable_ledger) == {"bills": {"V-1": D("-40320.00")}, "advance": D("0.00"), "on_account": D("0.00")}
     assert ledger_balance(vendor.payable_ledger) == D("-40320.00")
-    with pytest.raises(BusinessRuleError, match="debit note has been posted"):
+    with pytest.raises(BusinessRuleError, match="return to supplier has been posted"):
         invoices.cancel_invoice(inv, user=owner, reason="x")
 
 
@@ -380,7 +380,7 @@ def test_cancelling_an_invoice_restores_books_stock_and_billable_quantity(compan
 def test_a_grn_cannot_be_cancelled_while_invoiced(company, factory, vendor, owner, godown, fabric):
     g = fabric_grn(company, factory, vendor, godown, fabric, owner)
     inv = bill(company, factory, vendor, owner, g.lines.get(), "180", "200")
-    with pytest.raises(BusinessRuleError, match="invoiced"):
+    with pytest.raises(BusinessRuleError, match="have been billed"):
         grns.cancel_grn(g, user=owner, reason="x")
     invoices.cancel_invoice(inv, user=owner, reason="x")
     grns.cancel_grn(g, user=owner, reason="x")

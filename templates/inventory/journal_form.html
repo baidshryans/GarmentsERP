@@ -9,7 +9,7 @@
       <div class="field"><label for="location">Location</label><select id="location" name="location">{% for l in locations %}<option value="{{ l.pk }}" data-factory="{{ l.factory_id }}" {% if d.location == l.pk|stringformat:"s" %}selected{% endif %}>{{ l.name }}</option>{% endfor %}</select></div>
       <div class="field"><label for="date">Date</label><input id="date" name="date" type="date" value="{{ d.date|default:today }}" required></div>
       <div class="field"><label for="reason">Reason</label><select id="reason" name="reason">{% for v, l in reasons %}<option value="{{ v }}" {% if d.reason == v %}selected{% endif %}>{{ l }}</option>{% endfor %}</select></div>
-    </div><div class="field"><label for="remarks">Remarks</label><input id="remarks" name="remarks" type="text" value="{{ d.remarks }}"></div></div>
+    </div><div class="field"><label for="remarks">Notes</label><input id="remarks" name="remarks" type="text" value="{{ d.remarks }}"></div></div>
     <div class="island"><h2>Lines</h2>
       <p class="muted">Take stock out and bring stock in. Out lines are valued at cost like any issue; give a rate for what comes in. The difference goes to Stock Adjustments as a gain or loss. Fabric goes out by roll and comes in as a new roll.</p>
       <div class="table-scroll"><table data-entry>

@@ -71,7 +71,7 @@ def place_of_supply(customer, factory, override=None) -> str:
 def _slab_template(hsn, unit_value, on_date, factory_state, place_state):
     """(rate, template) the HSN slab suggests for one piece value and where the goods go; errors say what is missing."""
     if hsn is None:
-        raise NoGstRate("The style has no HSN code; set it, or choose a GST template or no GST for this invoice.")
+        raise NoGstRate("The style has no HSN code; set it, or choose a GST template or no GST for this bill.")
     rate = tax_services.gst_rate_for(hsn, unit_value, on_date)
     if rate is None:
         raise NoGstRate(f"No GST slab for HSN {hsn.code} on {on_date:%d %b %Y}; add the slab, or choose a template.", hsn)
@@ -86,7 +86,7 @@ def _tax_plan(*, company, factory, customer, date, prepared, tax_mode, gst_templ
     charged = gst_on(company, factory, date)
     if not charged:
         if tax_mode not in (None, Mode.NONE):
-            raise BusinessRuleError("GST is not switched on for this company from this date; the invoice is issued without tax.")
+            raise BusinessRuleError("GST is not switched on for this company from this date; the bill is issued without tax.")
         return [(None, ZERO)] * len(prepared), Mode.NONE, None, "", ""
     mode = tax_mode or Mode.AUTO
     suggested, names = [], []
@@ -106,11 +106,11 @@ def _tax_plan(*, company, factory, customer, date, prepared, tax_mode, gst_templ
         return suggested, mode, None, "", text
     if mode == Mode.NONE:
         if not note:
-            raise BusinessRuleError("Give a reason for issuing this invoice without GST.")
+            raise BusinessRuleError("Give a reason for issuing this bill without GST.")
         return [(None, ZERO)] * len(prepared), mode, None, note, text
     if mode == Mode.TEMPLATE:
         if gst_template is None or gst_template.kind != "gst" or gst_template.is_reverse_charge:
-            raise BusinessRuleError("Choose a GST template (not reverse charge) for the invoice.")
+            raise BusinessRuleError("Choose a GST template (not reverse charge) for the bill.")
         if suggested is None or {t.pk for t, _ in suggested} != {gst_template.pk}:
             if not note:
                 raise BusinessRuleError("Give a reason for changing the GST from what was suggested.")
@@ -158,10 +158,10 @@ def _check_against_order(order, packing, prepared):
             raise BusinessRuleError(f"{p['sku']} is not on order {order}.")
         p["order_line"] = ol
         if p["qty"] > ol.qty - ol.qty_invoiced:
-            raise BusinessRuleError(f"{p['sku']}: only {(ol.qty - ol.qty_invoiced).normalize():f} of the order is left to invoice.")
+            raise BusinessRuleError(f"{p['sku']}: only {(ol.qty - ol.qty_invoiced).normalize():f} of the order is left to bill.")
         if allowed is not None and p["qty"] > allowed.get(p["sku"].pk, 0):
             raise BusinessRuleError(
-                f"{p['sku']}: the invoice covers only packed pieces; {allowed.get(p['sku'].pk, 0)} packed on {packing}.")
+                f"{p['sku']}: the bill covers only packed pieces; {allowed.get(p['sku'].pk, 0)} packed on {packing}.")
 
 
 @transaction.atomic
@@ -177,17 +177,17 @@ def save_invoice(*, company, factory, customer, date, lines, user, location, inv
     if invoice is not None:
         invoice = SaleInvoice.objects.get(pk=invoice.pk)
         if invoice.status != SaleInvoice.Status.DRAFT:
-            raise BusinessRuleError("Only a draft invoice can be edited.")
+            raise BusinessRuleError("Only a draft bill can be edited.")
     if order is not None and (order.customer_id != customer.pk or order.factory_id != factory.pk):
         raise BusinessRuleError("The order belongs to another customer or factory.")
     if packing is not None:
         if packing.order_id != (order.pk if order else None) or packing.status != PackingList.Status.PACKED:
-            raise BusinessRuleError("Invoice against a packing list that is finalised and not yet invoiced.")
+            raise BusinessRuleError("Bill against a packing list that is finished and not yet billed.")
         other = SaleInvoice.objects.filter(packing=packing).exclude(status="cancelled")
         if invoice is not None:
             other = other.exclude(pk=invoice.pk)
         if other.exists():
-            raise BusinessRuleError(f"{packing} already has an invoice.")
+            raise BusinessRuleError(f"{packing} already has a bill.")
     lines = list(lines)
     if not lines:
         raise BusinessRuleError("Add at least one item to bill.")
@@ -282,20 +282,20 @@ def post_invoice(invoice, *, user) -> SaleInvoice:
     inv = SaleInvoice.objects.select_related("factory", "customer", "company", "location", "order", "packing").get(pk=invoice.pk)
     assert_factory_access(user, inv.factory)
     if inv.status != SaleInvoice.Status.DRAFT:
-        raise BusinessRuleError("This invoice has already been posted or cancelled.")
+        raise BusinessRuleError("This bill has already been posted or cancelled.")
     customer_ledger = inv.customer.customer_ledger
     if customer_ledger is None:
         raise BusinessRuleError(f"{inv.customer.name} has no customer ledger.")
     lines = list(inv.lines.select_related("sku__style", "sku__colour", "sku__size", "order_line"))
     if inv.order_id is not None:
         if inv.order.status not in (SaleOrder.Status.CONFIRMED, SaleOrder.Status.PARTLY):
-            raise BusinessRuleError(f"Order {inv.order} is not open for invoicing.")
+            raise BusinessRuleError(f"Order {inv.order} is not open for billing.")
         for l in lines:
             ol = SaleOrderLine.objects.get(pk=l.order_line_id)
             if l.qty > ol.qty - ol.qty_invoiced:
-                raise BusinessRuleError(f"{l.sku}: only {(ol.qty - ol.qty_invoiced).normalize():f} of the order is left to invoice.")
+                raise BusinessRuleError(f"{l.sku}: only {(ol.qty - ol.qty_invoiced).normalize():f} of the order is left to bill.")
     if inv.packing_id is not None and inv.packing.status != PackingList.Status.PACKED:
-        raise BusinessRuleError(f"{inv.packing} is no longer a finalised packing list.")
+        raise BusinessRuleError(f"{inv.packing} is no longer a finished packing list.")
 
     inv.number = next_document_number(factory=inv.factory, doc_type="sale_invoice", on_date=inv.date)
     movements = []
@@ -353,7 +353,7 @@ def discard_draft(invoice, *, user):
     inv = SaleInvoice.objects.select_related("factory").get(pk=invoice.pk)
     assert_factory_access(user, inv.factory)
     if inv.status != SaleInvoice.Status.DRAFT:
-        raise BusinessRuleError("Only a draft invoice can be discarded.")
+        raise BusinessRuleError("Only a draft bill can be discarded.")
     inv.delete()
 
 
@@ -362,13 +362,13 @@ def cancel_invoice(invoice, *, user, reason) -> SaleInvoice:
     inv = SaleInvoice.objects.select_related("factory", "order", "packing").get(pk=invoice.pk)
     assert_factory_access(user, inv.factory)
     if inv.status != SaleInvoice.Status.POSTED:
-        raise BusinessRuleError("Only a posted invoice can be cancelled.")
+        raise BusinessRuleError("Only a posted bill can be cancelled.")
     if not reason.strip():
-        raise BusinessRuleError("Give a reason to cancel the invoice.")
+        raise BusinessRuleError("Give a reason to cancel the bill.")
     if inv.credit_notes.filter(status="posted").exists():
-        raise BusinessRuleError("A credit note has been posted against this invoice; cancel it first.")
+        raise BusinessRuleError("A return from customer has been posted against this bill; cancel it first.")
     if inv.einvoice_status == SaleInvoice.EInvoice.GENERATED:
-        raise BusinessRuleError("An IRN has been generated for this invoice; cancel the e-invoice first.")
+        raise BusinessRuleError("An IRN has been generated for this bill; cancel the e-invoice first.")
     when = max(timezone.localdate(), inv.date)
     for m in StockMovement.objects.filter(source_type=inv._meta.label_lower, source_id=inv.pk, movement_type=T.ISSUE
                                           ).select_related("sku", "location", "factory"):

@@ -133,7 +133,7 @@ def submit(invoice, *, user, vehicle_no="", distance_km=0) -> SaleInvoice:
     inv = SaleInvoice.objects.select_related("factory", "customer", "company", "transporter").get(pk=invoice.pk)
     assert_factory_access(user, inv.factory)
     if not is_available(inv):
-        raise BusinessRuleError("E-invoicing is not available for this invoice (it needs a posted invoice with GST, a buyer GSTIN "
+        raise BusinessRuleError("E-invoicing is not available for this bill (it needs a posted bill with GST, a buyer GSTIN "
                                 "and e-invoicing switched on in the sales settings).")
     if inv.einvoice_status == SaleInvoice.EInvoice.GENERATED and inv.eway_bill_no:
         raise BusinessRuleError("The e-invoice and e-way bill have already been generated.")
@@ -142,7 +142,7 @@ def submit(invoice, *, user, vehicle_no="", distance_km=0) -> SaleInvoice:
     transporter_gstin = inv.transporter.gstin if inv.transporter_id else ""
     needs_eway = inv.total >= setting.eway_threshold
     if needs_eway and not vehicle_no and not transporter_gstin:
-        raise BusinessRuleError("This invoice needs an e-way bill: enter the vehicle number, or pick a transporter with a GSTIN.")
+        raise BusinessRuleError("This bill needs an e-way bill: enter the vehicle number, or pick a transporter with a GSTIN.")
     provider, payload = get_provider(), build_payload(inv)
     try:
         if inv.einvoice_status != SaleInvoice.EInvoice.GENERATED:

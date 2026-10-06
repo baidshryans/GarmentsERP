@@ -156,7 +156,7 @@ def test_billing_can_waive_gst_on_one_invoice_and_needs_a_reason(ns, owner_c, co
     base = {"customer": ns.local.pk, "factory": factory.pk, "location": ns.godown.pk, "date": "2026-06-15", "action": "post",
             "tax_mode": "none", "sku": [sku.pk], "qty": ["2"], "rate": ["500"], "disc": ["0"]}
     r = owner_c.post(reverse("billing"), base)
-    assert r.status_code == 200 and "reason for issuing this invoice without GST" in r.content.decode() and not SaleInvoice.objects.exists()
+    assert r.status_code == 200 and "reason for issuing this bill without GST" in r.content.decode() and not SaleInvoice.objects.exists()
     r = owner_c.post(reverse("billing"), {**base, "tax_note": "Export under LUT"})
     inv = SaleInvoice.objects.get()
     assert r.status_code == 302 and inv.gst_total == 0 and inv.total == D("1000.00")
@@ -184,7 +184,7 @@ def test_draft_invoice_gst_can_be_changed_before_posting(ns, owner_c, company):
     assert inv.status == "posted"
     r = owner_c.post(reverse("saleinvoice_detail", args=[inv.pk]), {"action": "tax", "tax_mode": "none", "tax_note": "late"}, follow=True)
     inv.refresh_from_db()
-    assert inv.gst_total == D("250.00") and "Only a draft invoice can be edited" in r.content.decode()
+    assert inv.gst_total == D("250.00") and "Only a draft bill can be edited" in r.content.decode()
 
 
 def test_packing_screens_create_cartons_labels_and_an_invoice_for_the_packed_pieces_A7(ns, owner_c, factory):

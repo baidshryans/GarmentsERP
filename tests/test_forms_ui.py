@@ -4,6 +4,7 @@ to one choice only show for that choice. Nothing here changes what a form saves.
 import re
 from datetime import date
 from decimal import Decimal
+from html.parser import HTMLParser
 
 import pytest
 from django import forms
@@ -44,52 +45,191 @@ def html_of(response):
     return response.content.decode()
 
 
+class _Node:
+    """One element of a parsed page: its tag, attributes, children and the text directly inside it."""
+
+    def __init__(self, tag, attrs, parent):
+        self.tag, self.attrs, self.parent, self.children, self.texts, self.content = tag, attrs, parent, [], [], []
+
+    def walk(self):
+        for child in self.children:
+            yield child
+            yield from child.walk()
+
+    def text(self):
+        parts = [c if isinstance(c, str) else c.text() for c in self.content if isinstance(c, str) or c.tag not in ("script", "style")]
+        return re.sub(r"\s+", " ", " ".join(parts)).strip()
+
+    def classes(self):
+        return (self.attrs.get("class") or "").split()
+
+    def up(self, test):
+        node = self.parent
+        while node is not None and not test(node):
+            node = node.parent
+        return node
+
+
+class _Tree(HTMLParser):
+    """A forgiving element tree, so the checks below read structure and never depend on attribute order or spacing."""
+
+    VOID = {"area", "base", "br", "col", "embed", "hr", "img", "input", "link", "meta", "source", "track", "wbr", "use"}
+
+    def __init__(self, html):
+        super().__init__(convert_charrefs=True)
+        self.root = self.at = _Node("#root", {}, None)
+        self.feed(html)
+        self.close()
+
+    def handle_starttag(self, tag, attrs):
+        node = _Node(tag, {k: ("" if v is None else v) for k, v in attrs}, self.at)
+        self.at.children.append(node)
+        self.at.content.append(node)
+        if tag not in self.VOID:
+            self.at = node
+
+    def handle_startendtag(self, tag, attrs):
+        node = _Node(tag, {k: ("" if v is None else v) for k, v in attrs}, self.at)
+        self.at.children.append(node)
+        self.at.content.append(node)
+
+    def handle_endtag(self, tag):
+        node = self.at
+        while node is not None and node.tag != tag:
+            node = node.parent
+        if node is not None and node.parent is not None:
+            self.at = node.parent
+
+    def handle_data(self, data):
+        self.at.texts.append(data)
+        self.at.content.append(data)
+
+
+_pages = {}
+
+
+def page(html):
+    """The parsed page (kept for the last few pages, since one test asks several questions of the same HTML)."""
+    if html not in _pages:
+        if len(_pages) > 8:
+            _pages.clear()
+        _pages[html] = _Tree(html).root
+    return _pages[html]
+
+
+def named(html, name):
+    """Every control posted as `name`."""
+    return [n for n in page(html).walk() if n.attrs.get("name") == name]
+
+
+def value_of(html, name):
+    """What the first control posted as `name` holds: an input's value, a textarea's text, a select's chosen option."""
+    node = named(html, name)[0]
+    if node.tag == "textarea":
+        return "".join(node.texts)
+    if node.tag == "select":
+        return _chosen(node)
+    return node.attrs.get("value", "")
+
+
+def values_of(html, name):
+    return [n.attrs.get("value", "") for n in named(html, name)]
+
+
+def ticked(html, name):
+    return [n for n in named(html, name) if "checked" in n.attrs]
+
+
+def label_for(html, control_id):
+    """The text of the label tied to a control, or None when it has none."""
+    for n in page(html).walk():
+        if n.tag == "label" and n.attrs.get("for") == control_id:
+            return n.text()
+    return None
+
+
 def folds(html):
-    """Every folded section on a page: (is it open, its summary text, its body)."""
+    """Every folded section on a page: (is it open, its summary text, its element)."""
     out = []
-    for is_open, summary, body in re.findall(
-            r'<details class="more[^"]*"( open)?><summary>(.*?)</summary><div class="more-body">(.*?)</div></details>', html, re.S):
-        out.append((bool(is_open), re.sub(r"<[^>]+>", " ", summary), body))
+    for n in page(html).walk():
+        if n.tag == "details" and "more" in n.classes():
+            summary = next((c for c in n.children if c.tag == "summary"), None)
+            out.append(("open" in n.attrs, summary.text() if summary else "", n))
     return out
 
 
 def fold_of(html, name):
     """The folded section holding the field posted as `name`, or None when the field is in plain view."""
     for section in folds(html):
-        if f'name="{name}"' in section[2]:
+        if any(d.attrs.get("name") == name for d in section[2].walk()):
             return section
     return None
 
 
+def has_error(section):
+    """Does a folded section show a field error inside it?"""
+    return any("error" in d.classes() for d in section[2].walk())
+
+
 def in_view(html, *names):
     """These fields are on the page and outside every fold."""
-    return all(f'name="{n}"' in html and fold_of(html, n) is None for n in names)
+    return all(named(html, n) and fold_of(html, n) is None for n in names)
 
 
 def folded(html, *names, title="More options", is_open=False):
     """These fields sit in one folded section with this title, open or closed as given."""
     sections = [fold_of(html, n) for n in names]
-    return (all(s is not None for s in sections) and len({s[2] for s in sections}) == 1
-            and sections[0][0] is is_open and sections[0][1].strip().startswith(title))
+    return (all(s is not None for s in sections) and len({id(s[2]) for s in sections}) == 1
+            and sections[0][0] is is_open and sections[0][1].startswith(title))
+
+
+def _select(html, select_id):
+    return next(n for n in page(html).walk() if n.tag == "select" and n.attrs.get("id") == select_id)
+
+
+def _chosen(select):
+    options = [n for n in select.walk() if n.tag == "option"]
+    picked = [o for o in options if "selected" in o.attrs]
+    return (picked[-1] if picked else options[0]).attrs.get("value", "") if options else ""
 
 
 def chosen(html, select_id):
     """The value a select starts on: "" when it starts on its blank "Choose…" line."""
-    body = re.search(rf'<select id="{select_id}"[^>]*>(.*?)</select>', html, re.S).group(1)
-    picked = re.findall(r'<option value="([^"]*)"[^>]*\bselected\b', body)
-    return picked[-1] if picked else re.search(r'<option value="([^"]*)"', body).group(1)
+    return _chosen(_select(html, select_id))
+
+
+def options_of(html, select_id):
+    return [(o.attrs.get("value", ""), o.text()) for o in _select(html, select_id).walk() if o.tag == "option"]
 
 
 def starts_blank(html, select_id):
-    body = re.search(rf'<select id="{select_id}"[^>]*>(.*?)</select>', html, re.S).group(1)
-    return body.lstrip().startswith('<option value="">Choose…</option>') and chosen(html, select_id) == ""
+    first = options_of(html, select_id)[0]
+    return first == ("", "Choose…") and chosen(html, select_id) == ""
+
+
+def choice_block(html, name):
+    """The element that shows the field posted as `name` for one choice only (it carries data-show-when)."""
+    block = named(html, name)[0].up(lambda n: "data-show-when" in n.attrs)
+    assert block is not None, name
+    return block
+
+
+def hidden_for_choice(html, name):
+    """Is the field posted as `name` inside a block the server has hidden for the current choice?"""
+    return "hidden" in choice_block(html, name).attrs
+
+
+def shown_when(html, name):
+    """(the controlling field, the values it shows for, whether it is switched off while hidden)."""
+    block = choice_block(html, name)
+    field, _, wanted = block.attrs["data-show-when"].partition("=")
+    return field, wanted.split(), "data-off-when-hidden" in block.attrs
 
 
 def flashed(html):
     """The words on the screen itself: the page between the menu and the footer, without markup or scripts."""
-    main = html.split("<main", 1)[1].split("</main>", 1)[0] if "<main" in html else html
-    main = re.sub(r"<script\b.*?</script>", " ", main, flags=re.S)
-    return re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", main))
+    main = next((n for n in page(html).walk() if n.tag == "main"), None)
+    return (main or page(html)).text()
 
 
 # ================================================================ the one rule
@@ -187,14 +327,13 @@ def test_quick_billing_opens_the_fold_when_the_notes_come_back(ns, owner_c):
 def test_quick_billing_shows_the_gst_template_only_for_that_choice(ns, owner_c):
     sh.gst_on(ns.company)
     html = html_of(owner_c.get(reverse("billing")))
-    assert 'data-show-when="tax_mode=template" hidden><label for="gst_template">' in html
-    assert 'data-show-when="tax_mode=template none" hidden><label for="tax_note">' in html
+    assert shown_when(html, "gst_template") == ("tax_mode", ["template"], False) and hidden_for_choice(html, "gst_template")
+    assert shown_when(html, "tax_note") == ("tax_mode", ["template", "none"], False) and hidden_for_choice(html, "tax_note")
     assert "js/reveal.js" in html and "data-tax-show" not in html
     r = owner_c.post(reverse("billing"), {"customer": ns.local.pk, "location": ns.godown.pk, "date": DAY.isoformat(),
                                           "tax_mode": "none", "tax_note": "", "action": "draft"})
     html = html_of(r)
-    assert 'data-show-when="tax_mode=template" hidden>' in html
-    assert 'data-show-when="tax_mode=template none"><label for="tax_note">' in html
+    assert hidden_for_choice(html, "gst_template") and not hidden_for_choice(html, "tax_note")
 
 
 # ================================================================ a supplier, customer or fabricator must be chosen
@@ -340,11 +479,11 @@ def test_a_labour_rate_needs_its_fabricator_and_process_chosen(job, owner_c):
              "flat_amount": "", "rework_rate": "4", "addon_name": ["Embroidery", "", ""], "addon_amount": ["3.5", "", ""],
              f"size_{s.pk}": "20", f"size_{m.pk}": "21"}
     html = html_of(owner_c.post(reverse("rate_new"), typed))
-    assert "Choose the fabricator." in flashed(html) and LabourRate.objects.count() == 2 and starts_blank(html, "party")
+    assert "Choose the fabricator or supplier." in flashed(html) and '<label for="party">Fabricator or supplier</label>' in html and LabourRate.objects.count() == 2 and starts_blank(html, "party")
     assert chosen(html, "process") == str(stitch.pk) and chosen(html, "rate_type") == "B"
-    assert re.search(r'name="base_rate"[^>]* value="22"', html) and 'value="Embroidery"' in html
-    assert 'value="3.5"' in html and re.search(rf'name="size_{s.pk}"[^>]* value="20"', html)
-    assert re.search(rf'name="size_{m.pk}"[^>]* value="21"', html)
+    assert value_of(html, "base_rate") == "22" and values_of(html, "addon_name") == ["Embroidery", "", ""]
+    assert values_of(html, "addon_amount") == ["3.5", "", ""]
+    assert value_of(html, f"size_{s.pk}") == "20" and value_of(html, f"size_{m.pk}") == "21"
     html = html_of(owner_c.post(reverse("rate_new"), {**typed, "party": job.fab.pk, "process": ""}))
     assert "Choose the process." in flashed(html) and LabourRate.objects.count() == 2
     assert chosen(html, "party") == str(job.fab.pk) and starts_blank(html, "process")
@@ -375,9 +514,9 @@ def test_a_new_party_asks_for_the_firm_what_it_is_and_a_mobile(company, owner_c)
         assert words in text, words
     for old in ("Is vendor", "Is customer", "Is fabricator", "Is agent", "Is transporter", "Tds section", "Is active", "Gstin"):
         assert old not in text, old
-    assert 'name="is_active" id="id_is_active" checked' in html or re.search(r'name="is_active"[^>]*checked', html)
+    assert ticked(html, "is_active")
     for name in ("name", "mobile", "is_vendor", "email", "tds_section", "is_active"):      # every input keeps its label
-        assert f'<label for="id_{name}">' in html, name
+        assert label_for(html, f"id_{name}"), name
 
 
 def test_a_gst_registered_company_is_asked_for_the_gstin_every_time(company, owner_c):
@@ -388,7 +527,7 @@ def test_a_gst_registered_company_is_asked_for_the_gstin_every_time(company, own
 
 def test_the_party_form_still_opens_ticked_for_the_role_a_link_names(company, owner_c):
     html = html_of(owner_c.get(reverse("party_new"), {"role": "vendor"}))
-    assert re.search(r'name="is_vendor"[^>]*checked', html) and not re.search(r'name="is_customer"[^>]*checked', html)
+    assert ticked(html, "is_vendor") and not ticked(html, "is_customer")
     assert folded(html, *PARTY_FOLDED)
 
 
@@ -401,7 +540,7 @@ def test_the_party_fold_opens_for_a_saved_value_and_for_an_error(company, owner_
     assert folded(html_of(owner_c.get(reverse("party_edit", args=[off.pk]))), *PARTY_FOLDED, is_open=True)
     html = html_of(owner_c.post(reverse("party_new"), {"name": "Nayi Firm", "mobile": "9800000004", "is_customer": "on",
                                                        "is_active": "on", "email": "not-an-email"}))
-    assert folded(html, *PARTY_FOLDED, is_open=True) and 'class="error"' in fold_of(html, "email")[2]
+    assert folded(html, *PARTY_FOLDED, is_open=True) and has_error(fold_of(html, "email"))
 
 
 def test_saving_a_party_from_the_short_form_saves_what_it_always_did(company, owner_c):
@@ -410,7 +549,7 @@ def test_saving_a_party_from_the_short_form_saves_what_it_always_did(company, ow
     html = html_of(owner_c.get(reverse("party_new"), {"role": "customer"}))
     untouched = {"discount_pct": "0", "credit_limit": "0", "credit_days": "0", "is_active": "on"}
     for name, value in untouched.items():           # the folded fields post their defaults when left alone
-        assert re.search(rf'name="{name}"[^>]*(value="{value}"|checked)', html), name
+        assert ticked(html, name) if value == "on" else value_of(html, name) == value, name
     r = owner_c.post(reverse("party_new"), {"name": "Short Form Traders", "mobile": "9800000005", "is_customer": "on", **untouched})
     party = Party.objects.get(name="Short Form Traders")
     assert r.status_code == 302 and party.is_customer and party.is_active and not party.is_vendor
@@ -440,7 +579,7 @@ def test_the_style_fold_opens_for_a_saved_value_and_for_an_error(ns, owner_c):
     ns.style.save()
     assert folded(html_of(owner_c.get(reverse("style_edit", args=[ns.style.pk]))), *STYLE_FOLDED, is_open=True)
     html = html_of(owner_c.post(reverse("style_new"), {"style_no": "N-1", "name": "New", "mrp": "abc"}))
-    assert folded(html, *STYLE_FOLDED, is_open=True) and 'class="error"' in fold_of(html, "mrp")[2]
+    assert folded(html, *STYLE_FOLDED, is_open=True) and has_error(fold_of(html, "mrp"))
 
 
 def test_a_new_material_asks_for_four_things_and_is_active(company, owner_c):
@@ -466,7 +605,7 @@ def test_the_material_fold_on_edit_holds_active_and_opens_when_it_matters(compan
     assert folded(html_of(owner_c.get(url)), "is_active", is_open=True)
     html = html_of(owner_c.post(url, {"code": trim.code, "name": trim.name, "kind": trim.kind, "unit": trim.unit_id,
                                       "is_active": "on", "gsm": "heavy"}))
-    assert folded(html, "gsm", is_open=True) and 'class="error"' in fold_of(html, "gsm")[2]
+    assert folded(html, "gsm", is_open=True) and has_error(fold_of(html, "gsm"))
     r = owner_c.post(url, {"code": trim.code, "name": trim.name, "kind": trim.kind, "unit": trim.unit_id})
     trim.refresh_from_db()
     assert r.status_code == 302 and trim.is_active is False     # an unticked Active on edit still switches it off
@@ -499,13 +638,6 @@ def test_the_bom_folds_only_its_version_note(ns, owner_c, trim):
 
 
 # ================================================================ buying
-
-def hidden_for_choice(html, name):
-    """Is the field posted as `name` inside a block the server has hidden for the current choice?"""
-    block = re.search(rf'<div[^>]*data-show-when="[^"]*"[^>]*>(?:(?!data-show-when).)*?name="{name}"', html, re.S)
-    assert block, name
-    return bool(re.match(r'<div[^>]*[" ]hidden>', block.group(0)))
-
 
 def test_the_purchase_order_shows_supplier_date_and_lines(company, factory, owner, owner_c, vendor, trim):
     html = html_of(owner_c.get(reverse("po_new")))
@@ -580,8 +712,9 @@ def test_the_supplier_bill_shows_the_bill_its_lines_and_one_gst_choice(received,
         assert old not in text, old
     for name in ("gst_template", "manual_cgst", "itc_claimable"):       # no GST chosen: none of its details show
         assert hidden_for_choice(html, name), name
-    assert 'data-show-when="tax_mode=template reverse_charge" data-off-when-hidden hidden' in html and "js/reveal.js" in html
-    assert re.search(r'name="itc_claimable" checked', html)             # hidden, and still posts what it always did
+    assert shown_when(html, "gst_template") == ("tax_mode", ["template", "reverse_charge"], True) and "js/reveal.js" in html
+    assert shown_when(html, "manual_cgst") == ("tax_mode", ["manual"], False)       # ignored by the server, so still sent
+    assert shown_when(html, "itc_claimable")[2] is False and ticked(html, "itc_claimable")   # hidden, and posts what it always did
 
 
 def test_the_supplier_bill_shows_only_the_details_of_the_gst_choice(received, owner_c, vendor):
@@ -620,7 +753,7 @@ def test_a_supplier_bill_saved_from_the_short_form_is_the_same_bill(received, ow
     line = received.lines.get()
     html = html_of(owner_c.get(reverse("invoice_new"), {"vendor": vendor.pk}))
     today = timezone.localdate().isoformat()
-    assert re.search(rf'name="date" type="date" value="{today}"', html)          # the folded booking date posts today
+    assert value_of(html, "date") == today                                       # the folded booking date posts today
     r = owner_c.post(reverse("invoice_new"), {
         "vendor": vendor.pk, "vendor_invoice_no": "YH-1", "vendor_invoice_date": "2026-06-15", "date": "2026-06-15",
         f"use_{line.pk}": "on", f"qty_{line.pk}": "100", f"rate_{line.pk}": "10", "tax_mode": "none", "itc_claimable": "on",
@@ -646,7 +779,7 @@ def test_the_return_to_supplier_shows_supplier_date_reason_and_lines(company, fa
     assert folded(html, "gst_template", "itc_claimable", title="Tax (GST)")
     text = flashed(html)
     assert "Return to supplier" in text and "Vendor" not in text and "vendor" not in text and "debit note" not in text.lower()
-    assert re.search(r'name="itc_claimable" checked', html)
+    assert ticked(html, "itc_claimable")
     gst = TaxTemplate.objects.filter(kind="gst", is_active=True, is_reverse_charge=False).first()
     typed = {"vendor": vendor.pk, "date": "2026-06-16", "reason": "", "item": [f"m:{trim.pk}"], "location": [godown.pk],
              "roll": [""], "qty": ["bad"], "rate": ["2"]}
@@ -766,8 +899,7 @@ RATE_FIELDS = {"A": ("base_rate",), "B": ("base_rate", "addon_name", "addon_amou
 def test_the_labour_rate_names_its_types_in_plain_words(job, owner_c):
     html = html_of(owner_c.get(reverse("rate_new")))
     assert in_view(html, "party", "process", "rate_type", "effective_from", "base_rate") and folded(html, "rework_rate")
-    options = re.findall(r'<option value="([A-D])"[^>]*>([^<]+)</option>', re.search(r'<select id="rate_type".*?</select>', html, re.S).group(0))
-    assert options == [("A", "Per piece"), ("B", "Per piece plus extras"), ("C", "Different rate per size"), ("D", "Fixed amount per lot")]
+    assert options_of(html, "rate_type") == [("A", "Per piece"), ("B", "Per piece plus extras"), ("C", "Different rate per size"), ("D", "Fixed amount per lot")]
     text = flashed(html)
     for old in ("(A, B)", "(D)", "type B", "type C", "A - per piece", "Add-ons", "Flat amount"):
         assert old not in text, old
@@ -786,8 +918,7 @@ def test_the_labour_rate_shows_only_the_fields_of_the_chosen_type(job, owner_c):
         for name in ("base_rate", "addon_name", "flat_amount", f"size_{s.pk}"):
             wanted = any(name.startswith(prefix) for prefix in shown)
             assert hidden_for_choice(html, name) is (not wanted), (rate_type, name)
-            block = re.search(rf'<div[^>]*data-show-when="[^"]*"[^>]*>(?:(?!data-show-when).)*?name="{name}"', html, re.S).group(0)
-            assert "data-off-when-hidden" in block.split(">", 1)[0]        # a rate typed for another type is never sent
+            assert shown_when(html, name)[2] is True                       # a rate typed for another type is never sent
         assert folded(html, "rework_rate")
     html = html_of(owner_c.post(reverse("rate_new"), {"party": "", "process": "", "rate_type": "A", "rework_rate": "4"}))
     assert folded(html, "rework_rate", is_open=True)
@@ -891,9 +1022,9 @@ BILL_COLUMNS = ("row_ref_type", "row_reference", "row_due_date")
 def bill_columns_hidden(html):
     """Has the server hidden the Bill / Reference / Due columns? It never does: they are in the page so the form works
     without JavaScript, and voucher_entry.js hides them on Money paid / received while no row needs them."""
-    cells = re.findall(r'<t[hd][^>]*class="bill-col"( hidden)?>', html)
+    cells = ["hidden" in n.attrs for n in page(html).walk() if n.tag in ("th", "td") and "bill-col" in n.classes()]
     assert cells and len(set(cells)) == 1, cells
-    return cells[0] == " hidden"
+    return cells[0]
 
 
 def _script(name):
@@ -917,9 +1048,9 @@ def test_money_paid_and_received_show_date_account_and_rows(company, ledgers, ow
         assert in_view(html, "date", "account", "row_ledger", "row_amount", "row_narration") and folded(html, "narration")
         text = flashed(html)
         assert title in text and account_label in text and old not in text and "Narration" not in text
-        assert '<label for="narration">Notes</label>' in html
-        assert not bill_columns_hidden(html) and all(f'name="{n}"' in html for n in BILL_COLUMNS)  # usable without JavaScript
-        assert 'colspan="5" class="bill-span"' in html and "js/voucher_entry.js" in html
+        assert label_for(html, "narration") == "Notes"
+        assert not bill_columns_hidden(html) and all(named(html, n) for n in BILL_COLUMNS)         # usable without JavaScript
+        assert "js/voucher_entry.js" in html
 
 
 def test_the_bill_columns_are_always_in_the_page(company, factory, ledgers, owner_c):
@@ -928,7 +1059,7 @@ def test_the_bill_columns_are_always_in_the_page(company, factory, ledgers, owne
     assert keeps_bills.bill_wise and not cash.bill_wise
     # opened from a Pay button: the row is against a bill, so the columns are there
     html = html_of(owner_c.get(reverse("voucher_payment"), {"ledger": keeps_bills.pk, "amount": "500", "ref": "INV-1"}))
-    assert not bill_columns_hidden(html) and 'colspan="5" class="bill-span"' in html
+    assert not bill_columns_hidden(html)
     html = html_of(owner_c.get(reverse("voucher_payment"), {"ledger": keeps_bills.pk, "amount": "500"}))
     assert not bill_columns_hidden(html)
     # a form that comes back keeps the columns when a row uses a ledger that keeps bills, and not otherwise
@@ -1168,3 +1299,89 @@ def test_a_production_order_raised_for_a_sale_order_stays_made_to_order(ns, owne
     with pytest.raises(BusinessRuleError, match="stays Made to order"):
         prod_orders.update_order(raised, user=owner, purpose="stock",
                                  lines=[prod_orders.OrderLineSpec(line.style, line.colour, line.total_qty, {ns.sizes["M"]: 1})])
+
+
+# ================================================================ the remaining screens use the same plain words
+
+OLD_WORDS = ("Vendor", "vendor", "GRN", "debit note", "Debit note", "purchase invoice", "Remarks", "Is active")
+
+
+def test_the_purchase_pages_use_the_plain_words(company, factory, owner, owner_c, vendor, trim, godown, received):
+    from purchases.models import PurchaseInvoice
+    from purchases.services import debit_notes, invoices as bills
+
+    po = po_service.create_and_submit(company=company, factory=factory, vendor=vendor, date=DAY, user=owner,
+                              lines=[po_service.POLineSpec(trim, D("10"), D("2"))])
+    line = received.lines.get()
+    inv = bills.save_invoice(company=company, factory=factory, vendor=vendor, vendor_invoice_no="YH-9", vendor_invoice_date=DAY,
+                             date=DAY, user=owner, lines=[bills.InvoiceLineSpec(line, D("100"), D("10"))],
+                             tax_mode=PurchaseInvoice.TaxMode.NONE)
+    note = debit_notes.create_return_note(company=company, factory=factory, vendor=vendor, date=DAY, user=owner, reason="shade",
+                                          lines=[debit_notes.ReturnLineSpec(item=trim, qty=D("5"), rate=D("10"), location=godown)])
+    pages = [("po_list", []), ("po_detail", [po.pk]), ("po_pending", []), ("grn_list", []), ("grn_detail", [received.pk]),
+             ("invoice_list", []), ("invoice_detail", [inv.pk]), ("debitnote_list", []), ("debitnote_detail", [note.pk])]
+    for url_name, args in pages:
+        text = flashed(html_of(owner_c.get(reverse(url_name, args=args))))
+        assert "Supplier" in text, url_name
+        text = text.replace("GRN/", "")                     # the document number GRN/LDH1/... is the formal name and stays
+        if url_name == "grn_list":
+            assert text.count("GRN") == 1                   # the trade term, once, beside the title
+            text = text.replace("GRN", "", 1)
+        for old in OLD_WORDS:
+            assert old not in text, (url_name, old)
+    assert "New purchase order" in flashed(html_of(owner_c.get(reverse("po_list"))))
+    assert "Supplier's bill no." in flashed(html_of(owner_c.get(reverse("invoice_list"))))
+    assert "Payable to supplier" in flashed(html_of(owner_c.get(reverse("invoice_detail", args=[inv.pk]))))
+    assert '<span class="muted">GRN</span>' in html_of(owner_c.get(reverse("grn_list")))       # the trade term, once
+
+
+def test_cancelling_from_the_purchase_pages_speaks_plainly(company, factory, owner, owner_c, received):
+    r = owner_c.post(reverse("grn_detail", args=[received.pk]), {"action": "cancel", "reason": ""}, follow=True)
+    assert "Give a reason to cancel the goods received." in flashed(r.content.decode())
+    r = owner_c.post(reverse("grn_detail", args=[received.pk]), {"action": "cancel", "reason": "entered twice"}, follow=True)
+    assert "Goods received cancelled; stock and books reversed." in flashed(r.content.decode())
+
+
+def test_other_forms_say_notes_supplier_and_active(company, factory, ledgers, owner_c):
+    for url_name in ("transfer_new", "journal_new"):
+        text = flashed(html_of(owner_c.get(reverse(url_name))))
+        assert "Notes" in text and "Remarks" not in text, url_name
+    html = html_of(owner_c.get(reverse("voucher_purchase")))
+    assert label_for(html, "party").startswith("Supplier") and label_for(html, "narration") == "Notes"
+    assert "Vendor" not in flashed(html) and "Narration" not in flashed(html)
+    html = html_of(owner_c.get(reverse("voucher_journal")))
+    assert label_for(html, "vendor_invoice_no") == "Supplier's bill no." and named(html, "vendor_invoice_no")
+    for url_name, args in (("factory_edit", [factory.pk]), ("user_create", []), ("group_create", []), ("ledger_create", [])):
+        html = html_of(owner_c.get(reverse(url_name, args=args)))
+        assert label_for(html, "id_is_active") == "Active" and "Is active" not in flashed(html), url_name
+
+
+def test_a_missing_location_is_asked_for_by_name(ns, owner_c):
+    sku = ns.sku("Black", "M")
+    html = html_of(owner_c.post(reverse("billing"), {"customer": ns.local.pk, "location": "", "date": DAY.isoformat(),
+                                                     "action": "draft", "sku": [sku.pk], "qty": ["1"], "rate": ["500"], "disc": [""]}))
+    assert "Choose the location." in flashed(html) and not SaleInvoice.objects.exists()
+
+
+def test_the_party_form_groups_its_ticks_and_keeps_heading_order(company, owner_c):
+    html = html_of(owner_c.get(reverse("party_new")))
+    tree = page(html)
+    legends = [n.text() for n in tree.walk() if n.tag == "legend"]
+    assert legends == ["This party is a", "This party is also an"]
+    group = next(n for n in tree.walk() if n.tag == "fieldset")
+    assert {d.attrs.get("name") for d in group.walk() if d.tag == "input"} == {"is_customer", "is_vendor", "is_fabricator"}
+    main = next(n for n in tree.walk() if n.tag == "main")
+    levels = [int(n.tag[1]) for n in main.walk() if n.tag in ("h1", "h2", "h3", "h4")]
+    assert levels[0] == 1 and all(b - a <= 1 for a, b in zip(levels, levels[1:])), levels
+
+
+def test_sales_refusals_say_bill_and_return(ns, owner):
+    from sales.services import invoices as sale_bills
+
+    inv = sale_bills.save_invoice(company=ns.company, factory=ns.factory, customer=ns.local, date=DAY, user=owner, location=ns.godown,
+                                  lines=[sale_bills.InvoiceLineSpec(sku=ns.sku("Black", "M"), qty=D("1"), rate=D("500"))])
+    inv = sale_bills.post_invoice(inv, user=owner)
+    with pytest.raises(BusinessRuleError, match="Only a draft bill can be discarded."):
+        sale_bills.discard_draft(inv, user=owner)
+    with pytest.raises(BusinessRuleError, match="Give a reason to cancel the bill."):
+        sale_bills.cancel_invoice(inv, user=owner, reason="")

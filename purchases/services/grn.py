@@ -87,7 +87,7 @@ def _write_lines(grn, lines):
                 if not r.vendor_roll_no.strip():
                     raise BusinessRuleError("Every roll needs a roll number.")
                 if key in seen_rolls:
-                    raise BusinessRuleError(f"Roll {r.vendor_roll_no} appears twice on this GRN.")
+                    raise BusinessRuleError(f"Roll {r.vendor_roll_no} appears twice here.")
                 seen_rolls.add(key)
                 if FabricRoll.objects.filter(supplier=grn.vendor, vendor_roll_no=r.vendor_roll_no.strip()).exists():
                     raise BusinessRuleError(f"Roll {r.vendor_roll_no} from {grn.vendor.name} was already received.")
@@ -141,7 +141,7 @@ def update_grn(grn, *, lines, user, date=None, location=None, vendor=None, vendo
     grn = Grn.objects.select_related("po", "factory", "vendor").get(pk=grn.pk)
     assert_factory_access(user, grn.factory)
     if grn.status not in (Grn.Status.DRAFT, Grn.Status.QC_DONE):
-        raise BusinessRuleError("A posted GRN cannot be edited; cancel it instead.")
+        raise BusinessRuleError("Posted goods received cannot be edited; cancel it instead.")
     if vendor is not None:
         grn.vendor = vendor
     _check_inputs(grn.po, grn.vendor, grn.factory, user, lines)
@@ -167,7 +167,7 @@ def finish_qc(grn, *, user) -> Grn:
     grn = Grn.objects.get(pk=grn.pk)
     assert_factory_access(user, grn.factory)
     if grn.status not in (Grn.Status.DRAFT, Grn.Status.QC_DONE):
-        raise BusinessRuleError("Only a draft GRN can go through QC.")
+        raise BusinessRuleError("Only draft goods received can go through QC.")
     for line in grn.lines.select_related("material", "sku").prefetch_related("rolls"):
         if line.is_fabric_rolls:
             rolls = list(line.rolls.all())
@@ -239,7 +239,7 @@ def post_grn(grn, *, user) -> Grn:
     grn = Grn.objects.select_related("factory", "location", "vendor", "po", "company").get(pk=grn.pk)
     assert_factory_access(user, grn.factory)
     if grn.status != Grn.Status.QC_DONE:
-        raise BusinessRuleError("Finish QC before posting the GRN.")
+        raise BusinessRuleError("Finish QC before posting the goods received.")
     movements = []
     rejected_lines = []
     for line in grn.lines.select_related("material", "sku").prefetch_related("rolls"):
@@ -313,13 +313,13 @@ def cancel_grn(grn, *, user, reason) -> Grn:
     grn = Grn.objects.select_related("factory", "po").get(pk=grn.pk)
     assert_factory_access(user, grn.factory)
     if grn.status != Grn.Status.POSTED:
-        raise BusinessRuleError("Only a posted GRN can be cancelled.")
+        raise BusinessRuleError("Only posted goods received can be cancelled.")
     if not reason.strip():
-        raise BusinessRuleError("Give a reason to cancel the GRN.")
+        raise BusinessRuleError("Give a reason to cancel the goods received.")
     if grn.lines.filter(invoice_lines__invoice__status="posted").exists():
-        raise BusinessRuleError("This GRN has been invoiced; cancel the purchase invoice first.")
+        raise BusinessRuleError("These goods have been billed; cancel the supplier bill first.")
     if DebitNote.objects.filter(grn=grn, status="posted").exists():
-        raise BusinessRuleError("A debit note has been posted against this GRN; cancel it first.")
+        raise BusinessRuleError("A return to supplier has been posted against these goods; cancel it first.")
     today = timezone.localdate()
     for m in StockMovement.objects.filter(source_type=grn._meta.label_lower, source_id=grn.pk,
                                           movement_type=StockMovement.Type.RECEIPT).select_related("material", "sku", "roll", "location", "factory"):
@@ -345,7 +345,7 @@ def record_qc(grn, *, user, rolls=None, lines=None) -> Grn:
     grn = Grn.objects.get(pk=grn.pk)
     assert_factory_access(user, grn.factory)
     if grn.status not in (Grn.Status.DRAFT, Grn.Status.QC_DONE):
-        raise BusinessRuleError("A posted GRN cannot go through QC again.")
+        raise BusinessRuleError("Posted goods received cannot go through QC again.")
     valid = {s for s, _ in QcStatus.choices}
     for rid, (status, remark) in (rolls or {}).items():
         if status not in valid:

@@ -8,7 +8,7 @@
     <div class="island"><div class="field-row">
       <div class="field"><label>Factory</label><div class="static-value">{{ factory.code }} — {{ factory.name }}</div></div>
       <div class="field"><label for="date">Date <span class="muted">*</span></label><input id="date" name="date" type="date" value="{{ v.date|default:today }}" required></div>
-      <div class="field"><label for="party">{% if vtype == "sales" or vtype == "credit_note" %}Customer{% else %}Vendor{% endif %} <span class="muted">*</span></label><select id="party" name="party"><option value="">— choose —</option>{% for l in parties %}<option value="{{ l.pk }}" {% if v.party == l.pk|stringformat:"s" %}selected{% endif %}>{{ l.name }}</option>{% endfor %}</select>
+      <div class="field"><label for="party">{% if vtype == "sales" or vtype == "credit_note" %}Customer{% else %}Supplier{% endif %} <span class="muted">*</span></label><select id="party" name="party"><option value="">— choose —</option>{% for l in parties %}<option value="{{ l.pk }}" {% if v.party == l.pk|stringformat:"s" %}selected{% endif %}>{{ l.name }}</option>{% endfor %}</select>
         <div id="party-position" class="ledger-position muted small" hidden aria-live="polite"></div></div>
     </div>
     <div class="field-row">
@@ -32,7 +32,7 @@
           <div class="field"><label for="oi">IGST</label><input id="oi" name="override_igst" type="text" inputmode="decimal" value="{{ v.override_igst }}"></div>
           {% if other_templates %}<div class="field"><label for="ot">{{ other_label }}</label><input id="ot" name="override_tax" type="text" inputmode="decimal" value="{{ v.override_tax }}"></div>{% endif %}
           <div class="field"><label for="orr">Reason (needed)</label><input id="orr" name="override_reason" type="text" value="{{ v.override_reason }}"></div></div></details>
-      <div class="field"><label for="narration">Narration</label><input id="narration" name="narration" type="text" value="{{ v.narration }}"></div>
+      <div class="field"><label for="narration">Notes</label><input id="narration" name="narration" type="text" value="{{ v.narration }}"></div>
     </div>
     <div class="form-actions"><button class="btn primary">Post {{ title|lower }}</button></div>
   </form>

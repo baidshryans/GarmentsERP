@@ -116,9 +116,9 @@ def save_invoice(*, company, factory, vendor, vendor_invoice_no, vendor_invoice_
     if invoice is not None:
         invoice = PurchaseInvoice.objects.get(pk=invoice.pk)
         if invoice.status != PurchaseInvoice.Status.DRAFT:
-            raise BusinessRuleError("Only a draft invoice can be edited.")
+            raise BusinessRuleError("Only a draft supplier bill can be edited.")
         if invoice.is_direct != direct:
-            raise BusinessRuleError("A direct purchase invoice cannot be changed into a GRN invoice, or the reverse.")
+            raise BusinessRuleError("A direct purchase bill cannot be changed into a bill for goods received, or the reverse.")
     vendor_invoice_no = vendor_invoice_no.strip()
     if not vendor_invoice_no:
         raise BusinessRuleError("Enter the supplier's bill number.")
@@ -136,7 +136,7 @@ def save_invoice(*, company, factory, vendor, vendor_invoice_no, vendor_invoice_
         if direct:
             item = spec.item
             if item is None or spec.grn_line is not None:
-                raise BusinessRuleError("A direct purchase invoice bills items, not GRN lines.")
+                raise BusinessRuleError("A direct purchase bill lists items, not lines of goods received.")
             if isinstance(spec.qty, float) or isinstance(spec.rate, float):
                 raise BusinessRuleError("Quantity and rate must be Decimal.")
             if spec.qty <= 0:
@@ -152,13 +152,13 @@ def save_invoice(*, company, factory, vendor, vendor_invoice_no, vendor_invoice_
             subtotal += amount
             continue
         if spec.grn_line is None:
-            raise BusinessRuleError("Pick a GRN line to bill.")
+            raise BusinessRuleError("Tick a line of received goods to bill.")
         gl = GrnLine.objects.select_related("grn", "material", "sku").get(pk=spec.grn_line.pk)
         if gl.pk in seen:
-            raise BusinessRuleError("A GRN line can be billed only once per invoice.")
+            raise BusinessRuleError("A line of received goods can be billed only once on a bill.")
         seen.add(gl.pk)
         if gl.grn.status != "posted" or gl.grn.vendor_id != vendor.pk or gl.grn.factory_id != factory.pk:
-            raise BusinessRuleError(f"GRN {gl.grn} is not a posted GRN of this vendor and factory.")
+            raise BusinessRuleError(f"{gl.grn} is not posted goods received of this supplier and factory.")
         if isinstance(spec.qty, float) or isinstance(spec.rate, float):
             raise BusinessRuleError("Quantity and rate must be Decimal.")
         if spec.qty <= 0:
@@ -267,7 +267,7 @@ def post_invoice(invoice, *, user) -> PurchaseInvoice:
     inv = PurchaseInvoice.objects.select_related("factory", "vendor", "company").get(pk=invoice.pk)
     assert_factory_access(user, inv.factory)
     if inv.status != PurchaseInvoice.Status.DRAFT:
-        raise BusinessRuleError("This invoice has already been posted or cancelled.")
+        raise BusinessRuleError("This supplier bill has already been posted or cancelled.")
     vendor_ledger = inv.vendor.payable_ledger
     if vendor_ledger is None:
         raise BusinessRuleError(f"{inv.vendor.name} has no payable ledger.")
@@ -375,12 +375,12 @@ def cancel_invoice(invoice, *, user, reason) -> PurchaseInvoice:
     inv = PurchaseInvoice.objects.select_related("factory").get(pk=invoice.pk)
     assert_factory_access(user, inv.factory)
     if inv.status != PurchaseInvoice.Status.POSTED:
-        raise BusinessRuleError("Only a posted invoice can be cancelled.")
+        raise BusinessRuleError("Only a posted supplier bill can be cancelled.")
     if not reason.strip():
-        raise BusinessRuleError("Give a reason to cancel the invoice.")
+        raise BusinessRuleError("Give a reason to cancel the supplier bill.")
     if DebitNote.objects.filter(status="posted", kind="rejection",
                                 lines__grn_line__invoice_lines__invoice=inv).exists():
-        raise BusinessRuleError("A debit note has been posted against this invoice's rejected pieces; cancel it first.")
+        raise BusinessRuleError("A return to supplier has been posted against this bill's rejected pieces; cancel it first.")
     today = timezone.localdate()
     when = max(today, inv.date)
     for m in StockMovement.objects.filter(

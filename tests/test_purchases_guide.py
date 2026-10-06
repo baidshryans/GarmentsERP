@@ -807,7 +807,7 @@ def test_the_order_page_tells_a_viewer_what_it_waits_for_and_gives_no_link(ns):
     html = page(looker, "po_detail", po.pk)
     assert "Waiting for: Check quality" in guide_of(html) and "btn primary" not in guide_of(html)
     # no link to a screen the role would be refused on: not the goods receipt, not a new one
-    assert reverse("grn_new") not in html and "/purchases/grn/" not in html and "Draft GRN" in html
+    assert reverse("grn_new") not in html and "/purchases/grn/" not in html and "Draft goods received" in html
     assert "Receive goods" not in html
 
 
@@ -926,7 +926,7 @@ def test_the_return_page_offers_posting_only_when_the_return_can_be_posted(ns):
     assert reverse("debitnote_detail", args=[DebitNote.objects.get(grn=g2).pk]) in page(ns.owner, "grn_detail", g2.pk)
     keeper = role_user("grn_only", {"purchases.grn": ["view", "edit"]}, ns.factory)
     html = page(keeper, "grn_detail", g2.pk)
-    assert "/purchases/debit-notes/" not in html and "Draft debit note" in html
+    assert "/purchases/debit-notes/" not in html and "Draft return to supplier" in html
 
 
 # ---------------- the lists ----------------
@@ -1420,7 +1420,7 @@ def test_goods_received_can_be_cancelled_with_cancel_or_edit_and_cancel_gives_no
     assert r.status_code == 403 and grn_of(g1).status == "posted"
     # cancel alone is enough: the form it is shown really works
     r = login(canceller).post(reverse("grn_detail", args=[g1.pk]), {"action": "cancel", "reason": "wrong supplier"}, follow=True)
-    assert "GRN cancelled; stock and books reversed." in r.content.decode() and grn_of(g1).status == "cancelled"
+    assert "Goods received cancelled; stock and books reversed." in r.content.decode() and grn_of(g1).status == "cancelled"
     # and cancel gives none of the page's other actions
     g2 = draft_grn(ns)
     for action in ("save_qc", "finish_qc", "accept_all", "post"):
@@ -1429,7 +1429,7 @@ def test_goods_received_can_be_cancelled_with_cancel_or_edit_and_cancel_gives_no
     # a role with edit (the store keeper) can still cancel, as it always could
     g3 = received(ns)
     r = login(editor).post(reverse("grn_detail", args=[g3.pk]), {"action": "cancel", "reason": "entered twice"}, follow=True)
-    assert "GRN cancelled; stock and books reversed." in r.content.decode() and grn_of(g3).status == "cancelled"
+    assert "Goods received cancelled; stock and books reversed." in r.content.decode() and grn_of(g3).status == "cancelled"
 
 
 def test_the_bill_form_leaves_out_quantity_already_on_another_draft_bill_and_says_so(ns):

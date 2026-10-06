@@ -185,7 +185,7 @@ def post_manual_voucher(*, company, factory, vtype, on_date, narration, header, 
     if on_date is None:
         raise EntryError("Enter a valid date.")
     if len((header.get("vendor_invoice_no") or "").strip()) > 40:
-        raise EntryError("Vendor invoice no. can be at most 40 characters.")
+        raise EntryError("Supplier's bill no. can be at most 40 characters.")
     header = {**header, "vendor_invoice_no": (header.get("vendor_invoice_no") or "").strip()}
     lines = build_lines(company, vtype, header, rows)
     return post_voucher(

@@ -1,11 +1,11 @@
 {% extends "base.html" %}
 {% block title %}Goods received{% endblock %}
 {% block content %}
-  <div class="page-head"><h1 class="page-title">Goods received</h1>
+  <div class="page-head"><h1 class="page-title">Goods received</h1><span class="muted">GRN</span>
     <div class="actions">{% if can_create %}<a class="btn primary" href="{% url 'grn_new' %}"><svg width="16" height="16"><use href="#i-plus"/></svg> Goods received</a>{% endif %}</div></div>
   <div class="island">
     {% if grns %}<div class="table-wrap"><table>
-      <thead><tr><th scope="col">Number</th><th scope="col">Date</th><th scope="col">Vendor</th><th scope="col">PO</th><th scope="col">Factory</th><th scope="col">Status</th><th scope="col">Next step</th><th scope="col" aria-label="Actions"></th></tr></thead>
+      <thead><tr><th scope="col">Number</th><th scope="col">Date</th><th scope="col">Supplier</th><th scope="col">PO</th><th scope="col">Factory</th><th scope="col">Status</th><th scope="col">Next step</th><th scope="col" aria-label="Actions"></th></tr></thead>
       <tbody>{% for g in grns %}<tr><td><a href="{% url 'grn_detail' g.pk %}">{{ g.number|default:"Draft" }}</a></td><td>{{ g.date|date:"d M Y" }}</td><td>{{ g.vendor.name }}</td><td>{{ g.po.number|default:"—" }}</td><td>{{ g.factory.code }}</td>
         <td>{% if g.status == "posted" %}<span class="pill success">Posted</span>{% elif g.status == "qc_done" %}<span class="pill warning">QC done</span>{% elif g.status == "cancelled" %}<span class="pill danger">Cancelled</span>{% else %}<span class="pill">Draft</span>{% endif %}</td>
         <td>{% if g.next %}<a class="btn" href="{{ g.next.url }}">{{ g.next.label }}</a>{% endif %}</td>

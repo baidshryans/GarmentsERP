@@ -6,7 +6,7 @@
     {% include "reports/_filter.html" with mode="range" %}
     <p class="muted no-print">Filter by type with the link list: {% for v, l in types %}<a href="?type={{ v }}&from={{ date_from|date:'Y-m-d' }}&to={{ date_to|date:'Y-m-d' }}" {% if vtype == v %}style="font-weight:700"{% endif %}>{{ l }}</a>{% if not forloop.last %} · {% endif %}{% endfor %}</p>
     {% if book.vouchers %}<div class="table-wrap"><table>
-      <thead><tr><th scope="col">Date</th><th scope="col">Voucher</th><th scope="col">Type</th><th scope="col">Factory</th><th scope="col">Narration</th><th scope="col" class="num">Amount</th></tr></thead>
+      <thead><tr><th scope="col">Date</th><th scope="col">Voucher</th><th scope="col">Type</th><th scope="col">Factory</th><th scope="col">Notes</th><th scope="col" class="num">Amount</th></tr></thead>
       <tbody>{% for v in book.vouchers %}<tr><td>{{ v.date|date:"d M Y" }}</td><td><a href="{% url 'voucher_detail' v.pk %}">{{ v.number }}</a></td><td>{{ v.get_voucher_type_display }}</td><td>{{ v.factory.code }}</td><td>{{ v.narration }}</td><td class="num">{{ v.total }}</td></tr>{% endfor %}</tbody>
       <tfoot><tr><td colspan="5">Total of vouchers</td><td class="num">{{ book.total }}</td></tr></tfoot>
     </table></div>{% if book.truncated %}<p class="muted">Showing the first 2000 vouchers; narrow the dates.</p>{% endif %}

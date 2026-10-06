@@ -92,6 +92,7 @@ class FactoryEditForm(forms.ModelForm):
         model = Factory
         fields = ["name", "address", "city", "state_code", "gstin", "is_active"]
         widgets = {"address": forms.Textarea(attrs={"rows": 2})}
+        labels = {"gstin": "GSTIN", "is_active": "Active"}
 
 
 class FactoryCreateForm(FactoryStepForm):
@@ -118,6 +119,7 @@ class UserForm(forms.ModelForm):
         model = User
         fields = ["username", "first_name", "last_name", "email", "mobile", "roles",
                   "all_factories", "allowed_factories", "is_active"]
+        labels = {"is_active": "Active"}
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)

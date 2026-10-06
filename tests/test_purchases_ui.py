@@ -121,7 +121,7 @@ def test_po_to_grn_to_invoice_through_the_screens(company, factory, vendor, owne
     inv.refresh_from_db()
     assert inv.status == "posted" and inv.number
     page = c.get(reverse("invoice_detail", args=[inv.pk])).content.decode()
-    assert "Payable to vendor" in page and "1200" in page  # 12% of 20,000 is 2,400, shown as CGST 1,200 and SGST 1,200
+    assert "Payable to supplier" in page and "1200" in page  # 12% of 20,000 is 2,400, shown as CGST 1,200 and SGST 1,200
     assert DebitNote.objects.filter(grn=grn).count() == 1
 
 

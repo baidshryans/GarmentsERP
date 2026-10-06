@@ -44,7 +44,7 @@ def _write_lines(note, specs):
     for line, qty in specs:
         line = SaleInvoiceLine.objects.get(pk=line.pk)
         if line.invoice_id != inv.pk:
-            raise BusinessRuleError("A credit note line must come from the invoice it is raised against.")
+            raise BusinessRuleError("A returned line must come from the bill it is returned against.")
         if line.pk in seen:
             raise BusinessRuleError(f"{line.sku} appears twice.")
         seen.add(line.pk)
@@ -76,23 +76,23 @@ def save_credit_note(*, invoice, location, date, lines, reason, user, note=None)
     invoice = SaleInvoice.objects.select_related("factory", "customer", "company").get(pk=invoice.pk)
     assert_factory_access(user, invoice.factory)
     if invoice.status != SaleInvoice.Status.POSTED:
-        raise BusinessRuleError("A credit note can be raised only against a posted invoice.")
+        raise BusinessRuleError("A return from customer can be made only against a posted bill.")
     if location.factory_id != invoice.factory_id:
         raise BusinessRuleError(f"Location {location} is not in factory {invoice.factory.code}.")
     if date < invoice.date:
-        raise BusinessRuleError("The credit note cannot be dated before the invoice.")
+        raise BusinessRuleError("The return cannot be dated before the bill.")
     if not reason.strip():
         raise BusinessRuleError("Give the reason for the return.")
     lines = list(lines)
     if not lines:
-        raise BusinessRuleError("Pick at least one invoice line to return.")
+        raise BusinessRuleError("Enter the pieces returned on at least one line of the bill.")
     if note is None:
         note = SaleCreditNote.objects.create(company=invoice.company, factory=invoice.factory, customer=invoice.customer,
                                              invoice=invoice, location=location, date=date, reason=reason.strip(), created_by=user)
     else:
         note = SaleCreditNote.objects.get(pk=note.pk)
         if note.status != S.DRAFT:
-            raise BusinessRuleError("Only a draft credit note can be edited.")
+            raise BusinessRuleError("Only a draft return from customer can be edited.")
         note.location, note.date, note.reason = location, date, reason.strip()
         note.save()
         note.lines.all().delete()
@@ -106,10 +106,10 @@ def post_credit_note(note, *, user) -> SaleCreditNote:
     note = SaleCreditNote.objects.select_related("factory", "customer", "company", "invoice", "location").get(pk=note.pk)
     assert_factory_access(user, note.factory)
     if note.status != S.DRAFT:
-        raise BusinessRuleError("This credit note has already been posted or cancelled.")
+        raise BusinessRuleError("This return from customer has already been posted or cancelled.")
     inv = note.invoice
     if inv.status != SaleInvoice.Status.POSTED:
-        raise BusinessRuleError(f"Invoice {inv.number} is no longer posted.")
+        raise BusinessRuleError(f"Bill {inv.number} is no longer posted.")
     customer_ledger = note.customer.customer_ledger
     if customer_ledger is None:
         raise BusinessRuleError(f"{note.customer.name} has no customer ledger.")
@@ -183,9 +183,9 @@ def cancel_credit_note(note, *, user, reason="") -> SaleCreditNote:
         note.save()
         return note
     if note.status != S.POSTED:
-        raise BusinessRuleError("This credit note is already cancelled.")
+        raise BusinessRuleError("This return from customer is already cancelled.")
     if not reason.strip():
-        raise BusinessRuleError("Give a reason to cancel the credit note.")
+        raise BusinessRuleError("Give a reason to cancel the return from customer.")
     when = max(timezone.localdate(), note.date)
     for m in StockMovement.objects.filter(source_type=note._meta.label_lower, source_id=note.pk,
                                           movement_type=StockMovement.Type.RECEIPT).select_related("sku", "location", "factory"):

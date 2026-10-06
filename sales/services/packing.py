@@ -109,7 +109,7 @@ def finalize_packing(packing, *, user) -> PackingList:
     packing = PackingList.objects.select_related("factory", "order", "location").get(pk=packing.pk)
     assert_factory_access(user, packing.factory)
     if packing.status != P.DRAFT:
-        raise BusinessRuleError("This packing list is already finalised or cancelled.")
+        raise BusinessRuleError("This packing list is already finished or cancelled.")
     totals = {}
     for cl in CartonLine.objects.filter(carton__packing=packing).select_related("sku__style", "sku__colour", "sku__size"):
         totals[cl.sku] = totals.get(cl.sku, QZERO) + cl.qty
@@ -128,7 +128,7 @@ def cancel_packing(packing, *, user, reason="") -> PackingList:
     packing = PackingList.objects.select_related("factory", "order").get(pk=packing.pk)
     assert_factory_access(user, packing.factory)
     if packing.status == P.INVOICED:
-        raise BusinessRuleError("This list has been invoiced; cancel the invoice first.")
+        raise BusinessRuleError("This list has been billed; cancel the bill first.")
     if packing.status == P.CANCELLED:
         raise BusinessRuleError("This packing list is already cancelled.")
     bill = packing.invoices.exclude(status="cancelled").order_by("id").first()

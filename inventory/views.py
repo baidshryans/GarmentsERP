@@ -19,6 +19,7 @@ from . import barcode
 from .models import (
     FabricRoll, OpeningStock, ReorderLevel, RollBalance, StockAlert, StockBalance, StockJournal, StockJournalLine, StockTransfer,
 )
+from .services import stock
 from .services import alerts as alert_service
 from .services import journal as journal_service
 from .services import opening as opening_service
@@ -118,10 +119,15 @@ class StockEnquiry(LoginRequiredMixin, ScreenPermissionMixin, View):
             qs = qs.filter(factory=request.factory)
         if g.get("location"):
             qs = qs.filter(location_id=g["location"])
-        if g.get("kind") == "material":
+        # raw material: fabric, accessories and packing. Pieces still being made (on the cutting floor, at a process,
+        # with a fabricator, or rejected) are semi-finished; pieces anywhere else are finished goods.
+        kind = {"material": "raw", "sku": "finished"}.get(g.get("kind"), g.get("kind", ""))
+        if kind == "raw":
             qs = qs.filter(material__isnull=False)
-        elif g.get("kind") == "sku":
-            qs = qs.filter(sku__isnull=False)
+        elif kind == "semi":
+            qs = qs.filter(sku__isnull=False, location__loc_type__in=stock.QTY_ONLY_TYPES)
+        elif kind == "finished":
+            qs = qs.filter(sku__isnull=False).exclude(location__loc_type__in=stock.QTY_ONLY_TYPES)
         q = g.get("q", "").strip()
         if q:
             qs = qs.filter(Q(material__name__icontains=q) | Q(material__code__icontains=q)
@@ -130,9 +136,11 @@ class StockEnquiry(LoginRequiredMixin, ScreenPermissionMixin, View):
         can_cost = request.user.can_view_field("cost")
         for b in qs.order_by("factory__code", "location__name")[:500]:
             avg = (b.value / b.qty).quantize(Decimal("0.0001")) if b.qty else None
-            rows.append({"b": b, "item": b.item, "avg": avg, "transit": b.location.loc_type == "transit"})
+            semi = b.sku_id is not None and b.location.loc_type in stock.QTY_ONLY_TYPES
+            rows.append({"b": b, "item": b.item, "avg": avg, "transit": b.location.loc_type == "transit",
+                         "kind": "raw" if b.material_id else "semi" if semi else "finished"})
         return render(request, "inventory/stock.html", {
-            "rows": rows, "can_cost": can_cost, "f": g, "q": q,
+            "rows": rows, "can_cost": can_cost, "f": g, "q": q, "kind": kind,
             "locations": Location.objects.filter(factory__in=request.active_factories),
         })
 

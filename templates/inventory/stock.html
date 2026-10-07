@@ -6,18 +6,19 @@
     <form method="get" class="field-row" style="margin-bottom:16px">
       <div><label for="q">Search</label><input id="q" name="q" type="text" value="{{ q }}" placeholder="Material, style or barcode"></div>
       <div><label for="location">Location</label><select id="location" name="location"><option value="">All</option>{% for l in locations %}<option value="{{ l.pk }}" {% if f.location == l.pk|stringformat:"s" %}selected{% endif %}>{{ l }}</option>{% endfor %}</select></div>
-      <div><label for="kind">Type</label><select id="kind" name="kind"><option value="">All</option><option value="material" {% if f.kind == "material" %}selected{% endif %}>Raw material</option><option value="sku" {% if f.kind == "sku" %}selected{% endif %}>Finished goods</option></select></div>
+      <div><label for="kind">Type</label><select id="kind" name="kind"><option value="">All</option><option value="raw" {% if kind == "raw" %}selected{% endif %}>Raw material</option><option value="semi" {% if kind == "semi" %}selected{% endif %}>Semi-finished goods</option><option value="finished" {% if kind == "finished" %}selected{% endif %}>Finished goods</option></select></div>
       <div style="align-self:end"><button class="btn">Show</button></div>
     </form>
     {% if rows %}
     <div class="table-wrap"><table>
-      <thead><tr><th scope="col">Item</th><th scope="col">Factory</th><th scope="col">Location</th><th scope="col" class="num">Quantity</th>{% if can_cost %}<th scope="col" class="num">Value</th><th scope="col" class="num">Average cost</th>{% endif %}</tr></thead>
+      <thead><tr><th scope="col">Item</th><th scope="col">Type</th><th scope="col">Factory</th><th scope="col">Location</th><th scope="col" class="num">Quantity</th>{% if can_cost %}<th scope="col" class="num">Value</th><th scope="col" class="num">Average cost</th>{% endif %}</tr></thead>
       <tbody>{% for r in rows %}<tr>
-        <td>{{ r.item }}</td><td>{{ r.b.factory.code }}</td>
+        <td>{{ r.item }}</td><td>{% if r.kind == "raw" %}<span class="pill">Raw material</span>{% elif r.kind == "semi" %}<span class="pill warning">Semi-finished</span>{% else %}<span class="pill success">Finished goods</span>{% endif %}</td><td>{{ r.b.factory.code }}</td>
         <td>{{ r.b.location.name }}{% if r.transit %} <span class="pill warning">In transit</span>{% endif %}</td>
         <td class="num">{{ r.b.qty|floatformat:"-3" }}</td>
-        {% if can_cost %}<td class="num">{{ r.b.value }}</td><td class="num">{{ r.avg|default_if_none:"" }}</td>{% endif %}</tr>{% endfor %}</tbody>
+        {% if can_cost %}{% if r.kind == "semi" %}<td class="num muted" colspan="2">in the lot's cost</td>{% else %}<td class="num">{{ r.b.value }}</td><td class="num">{{ r.avg|default_if_none:"" }}</td>{% endif %}{% endif %}</tr>{% endfor %}</tbody>
     </table></div>
-    {% else %}<div class="empty"><svg viewBox="0 0 120 90" aria-hidden="true"><path d="M20 70h80M30 70V45h20v25M55 70V30h20v40M80 70V50h15v20"/></svg><div class="hand">No stock yet</div><p>Receive goods (Goods received), or enter <a href="{% url 'opening_stock' %}">opening stock</a>.</p></div>{% endif %}
+    <p class="muted">Raw material is fabric, accessories and packing. Semi-finished goods are pieces still being made: on the cutting floor, at a process, with a fabricator, or rejected. Finished goods are packed pieces ready to sell.</p>
+    {% else %}<div class="empty"><svg viewBox="0 0 120 90" aria-hidden="true"><path d="M20 70h80M30 70V45h20v25M55 70V30h20v40M80 70V50h15v20"/></svg><div class="hand">{% if kind or q or f.location %}Nothing matches{% else %}No stock yet{% endif %}</div><p>Receive goods (Goods received), or enter <a href="{% url 'opening_stock' %}">opening stock</a>.</p></div>{% endif %}
   </div>
 {% endblock %}

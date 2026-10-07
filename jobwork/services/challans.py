@@ -21,7 +21,7 @@ from jobwork.services import rates
 from ledger.services.posting import LineSpec, post_voucher
 from production.models import Bundle, LotCostEntry, LotRouteChange, LotStep
 from production.services import bundles as bundle_service
-from production.services import costing
+from production.services import actions, costing
 from production.services import materials as material_service
 
 T = StockMovement.Type
@@ -47,7 +47,7 @@ def first_pass_line(bundle, step):
         bundle = bundle.split_from
         ids.append(bundle.pk)
     return (ChallanBundle.objects.filter(bundle_id__in=ids, challan__kind="issue", challan__step=step)
-            .select_related("challan").order_by("-id").first())
+            .exclude(challan__status=JobWorkChallan.Status.CANCELLED).select_related("challan").order_by("-id").first())
 
 
 @transaction.atomic
@@ -137,6 +137,13 @@ def set_materials(challan, *, lines, user) -> JobWorkChallan:
     return challan
 
 
+def _challan_step(challan, args, kwargs):
+    lines = list(challan.bundles.all())
+    return {"lot": challan.lot, "date": challan.date, "doc": challan,
+            "summary": f"{challan.number}: {len(lines)} bundle(s), {sum(l.qty_issued for l in lines)} pieces to {challan.party.name}"}
+
+
+@actions.recorded(actions.Kind.CHALLAN, _challan_step)
 @transaction.atomic
 def create_and_issue(*, user, **details) -> JobWorkChallan:
     """Make a challan and issue it in one go (the form's "Save and issue"). `details` are the arguments of
@@ -144,6 +151,7 @@ def create_and_issue(*, user, **details) -> JobWorkChallan:
     return issue_challan(create_challan(user=user, **details), user=user)
 
 
+@actions.recorded(actions.Kind.CHALLAN, _challan_step)
 @transaction.atomic
 def issue_challan(challan, *, user) -> JobWorkChallan:
     challan = JobWorkChallan.objects.select_related("lot", "lot__company", "step", "step__process", "party", "factory").get(pk=challan.pk)

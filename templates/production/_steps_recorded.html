@@ -1,0 +1,10 @@
+{# The steps recorded for a lot or a document, newest first, each with Edit and Undo for whoever may record it. Needs `recorded`. #}
+{% if recorded %}<div class="island" id="steps"><h2>Steps recorded</h2>
+  <p class="muted">Made a mistake? <strong>Edit</strong> takes the step back and opens its form again with the figures you entered. <strong>Undo</strong> only takes it back. A step that a later one depends on must wait: undo the later one first.</p>
+  <div class="table-scroll"><table>
+    <thead><tr><th scope="col">Date</th><th scope="col">Step</th><th scope="col">Details</th><th scope="col">By</th><th scope="col"></th></tr></thead>
+    <tbody>{% for a in recorded %}<tr{% if a.undone %} class="muted"{% endif %}>
+      <td>{{ a.date|date:"d M Y" }}</td><td>{{ a.get_kind_display }}</td><td>{{ a.summary }}</td><td>{{ a.created_by.username }}</td>
+      <td>{% if a.undone %}<span class="pill">Undone</span> <span class="muted">{{ a.undone_at|date:"d M" }} by {{ a.undone_by.username }}: {{ a.undo_reason }}</span>
+        {% elif a.can %}<span style="white-space:nowrap"><a class="btn" href="{% url 'step_undo' a.pk %}?edit=1">Edit</a> <a class="btn ghost" href="{% url 'step_undo' a.pk %}">Undo</a></span>{% endif %}</td></tr>{% endfor %}</tbody>
+  </table></div></div>{% endif %}

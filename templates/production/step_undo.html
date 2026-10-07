@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block title %}{% if edit %}Edit{% else %}Undo{% endif %} a step{% endblock %}
+{% block content %}
+  <div class="page-head"><h1 class="page-title">{% if edit %}Edit{% else %}Undo{% endif %}: {{ action.get_kind_display }}</h1><span class="muted">{{ lot.lot_no }} · {{ lot.style.style_no }} {{ lot.colour }}</span>
+    <div class="actions">{% if can_open_lot %}<a class="btn" href="{% url 'lot_detail' lot.pk %}">Back to lot</a>{% endif %}</div></div>
+  <div class="island">
+    <div class="field-row">
+      <div><div class="label muted">Step</div>{{ action.summary }}</div>
+      <div><div class="label muted">Dated</div>{{ action.date|date:"d M Y" }}</div>
+      <div><div class="label muted">Recorded by</div>{{ action.created_by.username }}</div></div>
+  </div>
+  {% if stops %}
+  <div class="island"><h2>This step cannot be taken back yet</h2>
+    <ul>{% for s in stops %}<li>{{ s }}</li>{% endfor %}</ul>
+    <p class="muted">Steps are taken back last first, so that stock and the books always agree.{% if can_open_lot %} <a href="{% url 'lot_detail' lot.pk %}#steps">See the steps recorded for this lot.</a>{% endif %}</p></div>
+  {% else %}
+  <form method="post" class="island" novalidate>{% csrf_token %}{% if edit %}<input type="hidden" name="edit" value="1">{% endif %}
+    <h2>What will happen</h2>
+    <ul>
+      {% if counts.movement %}<li>Stock goes back to where it was: {{ counts.movement }} stock movement{{ counts.movement|pluralize }} reversed.</li>{% endif %}
+      {% if counts.voucher %}<li>The books are corrected by {{ counts.voucher }} reversing voucher{{ counts.voucher|pluralize }}. Nothing already posted is changed or deleted.</li>{% endif %}
+      {% if counts.cost %}<li>The lot's cost goes back by the same amount.</li>{% endif %}
+      <li>The step stays in the lot's list, marked Undone with your reason.</li>
+      {% if edit %}<li>The form then opens again, with what you entered where the form can show it. Correct it and save.</li>{% endif %}
+    </ul>
+    <div class="field-row">
+      <div class="field" style="flex:2;min-width:260px"><label for="reason">Reason</label><input id="reason" name="reason" type="text" maxlength="255" value="{{ vals.reason }}" required autofocus></div>
+      <div class="field" style="max-width:220px"><label for="date">Date of the reversal</label><input id="date" name="date" type="date" value="{{ vals.date|default:today }}" min="{{ action.date|date:'Y-m-d' }}">
+        <div class="help">Today, or any date from {{ action.date|date:"d M Y" }} that is not in a locked period.</div></div></div>
+    <div class="form-actions"><button class="btn primary">{% if edit %}Undo and enter again{% else %}Undo this step{% endif %}</button>
+      {% if can_open_lot %}<a class="btn ghost" href="{% url 'lot_detail' lot.pk %}">Keep it</a>{% endif %}</div>
+  </form>{% endif %}
+{% endblock %}

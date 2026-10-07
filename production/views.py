@@ -22,7 +22,8 @@ from inventory.models import RollBalance
 from masters.models import Colour, Material, Party, Process, Size, Style
 
 from . import labels
-from .models import Bundle, CuttingEntry, Lot, LotStep, PackEntry, ProductionOrder, StageMovement
+from .models import Bundle, CuttingEntry, Lot, LotStep, PackEntry, ProductionAction, ProductionOrder, StageMovement
+from .services import actions as step_actions
 from .services import bundles as bundle_service
 from .services import boxes, costing, cutting, guide, orders, routes
 from .services import materials as material_service
@@ -251,6 +252,7 @@ class LotDetail(LoginRequiredMixin, ScreenPermissionMixin, View):
             "breakdown": breakdown if can_cost else None, "total_cost": costing.lot_cost(lot) if can_cost else None,
             "expected_charges": expected_charges, "can_cost": can_cost,
             "changes": lot.route_changes.select_related("user")[:20],
+            "recorded": step_actions.listed(request.user, lot=lot),
             "processes": Process.objects.filter(is_active=True), "factories": _factories(request.user),
             "fabricators": Party.objects.filter(is_fabricator=True, is_active=True),
             "can_edit": can_edit, "route_open": can_edit and lot.status == Lot.Status.PLANNED,   # the route is planned then
@@ -365,7 +367,13 @@ class FabricIssueView(LoginRequiredMixin, ScreenPermissionMixin, View):
         with_lot = cutting.fabric_with_lot(lot)
         expected = cutting.estimated_pieces(lot)
         planned = sum(s.qty for s in lot.order_line.sizes.all())
-        return {"lot": lot, "rolls": rolls, "vals": vals or {}, "issues": lot.fabric_issues.prefetch_related("lines__roll")[:10],
+        vals = vals or {}
+        rolls = list(rolls)
+        for rb in rolls:
+            rb.typed = vals.get(f"qty_{rb.roll_id}", "")
+        issues = list(lot.fabric_issues.prefetch_related("lines__roll")[:10])
+        _mark_steps(request.user, issues, ProductionAction.Kind.FABRIC)
+        return {"lot": lot, "rolls": rolls, "vals": vals, "issues": issues,
                 "with_lot": with_lot, "expected_pieces": expected, "planned": planned,
                 "short_by": max(0, planned - expected) if expected is not None and with_lot > 0 else 0,
                 "can_create": request.user.has_screen_perm("production.cutting", "create"),
@@ -373,7 +381,7 @@ class FabricIssueView(LoginRequiredMixin, ScreenPermissionMixin, View):
 
     def get(self, request, pk):
         lot = get_object_or_404(Lot.objects.for_user(request.user), pk=pk)
-        return render(request, "production/fabric_issue.html", self._ctx(request, lot))
+        return render(request, "production/fabric_issue.html", self._ctx(request, lot, _edit_values(request, lot, "fabric")))
 
     def post(self, request, pk):
         lot = get_object_or_404(Lot.objects.for_user(request.user), pk=pk)
@@ -406,6 +414,14 @@ class CuttingView(LoginRequiredMixin, ScreenPermissionMixin, View):
         rolls = RollBalance.objects.for_user(request.user).filter(location=floor, qty__gt=0).select_related("roll__material")
         sizes = [ss.size for ss in lot.style.style_sizes.select_related("size").order_by("size__sort_order")]
         entries = list(lot.cuttings.prefetch_related("sizes__size", "rolls__roll"))
+        vals = vals or {}
+        rolls = list(rolls)
+        for rb in rolls:
+            rb.typed_used, rb.typed_waste, rb.typed_remnant = (vals.get(f"{n}_{rb.roll_id}", "") for n in ("used", "waste", "remnant"))
+        for s in sizes:
+            s.typed = vals.get(f"pieces_{s.pk}", "")
+        _mark_steps(request.user, entries, ProductionAction.Kind.CUTTING, "cut_step")
+        _mark_steps(request.user, entries, ProductionAction.Kind.BUNDLES, "bundles_step")
         for e in entries:
             e.cut_total = sum(cs.pieces for cs in e.sizes.all())
             e.loss_total = sum(cs.loss for cs in e.sizes.all())
@@ -413,14 +429,14 @@ class CuttingView(LoginRequiredMixin, ScreenPermissionMixin, View):
             if vals and str(e.pk) == vals.get("entry"):     # a refused try: give back what was typed
                 for cs in e.sizes.all():
                     cs.typed_bundles, cs.typed_loss = vals.get(f"bundles_{cs.size_id}", ""), vals.get(f"loss_{cs.size_id}", "")
-        return {"lot": lot, "rolls": rolls, "sizes": sizes, "vals": vals or {}, "entries": entries,
+        return {"lot": lot, "rolls": rolls, "sizes": sizes, "vals": vals, "entries": entries,
                 "planned": {s.size_id: s.qty for s in lot.order_line.sizes.all()},
                 "can_create": request.user.has_screen_perm("production.cutting", "create"),
                 "perms_lot": request.user.has_screen_perm("production.lot", "view")}
 
     def get(self, request, pk):
         lot = get_object_or_404(Lot.objects.for_user(request.user), pk=pk)
-        return render(request, "production/cutting.html", self._ctx(request, lot))
+        return render(request, "production/cutting.html", self._ctx(request, lot, _edit_values(request, lot, "cutting", "bundles")))
 
     def post(self, request, pk):
         lot = get_object_or_404(Lot.objects.for_user(request.user), pk=pk)
@@ -466,6 +482,68 @@ class CuttingView(LoginRequiredMixin, ScreenPermissionMixin, View):
 
 
 # ================================================================ QR tags (E7.5)
+
+# ================================================================ edit and undo of a recorded step
+
+def _mark_steps(user, docs, kind, attr="step"):
+    """Give each document the live step that recorded it (as `attr`), when the user may undo it."""
+    if not docs or not user.has_screen_perm(step_actions.SCREEN[kind], "create"):
+        return
+    live = {a.doc_id: a for a in ProductionAction.objects.for_user(user).filter(
+        kind=kind, undone=False, doc_type=docs[0]._meta.label_lower, doc_id__in=[d.pk for d in docs])}
+    for d in docs:
+        setattr(d, attr, live.get(d.pk))
+
+
+def _edit_values(request, lot, *kinds):
+    """The figures of a step that was just undone for editing, once, for the form that enters it again."""
+    kept = request.session.get("step_edit")
+    if kept and kept.get("lot") == lot.pk and kept.get("kind") in kinds:
+        del request.session["step_edit"]
+        return kept.get("vals") or {}
+    return None
+
+
+class StepUndo(LoginRequiredMixin, View):
+    """Undo a recorded step, or undo it and enter it again ("edit"). Whoever may record the step may undo it."""
+
+    def _action(self, request, pk):
+        action = get_object_or_404(ProductionAction.objects.for_user(request.user).select_related("lot", "lot__style", "lot__colour", "factory"), pk=pk)
+        if not step_actions.may_undo(action, request.user):
+            raise PermissionDenied
+        return action
+
+    def _back(self, request, action):
+        if request.user.has_screen_perm("production.lot", "view"):
+            return redirect("lot_detail", pk=action.lot_id)
+        return redirect(step_actions.edit_url(action))
+
+    def _page(self, request, action, vals=None):
+        return render(request, "production/step_undo.html", {
+            "action": action, "lot": action.lot, "edit": (vals or request.GET).get("edit") == "1", "vals": vals or {},
+            "stops": step_actions.blockers(action), "today": timezone.localdate().isoformat(),
+            "counts": {i["role"]: i["n"] for i in action.items.values("role").annotate(n=Count("id"))},
+            "can_open_lot": request.user.has_screen_perm("production.lot", "view")})
+
+    def get(self, request, pk):
+        return self._page(request, self._action(request, pk))
+
+    def post(self, request, pk):
+        action = self._action(request, pk)
+        p = request.POST
+        try:
+            step_actions.undo(action, user=request.user, reason=p.get("reason", ""),
+                              date=vu.day(p.get("date"), default=timezone.localdate()))
+        except (ValueError, BusinessRuleError) as exc:
+            vu.report(request, exc)
+            return self._page(request, action, p)
+        if p.get("edit") == "1":
+            request.session["step_edit"] = {"lot": action.lot_id, "kind": action.kind, "vals": step_actions.form_values(action)}
+            messages.success(request, f"{action.get_kind_display()} undone. Enter it again with the right figures.")
+            return redirect(step_actions.edit_url(action))
+        messages.success(request, f"{action.get_kind_display()} undone: {action.summary}.")
+        return self._back(request, action)
+
 
 class LotTags(LoginRequiredMixin, ScreenPermissionMixin, View):
     screen_code = "production.bundle"

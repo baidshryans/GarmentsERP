@@ -247,6 +247,13 @@ class CuttingRollUse(models.Model):
 
 # ---------------------------------------------------------------- bundles (E7.5, E7.6)
 
+class LiveBundleManager(models.Manager):
+    """Bundles that exist. A bundle whose making was undone is kept for the record but never shown or counted."""
+
+    def get_queryset(self):
+        return super().get_queryset().filter(voided=False)
+
+
 class Bundle(models.Model):
     class Status(models.TextChoices):
         CUT = "cut", "Cut"
@@ -276,12 +283,16 @@ class Bundle(models.Model):
     is_rework = models.BooleanField(default=False, help_text="Moved back to an earlier stage; shown separately in WIP")
     split_from = models.ForeignKey("self", on_delete=models.PROTECT, null=True, blank=True, related_name="splits",
                                    help_text="The bundle these pieces were taken out of (rework sent back at QC)")
+    voided = models.BooleanField(default=False, help_text="The step that made this bundle was undone")
     created_at = models.DateTimeField(auto_now_add=True)
 
+    objects = LiveBundleManager()
+    all_objects = models.Manager()
     history = HistoricalRecords()
 
     class Meta:
         ordering = ["lot", "bundle_no"]
+        base_manager_name = "all_objects"
         constraints = [
             models.UniqueConstraint(fields=["lot", "bundle_no"], name="uniq_bundle_no_in_lot"),
             models.CheckConstraint(condition=Q(rework_qty__lte=F("qty")), name="bundle_rework_within_qty"),
@@ -442,3 +453,73 @@ class LotCostEntry(models.Model):
 
     class Meta:
         ordering = ["lot", "id"]
+
+
+# ---------------------------------------------------------------- edit and undo of recorded steps
+
+class ProductionAction(FactoryScopedModel):
+    """One recorded step of a lot (fabric issue, a lay, bundles, a move, a challan, a receipt, QC, packing) with
+    everything it posted, so that it can be undone: stock movements and vouchers are reversed, never edited, and
+    the step stays here marked as undone with the reason."""
+
+    class Kind(models.TextChoices):
+        FABRIC = "fabric", "Fabric issued"
+        CUTTING = "cutting", "Cutting recorded"
+        BUNDLES = "bundles", "Bundles made"
+        MOVE = "move", "Bundles moved"
+        COUNT = "count", "Pieces taken out"
+        SPLIT = "split", "Bundle split"
+        PACK = "pack", "Packed"
+        CHALLAN = "challan", "Sent to fabricator"
+        RECEIPT = "receipt", "Received from fabricator"
+        APPROVAL = "approval", "Over-receipt approved"
+        QC = "qc", "QC recorded"
+
+    company = models.ForeignKey("core.Company", on_delete=models.PROTECT, related_name="+")
+    lot = models.ForeignKey(Lot, on_delete=models.PROTECT, related_name="actions")
+    kind = models.CharField(max_length=10, choices=Kind.choices)
+    date = models.DateField(help_text="Date of the step")
+    summary = models.CharField(max_length=255)
+    doc_type = models.CharField(max_length=60, blank=True)
+    doc_id = models.PositiveIntegerField(null=True, blank=True)
+    created_by = models.ForeignKey("core.User", on_delete=models.PROTECT, null=True, related_name="+")
+    created_at = models.DateTimeField(auto_now_add=True)
+    undone = models.BooleanField(default=False)
+    undo_reason = models.CharField(max_length=255, blank=True)
+    undo_date = models.DateField(null=True, blank=True, help_text="Date the reversing entries carry")
+    undone_by = models.ForeignKey("core.User", on_delete=models.PROTECT, null=True, blank=True, related_name="+")
+    undone_at = models.DateTimeField(null=True, blank=True)
+
+    history = HistoricalRecords()
+
+    class Meta:
+        ordering = ["-id"]
+        indexes = [models.Index(fields=["doc_type", "doc_id"])]
+
+    def __str__(self):
+        return f"{self.get_kind_display()}: {self.summary}"
+
+
+class ProductionActionItem(models.Model):
+    """One row a step wrote. `movement`, `voucher` and `cost` rows are reversed by posting their opposite;
+    `created` rows are taken away and `changed` rows put back as they were. `after` is the row as the step left
+    it: if it has changed since, a later step depends on it and must be undone first."""
+
+    class Role(models.TextChoices):
+        MOVEMENT = "movement", "Stock movement"
+        VOUCHER = "voucher", "Voucher"
+        COST = "cost", "Lot cost"
+        CREATED = "created", "Row created"
+        CHANGED = "changed", "Row changed"
+
+    action = models.ForeignKey(ProductionAction, on_delete=models.CASCADE, related_name="items")
+    role = models.CharField(max_length=8, choices=Role.choices)
+    model = models.CharField(max_length=60)
+    object_id = models.PositiveIntegerField()
+    label = models.CharField(max_length=80, blank=True)
+    before = models.JSONField(null=True, blank=True)
+    after = models.JSONField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["id"]
+        indexes = [models.Index(fields=["model", "object_id"])]

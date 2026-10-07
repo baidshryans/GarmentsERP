@@ -21,7 +21,7 @@ from inventory.models import StockMovement
 from inventory.services import stock
 from ledger.services.posting import LineSpec, post_voucher
 from production.models import Bundle, Lot, LotCostEntry, LotStep, PackEntry, PackEntryLine, StageMovement
-from production.services import boxes, costing, orders
+from production.services import actions, boxes, costing, orders
 from production.services import materials as material_service
 
 T = StockMovement.Type
@@ -182,6 +182,33 @@ def apply_move(*, bundle, kind, to_location, user, date, new_status, to_step=Non
     return movement
 
 
+def _today(kwargs):
+    return kwargs.get("date") or timezone.localdate()
+
+
+def _split_step(child, args, kwargs):
+    return {"lot": child.lot, "date": _today(kwargs), "factory": child.location.factory,
+            "summary": f"{child.bundle_no} ({child.qty} pieces) out of {child.split_from.bundle_no}"}
+
+
+def _move_step(moves, args, kwargs):
+    step = kwargs["to_step"]
+    return {"lot": moves[0].bundle.lot, "date": _today(kwargs), "factory": moves[0].factory,
+            "summary": f"{len(moves)} bundle(s), {sum(m.qty_in for m in moves)} pieces to {step.process.name}"}
+
+
+def _count_step(moves, args, kwargs):
+    gone = sum(m.loss + m.rejection + m.shortage for m in moves)
+    return {"lot": moves[0].bundle.lot, "date": _today(kwargs), "factory": moves[0].factory,
+            "summary": f"{gone} piece(s) taken out of {len(moves)} bundle(s): {kwargs.get('reason', '')}"}
+
+
+def _pack_step(packed, args, kwargs):
+    return {"lot": packed[0].lot, "date": _today(kwargs), "factory": packed[0].location.factory,
+            "summary": f"{len(packed)} bundle(s), {sum(b.qty for b in packed)} pieces into finished goods"}
+
+
+@actions.recorded(actions.Kind.SPLIT, _split_step)
 @transaction.atomic
 def split_bundle(bundle, qty, *, user, date, reason="") -> Bundle:
     """Take `qty` pieces out of a bundle into a new bundle of its own, at the same place and stage, so the two can
@@ -255,6 +282,7 @@ def _check_same_lot(bundles):
         raise BusinessRuleError("Move bundles of one lot at a time.")
 
 
+@actions.recorded(actions.Kind.MOVE, _move_step)
 @transaction.atomic
 def move_bundles(*, bundles, to_step, user, date=None, factory=None, location=None, counts=None, reason="",
                  materials=None) -> list:
@@ -324,6 +352,7 @@ def move_bundles(*, bundles, to_step, user, date=None, factory=None, location=No
     return out
 
 
+@actions.recorded(actions.Kind.COUNT, _count_step)
 @transaction.atomic
 def count_bundles(*, bundles, counts, user, reason, date=None) -> list:
     """Take loss, rejection or shortage out of bundles where they stand, without moving them (BR-21). For pieces
@@ -365,6 +394,7 @@ def packing_step(lot):
     return steps[0] if steps else None
 
 
+@actions.recorded(actions.Kind.PACK, _pack_step)
 @transaction.atomic
 def pack_bundles(*, bundles, user, date=None, location=None, materials=None) -> list:
     """Pack bundles and receive them into finished goods at lot cost (Dr Finished Goods, Cr WIP). When pieces per

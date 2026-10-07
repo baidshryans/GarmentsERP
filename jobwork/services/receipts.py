@@ -21,7 +21,7 @@ from jobwork.models import ChallanBundle, ChallanTrim, JobWorkChallan, PayBasis,
 from ledger.services.posting import LineSpec, post_voucher
 from production.models import Bundle, LotCostEntry, LotStep
 from production.services import bundles as bundle_service
-from production.services import costing
+from production.services import actions, costing
 
 T = StockMovement.Type
 ZERO = Decimal("0.00")
@@ -49,6 +49,22 @@ def awaiting_approval(challan) -> set:
                .values_list("challan_bundle_id", flat=True))
 
 
+def _receipt_step(receipt, args, kwargs):
+    challan = receipt.challan
+    pieces = sum(l.qty_received for l in receipt.lines.all())
+    waiting = receipt.status == Receipt.Status.PENDING_APPROVAL
+    return {"lot": challan.lot, "date": receipt.date, "doc": receipt,
+            "summary": f"{'Waiting for approval' if waiting else receipt.number}: {pieces} pieces from {challan.party.name}"}
+
+
+def _qc_step(result, args, kwargs):
+    receipt = result.line.receipt
+    return {"lot": receipt.challan.lot, "date": timezone.localdate(), "doc": receipt,
+            "summary": f"{result.line.challan_bundle.bundle.bundle_no}: {result.accepted} accepted, {result.rejected} rejected, "
+                       f"{result.rework} for rework"}
+
+
+@actions.recorded(actions.Kind.RECEIPT, _receipt_step)
 @transaction.atomic
 def create_receipt(*, challan, counts, user, date, location=None, trims=None) -> Receipt:
     """Count bundles back. counts = [Counted]; trims = {ChallanTrim: (returned, missing)}.
@@ -100,6 +116,7 @@ def create_receipt(*, challan, counts, user, date, location=None, trims=None) ->
     return _post_receipt(receipt, user)
 
 
+@actions.recorded(actions.Kind.APPROVAL, _receipt_step)
 @transaction.atomic
 def approve_receipt(receipt, *, user) -> Receipt:
     receipt = Receipt.objects.select_related("challan", "challan__factory").get(pk=receipt.pk)
@@ -177,6 +194,7 @@ def pay_qty_for(challan, challan_bundle, accepted, rejected, rework) -> int:
     return accepted + rejected + rework if (flat or challan_bundle.rate > 0) else 0
 
 
+@actions.recorded(actions.Kind.QC, _qc_step)
 @transaction.atomic
 def record_qc(*, receipt_line, accepted, rejected=0, rework=0, user, reject_reason="", destination="rejects") -> QcResult:
     """QC of one received bundle. accepted + rejected + rework must equal the pieces received.

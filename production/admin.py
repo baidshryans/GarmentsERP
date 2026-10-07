@@ -52,9 +52,12 @@ class CuttingEntryAdmin(SimpleHistoryAdmin):
 @admin.register(models.Bundle)
 class BundleAdmin(SimpleHistoryAdmin):
     list_display = ("bundle_no", "lot", "sku", "qty", "status", "location", "split_from", "is_rework")
-    list_filter = ("status", "is_rework")
+    list_filter = ("status", "is_rework", "voided")
     search_fields = ("bundle_no", "qr_token", "lot__lot_no")
     raw_id_fields = ("lot", "entry", "sku", "current_step", "split_from")
+
+    def get_queryset(self, request):          # voided bundles (their making was undone) are kept and shown here only
+        return models.Bundle.all_objects.all()
 
 
 @admin.register(models.PackEntry)
@@ -77,3 +80,21 @@ class StepMaterialIssueAdmin(SimpleHistoryAdmin):
     list_filter = ("factory",)
     raw_id_fields = ("lot", "step", "voucher")
     inlines = [StepMaterialIssueLineInline]
+
+
+class ProductionActionItemInline(admin.TabularInline):
+    model = models.ProductionActionItem
+    extra = 0
+    can_delete = False
+    readonly_fields = ("role", "model", "object_id", "label", "before", "after")
+
+
+@admin.register(models.ProductionAction)
+class ProductionActionAdmin(SimpleHistoryAdmin):
+    """The steps recorded for each lot and what became of them. Read here; undo from the lot's own page."""
+
+    list_display = ("lot", "kind", "summary", "date", "created_by", "undone", "undo_reason", "factory")
+    list_filter = ("kind", "undone", "factory")
+    search_fields = ("lot__lot_no", "summary", "undo_reason")
+    raw_id_fields = ("lot",)
+    inlines = [ProductionActionItemInline]

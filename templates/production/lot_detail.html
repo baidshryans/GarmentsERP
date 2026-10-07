@@ -83,6 +83,7 @@
         <div class="field"><label>Reason</label><input type="text" name="reason" required></div>
         <div style="align-self:end"><button class="btn">Move</button></div></form></details>{% endif %}
   </details></div>
+  {% include "production/_steps_recorded.html" %}
   {% if changes %}<div class="island"><details class="fold"><summary>History</summary><div class="table-scroll"><table><tbody>{% for c in changes %}<tr><td>{{ c.at|date:"d M H:i" }}</td><td>{{ c.user.username }}</td><td>{{ c.detail }}</td><td class="muted">{{ c.reason }}</td></tr>{% endfor %}</tbody></table></div></details></div>{% endif %}
   {% if can_cut or can_move %}<div class="guide-more"><span class="muted">Corrections</span>
     {% if can_cut %}<a class="btn ghost" href="{% url 'lot_fabric' lot.pk %}">Fabric issue</a><a class="btn ghost" href="{% url 'lot_cutting' lot.pk %}">Cutting</a>{% endif %}

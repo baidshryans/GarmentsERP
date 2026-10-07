@@ -184,14 +184,15 @@ def post_movement(*, factory, location, item, qty, movement_type, date, user, so
 
 
 @transaction.atomic
-def reverse_movement(movement, *, user, date, source=None, voucher=None, notes="Reversal") -> StockMovement:
-    """Post the exact opposite of a movement. Fails if the stock has since been used."""
+def reverse_movement(movement, *, user, date, source=None, voucher=None, notes="Reversal", enforce_scope=True) -> StockMovement:
+    """Post the exact opposite of a movement, for the same bundle and lot. Fails if the stock has since been used."""
     qty, value = -movement.qty, -movement.value
     kind = T.REVALUATION if movement.movement_type == T.REVALUATION else T.REVERSAL
     return post_movement(
         factory=movement.factory, location=movement.location, item=movement.item, qty=qty,
         movement_type=kind, date=date, user=user, source=source, voucher=voucher, roll=movement.roll,
         value=value if qty >= 0 or kind == T.REVALUATION else -value, notes=notes,
+        bundle=movement.bundle, lot=movement.lot, enforce_scope=enforce_scope,
     )
 
 

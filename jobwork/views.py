@@ -17,6 +17,7 @@ from core.services.active_factory import in_active, require_active_factory
 from masters.models import Party, Process, Size
 from production.labels import qr_svg, scan_text
 from production.models import Bundle, Lot, LotStep
+from production.services import actions as step_actions
 from production.services import bundles as bundle_service
 from production.views import material_choices, material_rows, posted_materials
 from tax.models import TaxTemplate
@@ -172,7 +173,7 @@ class ChallanDetail(LoginRequiredMixin, ScreenPermissionMixin, View):
             "can_receive": any(a["kind"] == "receive" for a in [guide["primary"], *guide["others"]] if a),
             "total_pieces": sum(l.qty_issued for l in ch.bundles.all()),
             "can_open_lot": request.user.has_screen_perm("production.lot", "view"),
-            "guide": guide,
+            "guide": guide, "recorded": step_actions.for_docs(request.user, [ch, *ch.receipts.all()]),
         })
 
     def post(self, request, pk):
@@ -303,6 +304,7 @@ class ReceiptDetail(LoginRequiredMixin, ScreenPermissionMixin, View):
             "can_open_lot": user.has_screen_perm("production.lot", "view"),
             "can_tags": user.has_screen_perm("production.bundle", "view"),
             "guide": guide_service.challan_guide(r.challan, user),   # scoped with the receipt: same factory as its challan
+            "recorded": step_actions.for_docs(user, [r]),
         })
 
     def post(self, request, pk):

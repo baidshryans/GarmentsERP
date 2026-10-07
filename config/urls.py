@@ -205,6 +205,7 @@ urlpatterns = [
     path("production/lots/<int:pk>/pack/", prod.PackBundles.as_view(), name="pack_bundles"),
     path("production/packs/<int:pk>/labels/", prod.BoxLabels.as_view(), name="box_labels"),
     path("production/move/", prod.MoveView.as_view(), name="move_bundles"),
+    path("production/steps/<int:pk>/undo/", prod.StepUndo.as_view(), name="step_undo"),
     path("production/dashboard/", prod.Dashboard.as_view(), name="production_dashboard"),
     path("production/track/", prod.Track.as_view(), name="production_track"),
     # job work

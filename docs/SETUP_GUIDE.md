@@ -1097,7 +1097,7 @@ Bundles come from the cutting floor with different numbers of pieces, so you rec
 - The bundles of a size must add up exactly to the pieces cut of that size, less the pieces lost in cutting. If they do not, nothing is saved and the message names the size and the gap. Correct a bundle, or enter the missing pieces as lost in cutting if they really are lost.
 - Pieces lost in cutting are left out of the bundles, and can be no more than the pieces cut of that size. Their fabric stays in the lot's cost, and the cutting rate is still paid on every piece cut. The lot page shows **Lost in cutting**.
 - A bundle holds one size. Bundles are numbered B001, B002, … across the lot, in the order you typed them within each size, and each tag prints its own number of pieces.
-- One lay can be bundled only once.
+- One lay can be bundled only once. To change the bundles, or the pieces cut, use **Edit the bundles** on the lay (section 24, *Correct a mistake*).
 - Pieces now sit on the cutting floor with status **Cut**.
 
 Lot page → **Print tags** (also shown after making bundles): choose **A4 sheet**, **Thermal 4 x 2 in** or **Thermal 2 x 1 in** and press Print, or download the **ZPL** file for a Zebra-type printer. Each tag shows the QR, style, colour and size, quantity, bundle number and lot number. Attach a tag to every bundle. All later work is done by scanning it.
@@ -1270,6 +1270,42 @@ The lot becomes **Completed** when none of its bundles is still live; packed, wr
 - **Make → Production dashboard:** Cut today, Stitched today, Packed today; work in progress by stage and by factory; pieces with fabricators; late lots (past the due date); oldest open lots.
 - **Home → Items in production** lists each open lot with its **Next step**.
 - The **Where is it?** box searches by order number, style number, lot number or order reference and lists each bundle with size, pieces, current stage, location and status.
+
+### Correct a mistake: Edit or Undo a step
+
+Every step you record for a lot is listed on the lot page under **Steps recorded**, newest first: fabric issued, cutting recorded, bundles made, bundles moved, pieces taken out, bundle split, sent to fabricator, received from fabricator, over-receipt approved, QC recorded and packed. Each one has two buttons.
+
+| Button | What it does |
+| --- | --- |
+| **Edit** | Takes the step back and opens its form again. Fabric issue, cutting and bundles open with the figures you entered, so you change only what was wrong and save. The other forms open empty |
+| **Undo** | Takes the step back and leaves it at that |
+
+Both ask for a **Reason** and a **Date of the reversal** (today unless you choose another; never before the step itself, and never in a locked period).
+
+What happens when a step is taken back:
+
+- Stock goes back to where it was, by opposite stock movements.
+- The books are corrected by reversing vouchers. Nothing already posted is changed or deleted.
+- The lot's cost goes back by the same amount.
+- The step stays in the list, marked **Undone**, with who did it, when and why.
+
+**Last step first.** A step can be taken back only while no later step depends on it. If one does, the page names it and offers no button: undo that one first. Examples:
+
+| You want to correct | Do this |
+| --- | --- |
+| The pieces cut, after bundles were made | Undo (or Edit) the **bundles** of that lay, then **Edit** the lay. Enter the right pieces, then make the bundles again; they are numbered afresh, so print new tags |
+| The pieces cut, after bundles have moved on | Undo the move (and anything after it) for those bundles, then the bundles, then edit the lay |
+| A fabric issue | Undo the cutting that used the fabric first |
+| A challan | Undo its receipts first. A challan that was saved as a draft and then issued goes back to a draft; one saved and issued in one go is cancelled |
+| A receipt | Undo its QC first |
+| A QC result | If the pieces are on a labour bill, cancel the bill first (25.1) |
+| A pack into finished goods | Possible only while the packed pieces are still in stock |
+
+Bundles that went different ways are independent: undoing the move of one bundle does not need the others to come back.
+
+The same list, for that document only, is at the bottom of the challan page and the receipt page. The cutting page has **Edit this lay** and **Edit the bundles** on each lay, and the fabric page has Edit and Undo beside each issue.
+
+**Who can do it:** whoever may record a step may take it back, in their own factory. A cutting master can undo cutting and bundles; a supervisor who records moves can undo moves.
 
 ---
 
@@ -1594,6 +1630,11 @@ A supplier bill posts what you owe the supplier (reference = their bill number, 
 | "Pick a single factory in the top bar before entering a voucher" | Voucher entry needs one factory | Switch factory in the top bar |
 | "No rate found; enter one" | No customer rate, price list or last invoice rate | Add a price list rate (section 12) or type the rate |
 | "only X available at <location>" when finishing packing | Not enough stock at that location | Move or pack stock there first |
+| "… came after this step. Undo that first." | You tried to edit or undo a production step that a later step depends on | Undo the step named, then try again (section 24, *Correct a mistake*) |
+| "What this step put there has been used since" | The stock a step brought in (fabric on the cutting floor, packed pieces) has been used or sold | Undo the later step first; sold pieces cannot be unpacked |
+| "is on a labour bill. Cancel the bill first." | The QC result you want to undo has been billed | Cancel the labour bill (25.1), then undo the QC |
+| "is on draft challan" | A bundle of the step is on a challan not yet issued | Discard the draft challan, then undo |
+| A wrong production step (pieces cut, bundles, a move, a challan, a receipt, QC, a pack) | Recorded steps are not overwritten | Lot page → **Steps recorded** → **Edit** or **Undo** (section 24, *Correct a mistake*) |
 | A wrong posted document | Posted documents are never edited | Cancel with a reason, then enter a correct one |
 
 ---

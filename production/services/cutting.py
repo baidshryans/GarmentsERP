@@ -22,6 +22,7 @@ from masters.models import SKU
 from production.models import (
     Bundle, CuttingEntry, CuttingRollUse, CuttingSize, FabricIssue, FabricIssueLine, Lot, LotCostEntry, LotStep,
 )
+from production.services import actions
 from production.services import bundles as bundles_module
 from production.services import costing
 
@@ -37,6 +38,24 @@ def _open_lot(lot, user):
     return lot
 
 
+def _fabric_step(issue, args, kwargs):
+    lines = list(issue.lines.all())
+    return {"lot": issue.lot, "date": issue.date, "doc": issue,
+            "summary": f"{len(lines)} roll(s), {sum(l.qty for l in lines).normalize():f} to the cutting floor"}
+
+
+def _cutting_step(entry, args, kwargs):
+    return {"lot": entry.lot, "date": entry.date, "doc": entry,
+            "summary": f"Lay {entry.lay_no}: {sum(cs.pieces for cs in entry.sizes.all())} pieces cut"}
+
+
+def _bundles_step(made, args, kwargs):
+    entry = CuttingEntry.objects.select_related("lot").get(pk=args[0].pk)
+    return {"lot": entry.lot, "date": entry.date, "doc": entry,
+            "summary": f"Lay {entry.lay_no}: {len(made)} bundle(s), {sum(b.qty for b in made)} pieces"}
+
+
+@actions.recorded(actions.Kind.FABRIC, _fabric_step)
 @transaction.atomic
 def issue_fabric(*, lot, lines, user, date, from_location=None, estimated_pieces=None) -> FabricIssue:
     """Issue rolls to the cutting floor for a lot. lines = [(roll, qty)]. Blocked above a roll's balance (BR-02);
@@ -123,6 +142,7 @@ class RollUseSpec:
     remnant: Decimal = Decimal("0.000")
 
 
+@actions.recorded(actions.Kind.CUTTING, _cutting_step)
 @transaction.atomic
 def record_cutting(*, lot, pieces, rolls, user, date, notes="", loss=None) -> CuttingEntry:
     """Record a lay. pieces = {Size: count}; rolls = [RollUseSpec]; loss = {Size: pieces cut but lost}, which can
@@ -240,6 +260,7 @@ def _counted_bundles(sizes, bundles):
     return given
 
 
+@actions.recorded(actions.Kind.BUNDLES, _bundles_step)
 @transaction.atomic
 def create_bundles(entry, *, user, bundles=None, bundle_size=None, loss=None) -> list:
     """Make bundles from a lay's good pieces per size. bundles = {Size: [pieces in each bundle]}, as counted when
@@ -260,7 +281,10 @@ def create_bundles(entry, *, user, bundles=None, bundle_size=None, loss=None) ->
             cs.loss = loss.get(cs.size, 0)
             cs.save(update_fields=["loss"])
     per_size = _counted_bundles(sizes, bundles) if bundles is not None else _even_bundles(sizes, bundle_size)
-    seq = lot.bundles.filter(split_from__isnull=True).count()     # a split bundle is numbered after its first
+    # a split bundle is numbered after its first; go on from the highest number, as bundles made again after an
+    # undo must not take a number another lay still holds
+    seq = max((int(no[1:]) for no in lot.bundles.filter(split_from__isnull=True).values_list("bundle_no", flat=True)
+               if no[1:].isdigit()), default=0)
     made = []
     for cs in sizes:
         sku = SKU.objects.filter(style=lot.style, colour=lot.colour, size=cs.size, is_active=True).first()

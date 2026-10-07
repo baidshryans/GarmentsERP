@@ -59,11 +59,20 @@ def test_order_cutting_and_qr_tags_through_the_screens(company, factory, owner):
     assert r.status_code == 302
     entry = lot.cuttings.get()
     assert entry.expected_pieces == 62 and entry.variance_pct == D("-3.23") and not entry.over_tolerance   # 25 kg burnt, 60 cut
-    r = c.post(reverse("lot_cutting", args=[lot.pk]), {"action": "bundles", "entry": entry.pk, "bundle_size": "25"}, follow=True)
-    assert "largest size has 20 pieces" in r.content.decode() and not lot.bundles.exists()   # 25 is more than any size cut
-    assert 'name="bundle_size" type="text" inputmode="numeric" value="20"' in r.content.decode()   # the form offers what fits
-    r = c.post(reverse("lot_cutting", args=[lot.pk]), {"action": "bundles", "entry": entry.pk, "bundle_size": "20"})
-    assert r.status_code == 302 and lot.bundles.count() == 4
+    # bundles come off the floor uneven: the pieces of each are typed per size, and must add up to the pieces cut
+    sz = {code: f"bundles_{ns.sizes[code].pk}" for code in ("S", "M", "L", "XL")}
+    assert "Pieces in each bundle" in c.get(reverse("lot_cutting", args=[lot.pk])).content.decode()
+    r = c.post(reverse("lot_cutting", args=[lot.pk]), {
+        "action": "bundles", "entry": entry.pk, sz["S"]: "10", sz["M"]: "12 5", sz["L"]: "9, 11", sz["XL"]: "10"})
+    page = r.content.decode()
+    assert r.status_code == 200 and "Size M: the bundles add up to 17 pieces but 20 are to be bundled (3 short)" in page
+    assert not lot.bundles.exists() and 'value="12 5"' in page and 'value="9, 11"' in page    # what was typed comes back
+    r = c.post(reverse("lot_cutting", args=[lot.pk]), {
+        "action": "bundles", "entry": entry.pk, sz["S"]: "10", sz["M"]: "12 x", sz["L"]: "9 11", sz["XL"]: "10"})
+    assert r.status_code == 200 and not lot.bundles.exists()
+    r = c.post(reverse("lot_cutting", args=[lot.pk]), {
+        "action": "bundles", "entry": entry.pk, sz["S"]: "10", sz["M"]: "12 5 3", sz["L"]: "9, 11", sz["XL"]: "4 6"})
+    assert r.status_code == 302 and [b.qty for b in lot.bundles.order_by("bundle_no")] == [10, 12, 5, 3, 9, 11, 4, 6]
     tags = c.get(reverse("lot_tags", args=[lot.pk]))
     html = tags.content.decode()
     first = lot.bundles.first()
@@ -334,12 +343,16 @@ def test_fabric_and_cutting_screens_show_expected_pieces_and_take_cutting_loss(c
     entry = ns.lot.cuttings.get()
     assert "should give 70 pieces" in c.get(reverse("lot_cutting", args=[ns.lot.pk])).content.decode()   # 28 kg at 2.5 a kg
     bad = c.post(reverse("lot_cutting", args=[ns.lot.pk]), {
-        "action": "bundles", "entry": entry.pk, "bundle_size": "25", f"loss_{ns.sizes['M'].pk}": "71"})
+        "action": "bundles", "entry": entry.pk, f"bundles_{ns.sizes['M'].pk}": "25 25 17", f"loss_{ns.sizes['M'].pk}": "71"})
     assert bad.status_code == 200 and b"cannot be more than" in bad.content and not ns.lot.bundles.exists()
+    bad = c.post(reverse("lot_cutting", args=[ns.lot.pk]), {     # 70 bundled with 3 lost: the lost pieces are not there
+        "action": "bundles", "entry": entry.pk, f"bundles_{ns.sizes['M'].pk}": "25 25 20", f"loss_{ns.sizes['M'].pk}": "3"})
+    assert bad.status_code == 200 and b"(3 too many)" in bad.content and not ns.lot.bundles.exists()
+    assert not entry.sizes.filter(loss__gt=0).exists()           # a refused try saves nothing
     r = c.post(reverse("lot_cutting", args=[ns.lot.pk]), {
-        "action": "bundles", "entry": entry.pk, "bundle_size": "25", f"loss_{ns.sizes['M'].pk}": "3"}, follow=True)
+        "action": "bundles", "entry": entry.pk, f"bundles_{ns.sizes['M'].pk}": "25 25 17", f"loss_{ns.sizes['M'].pk}": "3"}, follow=True)
     assert b"3 pieces lost in cutting left out" in r.content
-    assert sum(b.qty for b in ns.lot.bundles.all()) == 67
+    assert sorted(b.qty for b in ns.lot.bundles.all()) == [17, 25, 25]
     page = login(owner).get(reverse("lot_detail", args=[ns.lot.pk])).content.decode()
     assert "Estimated from fabric" in page and "Lost in cutting" in page
 

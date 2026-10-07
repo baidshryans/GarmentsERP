@@ -822,7 +822,7 @@ Run one small lot through the whole system. This is the same flow as BRD scenari
 2. **Create a production order** for `JGR-104`, Black, 20 pieces each of M and L, and release it. Route B is copied into the lot.
 3. **Plan the route.** On the lot page open **Route and rates** and check each step; assign stitching to Gurpreet Garments and embroidery to Royal Embroidery.
 4. **Issue fabric** by roll (the lot's Next button), with the pieces you expect from it. The roll balance reduces.
-5. **Cut.** Enter pieces per size, fabric used and waste. Compare the pieces cut with the estimate you gave when issuing the fabric. Make bundles, then print the tags.
+5. **Cut.** Enter pieces per size, fabric used and waste. Compare the pieces cut with the estimate you gave when issuing the fabric. Make bundles by entering the pieces in each bundle as it came from cutting, then print the tags.
 6. **Issue a challan** to the embroiderer with the bundles; print it. On route B embroidery is a mandatory step, so it is the Next button (Send to … for Embroidery). On a route where embroidery is optional, such as the seeded route A, it is not the Next button: it appears as the smaller link "Send to … for Embroidery (optional)" under **Also waiting**.
 7. **Receive** the work back (Next: Receive from …; enter a small shortage to see how it is handled), then **QC** (Next: Check received pieces): accept most, reject one.
 8. **Move** accepted bundles through the next steps to Packing. Try moving one bundle backwards to see that a reason is required.
@@ -1091,10 +1091,12 @@ Each lay is numbered 1, 2, … You can record several lays for one lot.
 
 ### 22.3 Make bundles and print tags
 
-Under the lay, enter **Pieces per bundle** (for example 20). If pieces were lost or spoiled in cutting, enter them per size in **Lost in cutting**. Then press **Make bundles and QR tags**. A bundle holds one size, so pieces per bundle cannot be more than the pieces left to bundle in the largest size (after loss); a smaller size just gets one short bundle. After you save you go straight on to the tags.
+Bundles come from the cutting floor with different numbers of pieces, so you record each one as it is. Under the lay, **Bundles received from cutting** has one row per size. In **Pieces in each bundle**, type the pieces of every bundle of that size with a space (or a comma) between them: `25 25 22 18` makes four bundles of 25, 25, 22 and 18 pieces. If pieces were lost or spoiled in cutting, enter them in **Lost in cutting** on the same row. Then press **Make bundles and QR tags**. After you save you go straight on to the tags.
 
+- As you type, the row shows the number of bundles and the pieces against what is to be bundled, for example "90 of 90", or "55 of 60" with **5 short**.
+- The bundles of a size must add up exactly to the pieces cut of that size, less the pieces lost in cutting. If they do not, nothing is saved and the message names the size and the gap. Correct a bundle, or enter the missing pieces as lost in cutting if they really are lost.
 - Pieces lost in cutting are left out of the bundles, and can be no more than the pieces cut of that size. Their fabric stays in the lot's cost, and the cutting rate is still paid on every piece cut. The lot page shows **Lost in cutting**.
-- Bundles are made per size. The last bundle of a size may be smaller. They are numbered B001, B002, … across the lot.
+- A bundle holds one size. Bundles are numbered B001, B002, … across the lot, in the order you typed them within each size, and each tag prints its own number of pieces.
 - One lay can be bundled only once.
 - Pieces now sit on the cutting floor with status **Cut**.
 
@@ -1587,6 +1589,7 @@ A supplier bill posts what you owe the supplier (reference = their bill number, 
 | Nothing payable on a labour bill | No checked, unpaid pieces | Complete QC first |
 | "… allows no loss" | The bundle is at a step marked no loss allowed | Move it with no count. If pieces really are lost, untick **No loss allowed** on the process |
 | "the pieces lost cannot be more than the N cut" | Lost in cutting is above the pieces cut of that size | Correct the figure |
+| "the bundles add up to N pieces but M are to be bundled" | The pieces typed for the bundles of that size do not equal the pieces cut less those lost in cutting | Correct the pieces of a bundle, or enter the missing pieces in **Lost in cutting** |
 | "These bundles first went out on different pay terms" | One rework challan mixes bundles paid on accepted and on received pieces | Make a separate rework challan for each |
 | "Pick a single factory in the top bar before entering a voucher" | Voucher entry needs one factory | Switch factory in the top bar |
 | "No rate found; enter one" | No customer rate, price list or last invoice rate | Add a price list rate (section 12) or type the rate |

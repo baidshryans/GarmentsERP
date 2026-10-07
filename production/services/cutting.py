@@ -203,16 +203,55 @@ def record_cutting(*, lot, pieces, rolls, user, date, notes="", loss=None) -> Cu
     return entry
 
 
+def _even_bundles(sizes, bundle_size):
+    """{size pk: [pieces]} for bundles of `bundle_size` pieces each; the last of a size may be smaller."""
+    if bundle_size <= 0:
+        raise BusinessRuleError("The bundle size must be more than zero.")
+    most = max((cs.good for cs in sizes), default=0)
+    if most and bundle_size > most:   # a bundle holds one size, so it can never be bigger than the largest size cut
+        raise BusinessRuleError(
+            f"A bundle of {bundle_size} is more than the pieces cut: the largest size has {most} pieces to bundle. "
+            f"Enter {most} or fewer per bundle.")
+    return {cs.size_id: [bundle_size] * (cs.good // bundle_size) + ([cs.good % bundle_size] if cs.good % bundle_size else [])
+            for cs in sizes}
+
+
+def _counted_bundles(sizes, bundles):
+    """{size pk: [pieces]} from the bundles as they came off the cutting floor ({Size: [pieces in each bundle]}).
+    The bundles of a size must add up to the pieces of it left to bundle."""
+    cut = {cs.size_id for cs in sizes}
+    given = {}
+    for size, counts in bundles.items():
+        counts = list(counts)
+        if not counts:
+            continue
+        if size.pk not in cut:
+            raise BusinessRuleError(f"Size {size.code} was not cut in this lay.")
+        if any(isinstance(n, bool) or not isinstance(n, int) or n <= 0 for n in counts):
+            raise BusinessRuleError(f"Size {size.code}: every bundle must have a whole number of pieces above zero.")
+        given[size.pk] = counts
+    for cs in sizes:
+        total = sum(given.get(cs.size_id, []))
+        if total != cs.good:
+            gap = f"{cs.good - total} short" if total < cs.good else f"{total - cs.good} too many"
+            raise BusinessRuleError(
+                f"Size {cs.size.code}: the bundles add up to {total} pieces but {cs.good} are to be bundled ({gap}). "
+                f"Correct the bundles, or the pieces lost in cutting.")
+    return given
+
+
 @transaction.atomic
-def create_bundles(entry, *, bundle_size, user, loss=None) -> list:
-    """Make bundles from a lay's good pieces per size, `bundle_size` pieces each (the last of a size may be smaller).
+def create_bundles(entry, *, user, bundles=None, bundle_size=None, loss=None) -> list:
+    """Make bundles from a lay's good pieces per size. bundles = {Size: [pieces in each bundle]}, as counted when
+    they come off the cutting floor: bundles need not be equal, but those of a size must add up to its good pieces.
+    `bundle_size` instead makes equal bundles (the last of a size may be smaller).
     loss = {Size: pieces lost in cutting}, known at the end of cutting: those pieces are never bundled."""
     entry = CuttingEntry.objects.select_related("lot", "lot__style", "lot__colour", "factory").get(pk=entry.pk)
     lot = _open_lot(entry.lot, user)
     if entry.bundled:
         raise BusinessRuleError("Bundles were already made for this lay.")
-    if bundle_size <= 0:
-        raise BusinessRuleError("The bundle size must be more than zero.")
+    if (bundles is None) == (bundle_size is None):
+        raise BusinessRuleError("Give the pieces in each bundle.")
     cutting = cutting_location(lot.factory)
     sizes = list(entry.sizes.select_related("size").order_by("size__sort_order"))
     if loss is not None:
@@ -220,21 +259,14 @@ def create_bundles(entry, *, bundle_size, user, loss=None) -> list:
         for cs in sizes:
             cs.loss = loss.get(cs.size, 0)
             cs.save(update_fields=["loss"])
-    most = max((cs.good for cs in sizes), default=0)
-    if most and bundle_size > most:   # a bundle holds one size, so it can never be bigger than the largest size cut
-        raise BusinessRuleError(
-            f"A bundle of {bundle_size} is more than the pieces cut: the largest size has {most} pieces to bundle. "
-            f"Enter {most} or fewer per bundle.")
+    per_size = _counted_bundles(sizes, bundles) if bundles is not None else _even_bundles(sizes, bundle_size)
     seq = lot.bundles.filter(split_from__isnull=True).count()     # a split bundle is numbered after its first
     made = []
     for cs in sizes:
         sku = SKU.objects.filter(style=lot.style, colour=lot.colour, size=cs.size, is_active=True).first()
         if sku is None:
             raise BusinessRuleError(f"There is no SKU for {lot.style.style_no} / {lot.colour} / {cs.size}.")
-        remaining = cs.good
-        while remaining > 0:
-            n = min(bundle_size, remaining)
-            remaining -= n
+        for n in per_size.get(cs.size_id, []):
             seq += 1
             b = Bundle.objects.create(
                 lot=lot, entry=entry, bundle_no=f"B{seq:03d}", sku=sku, qty=n, original_qty=n,

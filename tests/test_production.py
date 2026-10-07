@@ -5,7 +5,7 @@ import pytest
 from core.exceptions import BusinessRuleError, FactoryNotAllowed
 from core.models import Location
 from inventory.exceptions import InsufficientStock
-from inventory.models import StockBalance
+from inventory.models import StockBalance, StockMovement
 from inventory.services import stock
 from masters.models import Process
 from masters.services import boms
@@ -258,6 +258,37 @@ def test_a_bundle_cannot_be_bigger_than_the_pieces_cut(company, factory, owner):
     # the largest size sets the limit; a smaller size simply gets one short bundle
     made = cutting.create_bundles(entry, bundle_size=33, user=owner)
     assert sorted(b.qty for b in made) == [17, 33]
+
+
+def test_bundles_take_the_pieces_counted_in_each_as_they_come_from_cutting(company, factory, owner):
+    ns = build(company, factory, owner)
+    S, M = ns.sizes["S"], ns.sizes["M"]
+    cutting.issue_fabric(lot=ns.lot, lines=[(ns.roll_a, D("60"))], user=owner, date=DAY)
+    entry = cutting.record_cutting(
+        lot=ns.lot, user=owner, date=DAY, pieces={S: 17, M: 33},
+        rolls=[cutting.RollUseSpec(ns.roll_a, used=D("41"), waste=D("2"), remnant=D("17"))])
+    with pytest.raises(BusinessRuleError, match="Give the pieces in each bundle"):
+        cutting.create_bundles(entry, user=owner)
+    with pytest.raises(BusinessRuleError, match=r"Size M: the bundles add up to 30 pieces but 33 are to be bundled \(3 short\)"):
+        cutting.create_bundles(entry, bundles={S: [17], M: [12, 10, 8]}, user=owner)
+    with pytest.raises(BusinessRuleError, match=r"Size S: the bundles add up to 0 pieces but 17 are to be bundled"):
+        cutting.create_bundles(entry, bundles={M: [12, 10, 8, 3]}, user=owner)
+    with pytest.raises(BusinessRuleError, match=r"\(2 too many\)"):
+        cutting.create_bundles(entry, bundles={S: [17], M: [12, 10, 8, 3]}, user=owner, loss={M: 2})
+    for bad in ([33, 0], [34, -1], [D("16.5"), D("16.5")]):
+        with pytest.raises(BusinessRuleError, match="whole number of pieces above zero"):
+            cutting.create_bundles(entry, bundles={S: [17], M: bad}, user=owner)
+    with pytest.raises(BusinessRuleError, match="Size L was not cut in this lay"):
+        cutting.create_bundles(entry, bundles={S: [17], M: [33], ns.sizes["L"]: [5]}, user=owner)
+    entry.refresh_from_db()
+    assert not entry.bundled and not ns.lot.bundles.exists() and not entry.sizes.filter(loss__gt=0).exists()
+
+    made = cutting.create_bundles(entry, bundles={S: [9, 8], M: [12, 10, 8, 1]}, user=owner, loss={M: 2})
+    assert [(b.bundle_no, b.sku.size.code, b.qty, b.original_qty) for b in made] == [
+        ("B001", "S", 9, 9), ("B002", "S", 8, 8), ("B003", "M", 12, 12), ("B004", "M", 10, 10), ("B005", "M", 8, 8), ("B006", "M", 1, 1)]
+    assert len({b.qr_token for b in made}) == 6 and entry.sizes.get(size=M).loss == 2
+    floor = StockMovement.objects.filter(lot=ns.lot, movement_type="production", bundle__in=made)
+    assert sum(m.qty for m in floor) == 48                       # stock on the cutting floor is the pieces bundled
 
 
 # ---------------- stage moves (E7.6, E7.7, BR-21, BR-22) ----------------

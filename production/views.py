@@ -410,7 +410,9 @@ class CuttingView(LoginRequiredMixin, ScreenPermissionMixin, View):
             e.cut_total = sum(cs.pieces for cs in e.sizes.all())
             e.loss_total = sum(cs.loss for cs in e.sizes.all())
             e.good_total = e.cut_total - e.loss_total
-            e.bundle_size = min(25, max((cs.good for cs in e.sizes.all()), default=25) or 25)   # never more than the largest size
+            if vals and str(e.pk) == vals.get("entry"):     # a refused try: give back what was typed
+                for cs in e.sizes.all():
+                    cs.typed_bundles, cs.typed_loss = vals.get(f"bundles_{cs.size_id}", ""), vals.get(f"loss_{cs.size_id}", "")
         return {"lot": lot, "rolls": rolls, "sizes": sizes, "vals": vals or {}, "entries": entries,
                 "planned": {s.size_id: s.qty for s in lot.order_line.sizes.all()},
                 "can_create": request.user.has_screen_perm("production.cutting", "create"),
@@ -432,7 +434,9 @@ class CuttingView(LoginRequiredMixin, ScreenPermissionMixin, View):
                 entry = get_object_or_404(CuttingEntry, pk=p.get("entry"), lot=lot)
                 loss = {cs.size: vu.whole(p.get(f"loss_{cs.size_id}"), f"Lost pieces of {cs.size.code}", 0)
                         for cs in entry.sizes.select_related("size")}
-                made = cutting.create_bundles(entry, bundle_size=vu.whole(p.get("bundle_size"), "Bundle size"), user=request.user, loss=loss)
+                counted = {cs.size: [vu.whole(n, f"Bundles of {cs.size.code}") for n in p.get(f"bundles_{cs.size_id}", "").replace(",", " ").split()]
+                           for cs in entry.sizes.select_related("size")}
+                made = cutting.create_bundles(entry, bundles=counted, user=request.user, loss=loss)
                 lost = sum(loss.values())
                 messages.success(request, f"{len(made)} bundles made" + (f" ({lost} pieces lost in cutting left out)" if lost else "")
                                  + ". Print their QR tags now.")

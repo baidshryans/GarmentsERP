@@ -11,7 +11,7 @@
       <div class="field"><label for="location">Receive into</label><select id="location" name="location">{% for l in locations %}<option value="{{ l.pk }}" {% if location_sel == l.pk|stringformat:"s" %}selected{% endif %}>{{ l.name }}</option>{% endfor %}</select><div class="help">Filled in for you. Change it only if the goods came back to another place.</div></div></div>{% endmore %}
     <div class="field" style="max-width:420px"><label for="scan">Scan bundle QR codes here</label><input id="scan" type="text" autocomplete="off" placeholder="Scan and press Enter"></div>
     <div class="table-wrap"><table>
-      <thead><tr><th scope="col"></th><th scope="col">Bundle</th><th scope="col">Size</th><th scope="col" class="num">Issued</th><th scope="col" class="num" style="width:130px">Counted</th></tr></thead>
+      <thead><tr><th scope="col">{% if lines %}<input type="checkbox" data-select-all aria-label="Select all bundles" title="Select all">{% endif %}</th><th scope="col">Bundle</th><th scope="col">Size</th><th scope="col" class="num">Issued</th><th scope="col" class="num" style="width:130px">Counted</th></tr></thead>
       <tbody>{% for cb in lines %}<tr data-token="{{ cb.bundle.qr_token }}" data-no="{{ cb.bundle.bundle_no }}"><td><input type="checkbox" name="use_{{ cb.pk }}" aria-label="Received {{ cb.bundle.bundle_no }}"></td><td><strong>{{ cb.bundle.bundle_no }}</strong></td><td>{{ cb.bundle.sku.size.code }}</td><td class="num">{{ cb.qty_issued }}</td>
         <td class="num"><input type="text" inputmode="numeric" name="count_{{ cb.pk }}" value="{{ cb.qty_issued }}"></td></tr>
       {% empty %}<tr><td colspan="5" class="muted">Everything on this challan has been received.</td></tr>{% endfor %}</tbody>

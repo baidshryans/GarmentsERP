@@ -278,7 +278,7 @@ def test_bundles_take_the_pieces_counted_in_each_as_they_come_from_cutting(compa
     for bad in ([33, 0], [34, -1], [D("16.5"), D("16.5")]):
         with pytest.raises(BusinessRuleError, match="whole number of pieces above zero"):
             cutting.create_bundles(entry, bundles={S: [17], M: bad}, user=owner)
-    with pytest.raises(BusinessRuleError, match="Size L was not cut in this lay"):
+    with pytest.raises(BusinessRuleError, match="Size L is not in this cutting"):
         cutting.create_bundles(entry, bundles={S: [17], M: [33], ns.sizes["L"]: [5]}, user=owner)
     entry.refresh_from_db()
     assert not entry.bundled and not ns.lot.bundles.exists() and not entry.sizes.filter(loss__gt=0).exists()

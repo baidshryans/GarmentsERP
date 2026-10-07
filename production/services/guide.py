@@ -133,7 +133,7 @@ def _actions(lot, steps, bundles, cuts, issued):
     elif not cuts:
         add(("cut",), -2, "Record cutting", "Enter the pieces cut in each size.", reverse("lot_cutting", args=[lot.pk]), cutting_perm)
     elif any(not c.bundled for c in cuts):
-        add(("bundle",), -1, "Make bundles", "A lay is cut but not bundled yet.", reverse("lot_cutting", args=[lot.pk]), cutting_perm)
+        add(("bundle",), -1, "Make bundles", "A cutting is recorded but not bundled yet.", reverse("lot_cutting", args=[lot.pk]), cutting_perm)
 
     if not bundles:
         return sorted(found.values(), key=lambda a: a["order"])   # nothing is bundled yet: no challan, receipt or move to look for

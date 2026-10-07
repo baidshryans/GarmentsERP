@@ -90,7 +90,7 @@ SYSTEM_ROLES = {
         [],
     ),
     "Cutting Master": (
-        "Lay, cutting and bundle tags",
+        "Cutting and bundle tags",
         {"production.cutting": ["view", "create", "edit"], "production.bundle": ["view", "create"],
          "production.order": ["view"], "production.dashboard": ["view"], "inventory.stock": ["view"]},
         [],

@@ -4,16 +4,24 @@ Only the steps whose postings can be told apart for certain are covered: fabric 
 lay as long as none of them has moved, been split or gone on a challan. Later steps of older lots (moves, challans,
 receipts, QC, packing) stay as they are.
 """
+import datetime
 import json
 
 from django.core.serializers.json import DjangoJSONEncoder
 from django.db import migrations
 
 
+class _Exact(DjangoJSONEncoder):
+    def default(self, o):                                  # times in full, as production.services.actions keeps them
+        if isinstance(o, (datetime.datetime, datetime.time)):
+            return o.isoformat()
+        return super().default(o)
+
+
 def _snap(obj, **changed):
     data = {f.attname: getattr(obj, f.attname) for f in obj._meta.concrete_fields}
     data.update(changed)
-    return json.loads(json.dumps(data, cls=DjangoJSONEncoder))
+    return json.loads(json.dumps(data, cls=_Exact))
 
 
 def backfill(apps, schema_editor=None):
@@ -57,10 +65,10 @@ def backfill(apps, schema_editor=None):
                      for v in Voucher.objects.filter(source_type=label, source_id=doc.pk, reverses__isnull=True).order_by("id")]
             rows += [("cost", "production.lotcostentry", c.pk, c.note, None, None)
                      for c in LotCostEntry.objects.filter(source_type=label, source_id=doc.pk).order_by("id")]
-            rows.append(("created", label, doc.pk, f"Lay {doc.lay_no}", None, _snap(doc, bundled=False)))
-            rows += [("created", "production.cuttingsize", s.pk, f"Lay {doc.lay_no} size", None, _snap(s)) for s in sizes]
-            rows += [("created", "production.cuttingrolluse", r.pk, f"Lay {doc.lay_no} roll", None, _snap(r)) for r in rolls]
-            add(doc, "cutting", label, f"Lay {doc.lay_no}: {sum(s.pieces for s in sizes)} pieces cut", rows)
+            rows.append(("created", label, doc.pk, f"Cutting {doc.lay_no}", None, _snap(doc, bundled=False)))
+            rows += [("created", "production.cuttingsize", s.pk, f"Cutting {doc.lay_no} size", None, _snap(s)) for s in sizes]
+            rows += [("created", "production.cuttingrolluse", r.pk, f"Cutting {doc.lay_no} roll", None, _snap(r)) for r in rolls]
+            add(doc, "cutting", label, f"Cutting {doc.lay_no}: {sum(s.pieces for s in sizes)} pieces cut", rows)
 
         bundles = list(Bundle.objects.filter(entry_id=doc.pk).order_by("id"))
         ids = [b.pk for b in bundles]
@@ -70,10 +78,10 @@ def backfill(apps, schema_editor=None):
                      and not Bundle.objects.filter(split_from_id__in=ids).exists())
         if doc.bundled and untouched and not known("bundles", label, doc.pk):
             rows = posted(label, doc.pk, True)
-            rows.append(("changed", label, doc.pk, f"Lay {doc.lay_no}", _snap(doc, bundled=False), _snap(doc)))
-            rows += [("changed", "production.cuttingsize", s.pk, f"Lay {doc.lay_no} size", _snap(s), _snap(s)) for s in sizes]
+            rows.append(("changed", label, doc.pk, f"Cutting {doc.lay_no}", _snap(doc, bundled=False), _snap(doc)))
+            rows += [("changed", "production.cuttingsize", s.pk, f"Cutting {doc.lay_no} size", _snap(s), _snap(s)) for s in sizes]
             rows += [("created", "production.bundle", b.pk, b.bundle_no, None, _snap(b)) for b in bundles]
-            add(doc, "bundles", label, f"Lay {doc.lay_no}: {len(bundles)} bundle(s), {sum(b.qty for b in bundles)} pieces", rows)
+            add(doc, "bundles", label, f"Cutting {doc.lay_no}: {len(bundles)} bundle(s), {sum(b.qty for b in bundles)} pieces", rows)
 
 
 class Migration(migrations.Migration):

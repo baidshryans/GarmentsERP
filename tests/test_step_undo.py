@@ -124,7 +124,7 @@ def test_cutting_is_corrected_by_undoing_the_bundles_then_the_lay(ns):
     cut_state = state(ns)
     cutting.create_bundles(entry, bundles={S: [9, 8], M: [12, 10, 9]}, user=ns.owner, loss={M: 2})
     # the lay cannot go while its bundles stand: the later step is named
-    with pytest.raises(BusinessRuleError, match=r"Bundles made \(Lay 1: 5 bundle\(s\), 48 pieces\) came after this step. Undo that first."):
+    with pytest.raises(BusinessRuleError, match=r"Bundles made \(Cutting 1: 5 bundle\(s\), 48 pieces\) came after this step. Undo that first."):
         undo(ns, K.CUTTING)
     assert actions.form_values(last(K.BUNDLES)) == {
         f"bundles_{S.pk}": "9 8", f"bundles_{M.pk}": "12 10 9", f"loss_{S.pk}": "", f"loss_{M.pk}": "2", "entry": str(entry.pk)}
@@ -152,7 +152,7 @@ def test_bundles_made_again_never_take_a_number_another_lay_holds(ns):
                                    rolls=[cutting.RollUseSpec(ns.roll_a, used=D("10"))]) for _ in range(2)]
     cutting.create_bundles(lays[0], bundles={S: [6, 4]}, user=ns.owner)
     cutting.create_bundles(lays[1], bundles={S: [10]}, user=ns.owner)           # B003
-    actions.undo(ProductionAction.objects.get(kind=K.BUNDLES, summary__startswith="Lay 1"), user=ns.owner, reason="Recount")
+    actions.undo(ProductionAction.objects.get(kind=K.BUNDLES, summary__startswith="Cutting 1"), user=ns.owner, reason="Recount")
     again = cutting.create_bundles(lays[0], bundles={S: [5, 5]}, user=ns.owner)
     assert [b.bundle_no for b in again] == ["B004", "B005"]
     assert sorted(ns.lot.bundles.values_list("bundle_no", flat=True)) == ["B003", "B004", "B005"]
@@ -374,44 +374,38 @@ def test_a_wrong_cutting_is_edited_from_the_screens(ns, factory):
     cutter.allowed_factories.add(factory)
     c, lot, S, M = login(cutter), ns.lot, ns.sizes["S"], ns.sizes["M"]
     c.post(reverse("lot_fabric", args=[lot.pk]), {"date": "2026-06-15", f"qty_{ns.roll_a.pk}": "60", "estimated_pieces": "50"})
-    c.post(reverse("lot_cutting", args=[lot.pk]), {
-        "date": "2026-06-15", "notes": "Morning lay", f"pieces_{S.pk}": "17", f"pieces_{M.pk}": "33",
-        f"used_{ns.roll_a.pk}": "41", f"waste_{ns.roll_a.pk}": "2", f"remnant_{ns.roll_a.pk}": "17"})
-    entry = lot.cuttings.get()
-    c.post(reverse("lot_cutting", args=[lot.pk]), {"action": "bundles", "entry": entry.pk, f"bundles_{S.pk}": "9 8", f"bundles_{M.pk}": "20 13"})
-    lay, made = last(K.CUTTING), last(K.BUNDLES)
-    page = c.get(reverse("lot_cutting", args=[lot.pk])).content.decode()
-    assert f'{reverse("step_undo", args=[made.pk])}?edit=1' in page and "Edit this lay" not in page     # bundles first
+    url = reverse("lot_cutting", args=[lot.pk])
+    rolls = {f"used_{ns.roll_a.pk}": "41", f"waste_{ns.roll_a.pk}": "2", f"remnant_{ns.roll_a.pk}": "17"}
+    c.post(url, {"date": "2026-06-15", "notes": "Morning cutting", f"bundles_{S.pk}": "9 8", f"bundles_{M.pk}": "20 13", **rolls})
+    recorded = last(K.CUTTING)                      # the cutting and its bundles are one step
+    assert recorded.summary == "Cutting 1: 50 pieces in 4 bundle(s)" and last(K.BUNDLES) is None and lot.bundles.count() == 4
+    page = c.get(url).content.decode()
+    assert f'{reverse("step_undo", args=[recorded.pk])}?edit=1' in page and "Edit this cutting" in page
 
-    # the lay cannot be edited while its bundles stand: the page says what to undo, and offers no form
-    blocked = c.get(reverse("step_undo", args=[lay.pk]) + "?edit=1").content.decode()
-    assert "cannot be taken back yet" in blocked and "Bundles made (Lay 1: 4 bundle(s), 50 pieces) came after this step" in blocked
-    assert 'name="reason"' not in blocked
-
-    confirm = c.get(reverse("step_undo", args=[made.pk]) + "?edit=1").content.decode()
+    confirm = c.get(reverse("step_undo", args=[recorded.pk]) + "?edit=1").content.decode()
     assert "Undo and enter again" in confirm and "stock movements reversed" in confirm and 'name="reason"' in confirm
-    r = c.post(reverse("step_undo", args=[made.pk]), {"edit": "1", "reason": "", "date": "2026-06-15"})
+    r = c.post(reverse("step_undo", args=[recorded.pk]), {"edit": "1", "reason": "", "date": "2026-06-15"})
     assert r.status_code == 200 and "Give the reason" in r.content.decode() and lot.bundles.count() == 4
-    r = c.post(reverse("step_undo", args=[made.pk]), {"edit": "1", "reason": "Pieces cut were wrong", "date": "2026-06-15"})
-    assert r.status_code == 302 and r.url == reverse("lot_cutting", args=[lot.pk]) and not lot.bundles.exists()
+    r = c.post(reverse("step_undo", args=[recorded.pk]), {"edit": "1", "reason": "Pieces cut were wrong", "date": "2026-06-15"})
+    assert r.status_code == 302 and r.url == url and not lot.bundles.exists() and not lot.cuttings.exists()
     page = c.get(r.url).content.decode()
-    assert 'value="9 8"' in page and 'value="20 13"' in page and "Edit this lay" in page       # the bundles as they were typed
+    for shown in ('value="9 8"', 'value="20 13"', f'name="used_{ns.roll_a.pk}" value="41.000"',
+                  f'name="remnant_{ns.roll_a.pk}" value="17.000"', 'value="Morning cutting"'):
+        assert shown in page, shown                 # everything as it was typed
     assert 'value="9 8"' not in c.get(r.url).content.decode()                                   # shown once only
+    c.post(url, {"date": "2026-06-15", f"bundles_{S.pk}": "9 8", f"bundles_{M.pk}": "20 11", **rolls})
+    assert sum(cs.pieces for cs in lot.cuttings.get().sizes.all()) == 48 and [b.bundle_no for b in lot.bundles.all()] == ["B001", "B002", "B003", "B004"]
 
-    r = c.post(reverse("step_undo", args=[lay.pk]), {"edit": "1", "reason": "Pieces cut were wrong", "date": "2026-06-15"})
-    assert r.status_code == 302 and not lot.cuttings.exists()
-    page = c.get(r.url).content.decode()
-    for shown in (f'name="pieces_{S.pk}" value="17"', f'name="pieces_{M.pk}" value="33"', f'name="used_{ns.roll_a.pk}" value="41.000"',
-                  f'name="remnant_{ns.roll_a.pk}" value="17.000"', 'value="Morning lay"'):
-        assert shown in page, shown
-    c.post(reverse("lot_cutting", args=[lot.pk]), {
-        "date": "2026-06-15", f"pieces_{S.pk}": "17", f"pieces_{M.pk}": "31",
-        f"used_{ns.roll_a.pk}": "41", f"waste_{ns.roll_a.pk}": "2", f"remnant_{ns.roll_a.pk}": "17"})
-    assert sum(cs.pieces for cs in lot.cuttings.get().sizes.all()) == 48
+    # once the bundles have moved on, the cutting waits for the move to be undone: the page says so and offers no form
+    all_in_house(ns)
+    go(ns, list(lot.bundles.all()[:1]), "STITCH")
+    blocked = c.get(reverse("step_undo", args=[last(K.CUTTING).pk]) + "?edit=1").content.decode()
+    assert "cannot be taken back yet" in blocked and "Bundles moved (1 bundle(s), 9 pieces to Stitching) came after this step" in blocked
+    assert 'name="reason"' not in blocked
 
     # the lot page lists every step, the undone ones with the reason
     owner_page = login(ns.owner).get(reverse("lot_detail", args=[lot.pk])).content.decode()
-    assert "Steps recorded" in owner_page and owner_page.count("Pieces cut were wrong") == 2 and "Undone" in owner_page
+    assert "Steps recorded" in owner_page and owner_page.count("Pieces cut were wrong") == 1 and "Undone" in owner_page
     assert f'{reverse("step_undo", args=[last(K.FABRIC).pk])}?edit=1' in owner_page
 
 
@@ -478,16 +472,55 @@ def test_steps_recorded_earlier_get_their_action_and_can_be_undone(ns):
     backfill(apps)
     backfill(apps)                                                # running it again adds nothing
     found = sorted(ProductionAction.objects.values_list("kind", "summary"))
-    assert found == [("bundles", "Lay 1: 2 bundle(s), 20 pieces"), ("cutting", "Lay 1: 20 pieces cut"),
-                     ("cutting", "Lay 2: 20 pieces cut"), ("fabric", "1 roll(s), 60 to the cutting floor")]
+    assert found == [("bundles", "Cutting 1: 2 bundle(s), 20 pieces"), ("cutting", "Cutting 1: 20 pieces cut"),
+                     ("cutting", "Cutting 2: 20 pieces cut"), ("fabric", "1 roll(s), 60 to the cutting floor")]
     # lay 2's bundles have moved on, and that move was recorded before: the lay says so and stays
-    lay2 = ProductionAction.objects.get(kind=K.CUTTING, summary__startswith="Lay 2")
-    with pytest.raises(BusinessRuleError, match="Bundles have been made from Lay 2 and have moved on"):
+    lay2 = ProductionAction.objects.get(kind=K.CUTTING, summary__startswith="Cutting 2")
+    with pytest.raises(BusinessRuleError, match="Bundles have been made from Cutting 2 and have moved on"):
         actions.undo(lay2, user=ns.owner, reason="Wrong")
-    with pytest.raises(BusinessRuleError, match=r"Bundles made \(Lay 1: 2 bundle\(s\), 20 pieces\) came after this step"):
-        actions.undo(ProductionAction.objects.get(kind=K.CUTTING, summary__startswith="Lay 1"), user=ns.owner, reason="Wrong")
+    with pytest.raises(BusinessRuleError, match=r"Bundles made \(Cutting 1: 2 bundle\(s\), 20 pieces\) came after this step"):
+        actions.undo(ProductionAction.objects.get(kind=K.CUTTING, summary__startswith="Cutting 1"), user=ns.owner, reason="Wrong")
     undo(ns, K.BUNDLES)
-    actions.undo(ProductionAction.objects.get(kind=K.CUTTING, summary__startswith="Lay 1"), user=ns.owner, reason="Wrong")
+    actions.undo(ProductionAction.objects.get(kind=K.CUTTING, summary__startswith="Cutting 1"), user=ns.owner, reason="Wrong")
     assert list(ns.lot.cuttings.values_list("lay_no", flat=True)) == [2] and ns.lot.bundles.count() == 1
     assert costing.lot_cost(ns.lot) == D("4410.00")             # lay 2 alone: 21 kg at the average 210
     assert start["lot"] == "planned" and state(ns)["lot"] == "in_production"
+
+
+def test_a_cutting_is_recorded_from_its_bundles_in_one_step_and_undone_in_one(ns):
+    cutting.issue_fabric(lot=ns.lot, lines=[(ns.roll_a, D("60"))], user=ns.owner, date=DAY, estimated_pieces=50)
+    issued = state(ns)
+    S, M = ns.sizes["S"], ns.sizes["M"]
+    use = [cutting.RollUseSpec(ns.roll_a, used=D("41"), waste=D("2"), remnant=D("17"))]
+    with pytest.raises(BusinessRuleError, match="Enter the pieces in each bundle received"):
+        cutting.receive_cutting(lot=ns.lot, bundles={S: [], M: []}, rolls=use, user=ns.owner, date=DAY)
+    with pytest.raises(BusinessRuleError, match="Size M: every bundle must have a whole number of pieces above zero"):
+        cutting.receive_cutting(lot=ns.lot, bundles={S: [9], M: [12, 0]}, rolls=use, user=ns.owner, date=DAY)
+    assert state(ns) == issued and not ProductionAction.objects.filter(kind=K.CUTTING).exists()
+
+    entry = cutting.receive_cutting(lot=ns.lot, bundles={S: [9, 8], M: [12, 11, 10], ns.sizes["L"]: []}, rolls=use, user=ns.owner, date=DAY)
+    assert entry.bundled and {cs.size.code: (cs.pieces, cs.loss) for cs in entry.sizes.all()} == {"S": (17, 0), "M": (33, 0)}
+    assert [(b.bundle_no, b.qty) for b in ns.lot.bundles.all()] == [("B001", 9), ("B002", 8), ("B003", 12), ("B004", 11), ("B005", 10)]
+    assert entry.expected_pieces == 35 and entry.variance_pct == D("42.86")       # 43 of the 60 kg burnt, 50 pieces received
+    step_taken = last(K.CUTTING)
+    assert step_taken.summary == "Cutting 1: 50 pieces in 5 bundle(s)" and last(K.BUNDLES) is None
+    assert actions.form_values(step_taken)[f"bundles_{M.pk}"] == "12 11 10"
+    actions.undo(step_taken, user=ns.owner, reason="Counted wrongly")
+    assert state(ns) == issued and not ns.lot.cuttings.exists() and not ns.lot.bundles.exists()
+
+
+def test_a_row_put_back_is_exactly_the_row_that_was_noted(ns):
+    """A bundle made in the first thousandth of a second: its time must survive being noted and put back in full,
+    or the step before would find it "changed since" (seen once in a thousand runs)."""
+    import datetime as dt
+
+    all_in_house(ns)
+    bundles = cut(ns)
+    made = dt.datetime(2026, 6, 15, 10, 0, 5, 456, tzinfo=dt.timezone.utc)
+    Bundle.objects.filter(pk=bundles[1].pk).update(created_at=made)
+    go(ns, bundles, "STITCH")
+    go(ns, bundles[:2], "IRON")
+    undo(ns, K.MOVE)
+    assert Bundle.objects.get(pk=bundles[1].pk).created_at == made
+    undo(ns, K.MOVE)
+    assert {b.status for b in ns.lot.bundles.all()} == {"cut"}

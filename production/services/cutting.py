@@ -46,13 +46,13 @@ def _fabric_step(issue, args, kwargs):
 
 def _cutting_step(entry, args, kwargs):
     return {"lot": entry.lot, "date": entry.date, "doc": entry,
-            "summary": f"Lay {entry.lay_no}: {sum(cs.pieces for cs in entry.sizes.all())} pieces cut"}
+            "summary": f"Cutting {entry.lay_no}: {sum(cs.pieces for cs in entry.sizes.all())} pieces cut"}
 
 
 def _bundles_step(made, args, kwargs):
     entry = CuttingEntry.objects.select_related("lot").get(pk=args[0].pk)
     return {"lot": entry.lot, "date": entry.date, "doc": entry,
-            "summary": f"Lay {entry.lay_no}: {len(made)} bundle(s), {sum(b.qty for b in made)} pieces"}
+            "summary": f"Cutting {entry.lay_no}: {len(made)} bundle(s), {sum(b.qty for b in made)} pieces"}
 
 
 @actions.recorded(actions.Kind.FABRIC, _fabric_step)
@@ -158,7 +158,7 @@ def record_cutting(*, lot, pieces, rolls, user, date, notes="", loss=None) -> Cu
             raise BusinessRuleError(f"Size {size.code} is not a size of {lot.style.style_no}.")
     rolls = list(rolls)
     if not rolls:
-        raise BusinessRuleError("Record the rolls this lay used.")
+        raise BusinessRuleError("Record the rolls this cutting used.")
     factory, company = lot.factory, lot.company
     cutting, godown = cutting_location(factory), godown_location(factory)
     lay_no = (lot.cuttings.aggregate(m=Max("lay_no"))["m"] or 0) + 1
@@ -170,7 +170,7 @@ def record_cutting(*, lot, pieces, rolls, user, date, notes="", loss=None) -> Cu
     for cut_step in bundles_module.cutting_steps(lot):   # in-house cutting is paid on the pieces cut
         if cut_step.status != LotStep.Status.SKIPPED and cut_step.assignment == LotStep.Assignment.IN_HOUSE:
             costing.accrue_labour(lot=lot, factory=factory, amount=cut_step.rate * cut_total, date=date, user=user,
-                                  note=f"Cutting, lay {lay_no}: {cut_total} pieces", source=entry)
+                                  note=f"Cutting {lay_no}: {cut_total} pieces", source=entry)
 
     consumed = []
     actual = Decimal("0")
@@ -187,7 +187,7 @@ def record_cutting(*, lot, pieces, rolls, user, date, notes="", loss=None) -> Cu
         if burnt > 0:
             m = stock.post_movement(
                 factory=factory, location=cutting, item=spec.roll.material, qty=-burnt, roll=spec.roll,
-                movement_type=T.ISSUE, date=date, user=user, source=entry, lot=lot, notes=f"Cut: lot {lot.lot_no} lay {lay_no}")
+                movement_type=T.ISSUE, date=date, user=user, source=entry, lot=lot, notes=f"Cut: lot {lot.lot_no} cutting {lay_no}")
             consumed.append(m)
             use.value = -m.value
             total_value += use.value
@@ -204,11 +204,11 @@ def record_cutting(*, lot, pieces, rolls, user, date, notes="", loss=None) -> Cu
     if consumed and total_value > 0:
         voucher = post_voucher(
             company=company, factory=factory, voucher_type="stock_journal", date=date, user=user, source=entry,
-            narration=f"Fabric cut for lot {lot.lot_no}, lay {lay_no}",
+            narration=f"Fabric cut for lot {lot.lot_no}, cutting {lay_no}",
             lines=[LineSpec(ledger=costing.ledger_for(company, "stock_wip"), debit=costing.r2(total_value)),
                    LineSpec(ledger=costing.ledger_for(company, "stock_raw_material"), credit=costing.r2(total_value))])
         costing.add_cost(lot=lot, factory=factory, kind=LotCostEntry.Kind.FABRIC, amount=total_value, date=date,
-                         note=f"Lay {lay_no}", source=entry, voucher=voucher)
+                         note=f"Cutting {lay_no}", source=entry, voucher=voucher)
 
     entry.fabric_value = costing.r2(total_value)
     entry.expected_pieces = estimated_pieces(lot, actual)
@@ -246,7 +246,7 @@ def _counted_bundles(sizes, bundles):
         if not counts:
             continue
         if size.pk not in cut:
-            raise BusinessRuleError(f"Size {size.code} was not cut in this lay.")
+            raise BusinessRuleError(f"Size {size.code} is not in this cutting.")
         if any(isinstance(n, bool) or not isinstance(n, int) or n <= 0 for n in counts):
             raise BusinessRuleError(f"Size {size.code}: every bundle must have a whole number of pieces above zero.")
         given[size.pk] = counts
@@ -260,6 +260,31 @@ def _counted_bundles(sizes, bundles):
     return given
 
 
+def _received_step(entry, args, kwargs):
+    made = list(entry.bundles.all())
+    return {"lot": entry.lot, "date": entry.date, "doc": entry,
+            "summary": f"Cutting {entry.lay_no}: {sum(b.qty for b in made)} pieces in {len(made)} bundle(s)"}
+
+
+@actions.recorded(actions.Kind.CUTTING, _received_step)
+@transaction.atomic
+def receive_cutting(*, lot, bundles, rolls, user, date, notes="") -> CuttingEntry:
+    """Record a cutting from the bundles received from the cutting floor, in one step. bundles = {Size: [pieces in
+    each bundle]}: the pieces cut of a size are simply what its bundles hold, so nothing is entered twice and there
+    is no separate loss. rolls = [RollUseSpec]. Makes the bundles with their QR tags."""
+    counted = {size: list(counts) for size, counts in bundles.items() if counts}
+    if not counted:
+        raise BusinessRuleError("Enter the pieces in each bundle received, for at least one size.")
+    for size, counts in counted.items():
+        if any(isinstance(n, bool) or not isinstance(n, int) or n <= 0 for n in counts):
+            raise BusinessRuleError(f"Size {size.code}: every bundle must have a whole number of pieces above zero.")
+    entry = record_cutting(lot=lot, pieces={size: sum(counts) for size, counts in counted.items()}, rolls=rolls, user=user,
+                           date=date, notes=notes)
+    create_bundles(entry, bundles=counted, user=user)
+    entry.bundled = True
+    return entry
+
+
 @actions.recorded(actions.Kind.BUNDLES, _bundles_step)
 @transaction.atomic
 def create_bundles(entry, *, user, bundles=None, bundle_size=None, loss=None) -> list:
@@ -270,7 +295,7 @@ def create_bundles(entry, *, user, bundles=None, bundle_size=None, loss=None) ->
     entry = CuttingEntry.objects.select_related("lot", "lot__style", "lot__colour", "factory").get(pk=entry.pk)
     lot = _open_lot(entry.lot, user)
     if entry.bundled:
-        raise BusinessRuleError("Bundles were already made for this lay.")
+        raise BusinessRuleError("Bundles were already made for this cutting.")
     if (bundles is None) == (bundle_size is None):
         raise BusinessRuleError("Give the pieces in each bundle.")
     cutting = cutting_location(lot.factory)

@@ -53,26 +53,22 @@ def test_order_cutting_and_qr_tags_through_the_screens(company, factory, owner):
 
     r = c.post(reverse("lot_fabric", args=[lot.pk]), {"date": "2026-06-16", f"qty_{ns.roll_a.pk}": "30", "estimated_pieces": "75"})
     assert r.status_code == 302 and lot.fabric_issues.get().expected_pieces == 75
-    r = c.post(reverse("lot_cutting", args=[lot.pk]), {
-        "date": "2026-06-16", f"pieces_{ns.sizes['S'].pk}": "10", f"pieces_{ns.sizes['M'].pk}": "20", f"pieces_{ns.sizes['L'].pk}": "20",
-        f"pieces_{ns.sizes['XL'].pk}": "10", f"used_{ns.roll_a.pk}": "24", f"waste_{ns.roll_a.pk}": "1", f"remnant_{ns.roll_a.pk}": "5"})
-    assert r.status_code == 302
-    entry = lot.cuttings.get()
-    assert entry.expected_pieces == 62 and entry.variance_pct == D("-3.23") and not entry.over_tolerance   # 25 kg burnt, 60 cut
-    # bundles come off the floor uneven: the pieces of each are typed per size, and must add up to the pieces cut
+    # bundles come off the floor uneven: the cutting is recorded from the pieces of each bundle, size by size
+    url = reverse("lot_cutting", args=[lot.pk])
     sz = {code: f"bundles_{ns.sizes[code].pk}" for code in ("S", "M", "L", "XL")}
-    assert "Pieces in each bundle" in c.get(reverse("lot_cutting", args=[lot.pk])).content.decode()
-    r = c.post(reverse("lot_cutting", args=[lot.pk]), {
-        "action": "bundles", "entry": entry.pk, sz["S"]: "10", sz["M"]: "12 5", sz["L"]: "9, 11", sz["XL"]: "10"})
-    page = r.content.decode()
-    assert r.status_code == 200 and "Size M: the bundles add up to 17 pieces but 20 are to be bundled (3 short)" in page
-    assert not lot.bundles.exists() and 'value="12 5"' in page and 'value="9, 11"' in page    # what was typed comes back
-    r = c.post(reverse("lot_cutting", args=[lot.pk]), {
-        "action": "bundles", "entry": entry.pk, sz["S"]: "10", sz["M"]: "12 x", sz["L"]: "9 11", sz["XL"]: "10"})
-    assert r.status_code == 200 and not lot.bundles.exists()
-    r = c.post(reverse("lot_cutting", args=[lot.pk]), {
-        "action": "bundles", "entry": entry.pk, sz["S"]: "10", sz["M"]: "12 5 3", sz["L"]: "9, 11", sz["XL"]: "4 6"})
-    assert r.status_code == 302 and [b.qty for b in lot.bundles.order_by("bundle_no")] == [10, 12, 5, 3, 9, 11, 4, 6]
+    rolls = {f"used_{ns.roll_a.pk}": "24", f"waste_{ns.roll_a.pk}": "1", f"remnant_{ns.roll_a.pk}": "5"}
+    page = c.get(url).content.decode()
+    assert "Pieces in each bundle" in page and "Lost in cutting" not in page and 'name="pieces_' not in page
+    r = c.post(url, {"date": "2026-06-16", sz["S"]: "10", sz["M"]: "12 x", **rolls})
+    assert r.status_code == 200 and not lot.cuttings.exists() and 'value="12 x"' in r.content.decode()    # what was typed comes back
+    r = c.post(url, {"date": "2026-06-16", **rolls})
+    assert r.status_code == 200 and "Enter the pieces in each bundle received" in r.content.decode() and not lot.cuttings.exists()
+    r = c.post(url, {"date": "2026-06-16", sz["S"]: "10", sz["M"]: "12 5 3", sz["L"]: "9, 11", sz["XL"]: "4 6", **rolls})
+    assert r.status_code == 302 and r.url == reverse("lot_tags", args=[lot.pk])                           # straight on to the tags
+    entry = lot.cuttings.get()
+    assert entry.bundled and entry.expected_pieces == 62 and entry.variance_pct == D("-3.23") and not entry.over_tolerance   # 25 kg burnt, 60 cut
+    assert {cs.size.code: (cs.pieces, cs.loss) for cs in entry.sizes.all()} == {"S": (10, 0), "M": (20, 0), "L": (20, 0), "XL": (10, 0)}
+    assert [b.qty for b in lot.bundles.order_by("bundle_no")] == [10, 12, 5, 3, 9, 11, 4, 6]
     tags = c.get(reverse("lot_tags", args=[lot.pk]))
     html = tags.content.decode()
     first = lot.bundles.first()
@@ -99,7 +95,7 @@ def test_variance_beyond_tolerance_is_shown_to_the_cutting_master(company, facto
     c = login(master)
     c.post(reverse("lot_fabric", args=[ns.lot.pk]), {f"qty_{ns.roll_a.pk}": "60", "estimated_pieces": "150"})
     r = c.post(reverse("lot_cutting", args=[ns.lot.pk]), {
-        f"pieces_{ns.sizes['M'].pk}": "100", f"used_{ns.roll_a.pk}": "50", f"waste_{ns.roll_a.pk}": "5", f"remnant_{ns.roll_a.pk}": "5"}, follow=True)
+        f"bundles_{ns.sizes['M'].pk}": "50 50", f"used_{ns.roll_a.pk}": "50", f"waste_{ns.roll_a.pk}": "5", f"remnant_{ns.roll_a.pk}": "5"}, follow=True)
     assert b"beyond the 5" in r.content and ns.lot.cuttings.get().over_tolerance
 
 
@@ -115,6 +111,7 @@ def test_move_screen_lists_bundles_and_moves_them_with_counts(company, factory, 
     c = login(sup)
     page = c.get(reverse("move_bundles"), {"lot": ns.lot.pk}).content.decode()
     assert bundles[0].qr_token in page and "Scan a bundle QR" in page
+    assert page.count("data-select-all") == 1 and "js/scan.js" in page       # one box in the heading ticks every bundle
     move = {"lot": ns.lot.pk, "bundle": [bundles[0].pk, bundles[1].pk], "to_step": step(ns, "STITCH").pk,
             f"loss_{bundles[1].pk}": "1", f"rejection_{bundles[1].pk}": "2"}
     ask = c.post(reverse("move_bundles"), move)                 # the style's list has a zipper a piece at stitching
@@ -142,7 +139,7 @@ def test_challan_receipt_qc_and_bill_through_the_screens(company, factory, owner
     sup = user_with("sup", "Production Supervisor", factory)
     c = login(sup)
     form = c.get(reverse("challan_new"), {"lot": ns.lot.pk, "step": step(ns, "STITCH").pk}).content.decode()
-    assert bundles[0].bundle_no in form and "Scan bundle QR" in form
+    assert bundles[0].bundle_no in form and "Scan bundle QR" in form and form.count("data-select-all") == 1
     r = c.post(reverse("challan_new"), {"lot": ns.lot.pk, "step": step(ns, "STITCH").pk, "kind": "issue", "factory": factory.pk,
                                         "party": fab.pk, "date": "2026-06-16", "bundle": [bundles[0].pk, bundles[1].pk]})
     ch = JobWorkChallan.objects.get()
@@ -154,6 +151,7 @@ def test_challan_receipt_qc_and_bill_through_the_screens(company, factory, owner
     assert ch.number in pr and "JOB WORK CHALLAN" in pr and "Zipper" in pr and "<svg" in pr
 
     cbs = list(ch.bundles.order_by("id"))
+    assert c.get(reverse("receipt_new", args=[ch.pk])).content.decode().count("data-select-all") == 1
     r = c.post(reverse("receipt_new", args=[ch.pk]), {
         "date": "2026-06-20", f"use_{cbs[0].pk}": "on", f"count_{cbs[0].pk}": "17", f"use_{cbs[1].pk}": "on", f"count_{cbs[1].pk}": "25",
         f"returned_{ch.trims.get().pk}": "", f"missing_{ch.trims.get().pk}": ""})
@@ -331,30 +329,21 @@ def test_the_dashboard_lists_orders_waiting_for_release_and_releases_them_there(
 
 # ---------------- pieces expected from fabric, loss in cutting, no-loss stages ----------------
 
-def test_fabric_and_cutting_screens_show_expected_pieces_and_take_cutting_loss(company, factory, owner):
+def test_fabric_and_cutting_screens_show_expected_pieces_and_ask_for_no_loss(company, factory, owner):
     ns = build(company, factory, owner)
     c = login(user_with("cutter", "Cutting Master", factory))
     assert "Pieces you expect from this fabric" in c.get(reverse("lot_fabric", args=[ns.lot.pk])).content.decode()
     c.post(reverse("lot_fabric", args=[ns.lot.pk]), {f"qty_{ns.roll_a.pk}": "30", "estimated_pieces": "75"})
     page = c.get(reverse("lot_fabric", args=[ns.lot.pk])).content.decode()
     assert "Your estimate so far" in page and ">75<" in page and "25 pieces short of the plan" in page
-    c.post(reverse("lot_cutting", args=[ns.lot.pk]), {
-        f"pieces_{ns.sizes['M'].pk}": "70", f"used_{ns.roll_a.pk}": "28", f"remnant_{ns.roll_a.pk}": "2"})
-    entry = ns.lot.cuttings.get()
-    assert "should give 70 pieces" in c.get(reverse("lot_cutting", args=[ns.lot.pk])).content.decode()   # 28 kg at 2.5 a kg
-    bad = c.post(reverse("lot_cutting", args=[ns.lot.pk]), {
-        "action": "bundles", "entry": entry.pk, f"bundles_{ns.sizes['M'].pk}": "25 25 17", f"loss_{ns.sizes['M'].pk}": "71"})
-    assert bad.status_code == 200 and b"cannot be more than" in bad.content and not ns.lot.bundles.exists()
-    bad = c.post(reverse("lot_cutting", args=[ns.lot.pk]), {     # 70 bundled with 3 lost: the lost pieces are not there
-        "action": "bundles", "entry": entry.pk, f"bundles_{ns.sizes['M'].pk}": "25 25 20", f"loss_{ns.sizes['M'].pk}": "3"})
-    assert bad.status_code == 200 and b"(3 too many)" in bad.content and not ns.lot.bundles.exists()
-    assert not entry.sizes.filter(loss__gt=0).exists()           # a refused try saves nothing
     r = c.post(reverse("lot_cutting", args=[ns.lot.pk]), {
-        "action": "bundles", "entry": entry.pk, f"bundles_{ns.sizes['M'].pk}": "25 25 17", f"loss_{ns.sizes['M'].pk}": "3"}, follow=True)
-    assert b"3 pieces lost in cutting left out" in r.content
-    assert sorted(b.qty for b in ns.lot.bundles.all()) == [17, 25, 25]
+        f"bundles_{ns.sizes['M'].pk}": "25 25 17", f"used_{ns.roll_a.pk}": "28", f"remnant_{ns.roll_a.pk}": "2"}, follow=True)
+    assert b"Cutting 1 recorded: 67 pieces in 3 bundle(s)." in r.content and b"Against the estimate of 70 pieces: -4.29%" in r.content
+    page = c.get(reverse("lot_cutting", args=[ns.lot.pk])).content.decode()
+    assert "should give 70 pieces" in page and "cut 67" in page and "Lost in cutting" not in page          # 28 kg at 2.5 a kg
+    assert sorted(b.qty for b in ns.lot.bundles.all()) == [17, 25, 25]                                    # what was received is what was cut
     page = login(owner).get(reverse("lot_detail", args=[ns.lot.pk])).content.decode()
-    assert "Estimated from fabric" in page and "Lost in cutting" in page
+    assert "Estimated from fabric" in page and "Lost in cutting" not in page
 
 
 def test_the_move_screen_takes_no_loss_at_a_no_loss_stage(company, factory, owner):
@@ -509,3 +498,60 @@ def test_the_move_screen_can_take_out_loss_without_moving(company, factory, owne
     b = Bundle.objects.get(pk=bundles[1].pk)
     assert b"2 piece(s) taken out of 1 bundle(s). Nothing was moved." in ok.content
     assert b.qty == 23 and b.status == "cut" and b.current_step is None
+
+
+def test_stock_is_shown_and_filtered_as_raw_semi_finished_and_finished(company, factory, owner):
+    from production.services import bundles as bundle_service
+
+    ns = build(company, factory, owner)
+    routes.reassign_step(step(ns, "STITCH"), user=owner, reason="In-house", assignment="in_house", rate=D("10"))
+    for code in ("EMB", "PRINT", "WASH"):
+        routes.skip_step(step(ns, code), user=owner, reason="Not needed")
+    bundles = cut(ns)                                   # S 17, M 25 + 8, L 25 + 8, XL 17
+    for code in ("STITCH", "IRON", "FINISH", "QC", "PACK"):
+        bundle_service.move_bundles(bundles=bundles[:1], to_step=step(ns, code), user=owner, date=DAY)
+    bundle_service.pack_bundles(bundles=bundles[:1], user=owner, date=DAY)      # the S bundle is finished goods
+    c = login(owner)
+    url = reverse("stock_enquiry")
+
+    def shown(kind):
+        html = c.get(url, {"kind": kind}).content.decode()
+        return {name for name in ("Fleece", "Zipper", "Cutting Floor", "Dispatch") if name in html.split("<tbody>")[1]}, html
+
+    everything, html = shown("")
+    assert everything == {"Fleece", "Zipper", "Cutting Floor", "Dispatch"}
+    assert "Raw material</span>" in html and "Semi-finished</span>" in html and "Finished goods</span>" in html
+    assert shown("raw")[0] == {"Fleece", "Zipper"}
+    semi, html = shown("semi")
+    assert semi == {"Cutting Floor"} and html.count("Semi-finished</span>") == 3 and "in the lot" in html    # M, L, XL still cut
+    done, html = shown("finished")
+    assert done == {"Dispatch"} and html.count("Finished goods</span>") == 1
+    assert shown("material")[0] == {"Fleece", "Zipper"} and shown("sku")[0] == {"Dispatch"}                  # older links
+    assert "Nothing matches" in c.get(url, {"kind": "finished", "q": "nothing-like-this"}).content.decode()
+
+
+def test_the_cutting_form_is_put_away_once_the_plan_is_cut(company, factory, owner):
+    ns = build(company, factory, owner)                 # 100 planned: S 17, M 33, L 33, XL 17
+    c, url = login(owner), reverse("lot_cutting", args=[ns.lot.pk])
+    c.post(reverse("lot_fabric", args=[ns.lot.pk]), {"date": "2026-06-15", f"qty_{ns.roll_a.pk}": "90"})
+    page = c.get(url).content.decode()
+    assert "<h2>Record cutting</h2>" in page and "Cutting is complete" not in page
+
+    def record(s, m, l, xl, used):
+        return c.post(url, {"date": "2026-06-15", f"bundles_{ns.sizes['S'].pk}": s, f"bundles_{ns.sizes['M'].pk}": m,
+                            f"bundles_{ns.sizes['L'].pk}": l, f"bundles_{ns.sizes['XL'].pk}": xl, f"used_{ns.roll_a.pk}": used})
+
+    record("17", "33", "", "", "20")
+    page = c.get(url).content.decode()                  # 50 of 100: more is still to be cut
+    assert "<h2>Record cutting</h2>" in page and "50 of the 100 planned pieces are cut so far" in page and "<h2>Cutting 1 " in page
+    record("", "", "33", "17", "20")
+    page = c.get(url).content.decode()                  # 100 of 100: the form is put away
+    assert "Cutting is complete" in page and "100 pieces are cut against the 100 planned" in page
+    assert "<h2>Record cutting</h2>" not in page and "Record another cutting" in page
+    assert "<h2>Cutting 2 " in page and "<h2>Cutting 1 " in page                      # what is recorded stays in view
+    page = c.get(url, {"more": "1"}).content.decode()
+    assert "<h2>Record cutting</h2>" in page and "Cutting is complete" not in page
+    bad = c.post(url, {"date": "2026-06-15", f"bundles_{ns.sizes['S'].pk}": "5"})      # no roll given: the form stays open
+    assert bad.status_code == 200 and "<h2>Record cutting</h2>" in bad.content.decode() and 'placeholder="25 25 22 18" value="5"' in bad.content.decode()
+    record("5", "", "", "", "2")
+    assert ns.lot.cuttings.count() == 3 and "105 pieces are cut against the 100 planned" in c.get(url).content.decode()

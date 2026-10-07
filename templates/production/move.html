@@ -11,7 +11,7 @@
     <h2>{{ lot.style.style_no }} · {{ lot.colour }} <span class="muted" style="font-weight:400">{{ lot.lot_no }}</span></h2>
     <div class="field" style="max-width:420px"><label for="scan">Scan a bundle QR (or type its number) and press Enter</label><input id="scan" type="text" autocomplete="off" autofocus placeholder="Scan here"></div>
     <div class="table-wrap"><table>
-      <thead><tr><th scope="col"></th><th scope="col">Bundle</th><th scope="col">Size</th><th scope="col" class="num">Pieces</th><th scope="col">Now at</th><th scope="col">Next stage</th><th scope="col" class="num">Loss</th><th scope="col" class="num">Rejected</th><th scope="col" class="num">Short</th></tr></thead>
+      <thead><tr><th scope="col">{% if bundles %}<input type="checkbox" data-select-all aria-label="Select all bundles" title="Select all">{% endif %}</th><th scope="col">Bundle</th><th scope="col">Size</th><th scope="col" class="num">Pieces</th><th scope="col">Now at</th><th scope="col">Next stage</th><th scope="col" class="num">Loss</th><th scope="col" class="num">Rejected</th><th scope="col" class="num">Short</th></tr></thead>
       <tbody>{% for b in bundles %}<tr data-scan="{{ b.scan }}" data-token="{{ b.qr_token }}" data-no="{{ b.bundle_no }}">
         <td><input type="checkbox" name="bundle" value="{{ b.pk }}" aria-label="Move {{ b.bundle_no }}"></td><td><strong>{{ b.bundle_no }}</strong></td><td>{{ b.sku.size.code }}</td><td class="num">{{ b.qty }}</td>
         <td>{{ b.current_step.process.name|default:"Cut" }} · {{ b.location.name }}</td><td>{{ b.next_label|default:"—" }}</td>

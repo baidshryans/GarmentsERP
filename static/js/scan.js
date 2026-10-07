@@ -6,6 +6,26 @@
     text = (text || "").trim();
     return text.indexOf("GE1:") === 0 ? text.slice(4) : text;
   }
+  /* The tick box in the table heading ticks or clears every row, and follows the rows when they are ticked one by one. */
+  var all = document.querySelector("input[data-select-all]");
+  function rowChecks() {
+    return Array.prototype.slice.call(document.querySelectorAll("tr[data-token] input[type=checkbox]"));
+  }
+  function syncAll() {
+    if (!all) { return; }
+    var checks = rowChecks();
+    var ticked = checks.filter(function (c) { return c.checked; }).length;
+    all.checked = checks.length > 0 && ticked === checks.length;
+    all.indeterminate = ticked > 0 && ticked < checks.length;
+  }
+  if (all) {
+    all.addEventListener("change", function () {
+      rowChecks().forEach(function (c) { c.checked = all.checked; });
+      all.indeterminate = false;
+    });
+    rowChecks().forEach(function (c) { c.addEventListener("change", syncAll); });
+    syncAll();
+  }
   box.addEventListener("keydown", function (e) {
     if (e.key !== "Enter") { return; }
     e.preventDefault();
@@ -18,7 +38,7 @@
     });
     if (found) {
       var check = found.querySelector("input[type=checkbox]");
-      if (check) { check.checked = true; }
+      if (check) { check.checked = true; syncAll(); }
       found.style.outline = "2px solid var(--color-primary)";
       found.scrollIntoView({ block: "nearest" });
     } else {

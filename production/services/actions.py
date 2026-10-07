@@ -10,6 +10,7 @@ reason. A step can be undone only while nothing later depends on it: if a row it
 later step is named and must be undone first. "Edit" is undo, then the same form again with the old figures.
 """
 import contextvars
+import datetime
 import functools
 import json
 
@@ -52,9 +53,19 @@ SCREEN = {
 _current = contextvars.ContextVar("production_action_recorder", default=None)
 
 
+class _Exact(DjangoJSONEncoder):
+    """Times in full. Django's encoder cuts them to milliseconds, so a row put back from a snapshot would differ
+    from the snapshot taken before it (and a later undo would see a row "changed since")."""
+
+    def default(self, o):
+        if isinstance(o, (datetime.datetime, datetime.time)):
+            return o.isoformat()
+        return super().default(o)
+
+
 def snapshot(obj) -> dict:
     """A row's stored fields as plain JSON values."""
-    return json.loads(json.dumps({f.attname: getattr(obj, f.attname) for f in obj._meta.concrete_fields}, cls=DjangoJSONEncoder))
+    return json.loads(json.dumps({f.attname: getattr(obj, f.attname) for f in obj._meta.concrete_fields}, cls=_Exact))
 
 
 class _Recorder:
@@ -158,7 +169,7 @@ def _why_changed(action, item, now):
     if item.model == "jobwork.qcresult" and now.get("bill_line_id"):
         return f"{item.label or 'The QC result'} is on a labour bill. Cancel the bill first."
     if item.model == "production.cuttingentry" and now.get("bundled"):
-        return f"Bundles have been made from {item.label or 'this lay'} and have moved on. Undo their later steps and the bundles first."
+        return f"Bundles have been made from {item.label or 'this cutting'} and have moved on. Undo their later steps and the bundles first."
     if item.model == "production.bundle" and now.get("status") == "dispatched":
         return f"Bundle {item.label} has been dispatched."
     return f"{item.label or item.model} has been changed since this step was recorded."
@@ -338,10 +349,20 @@ def _after(action, label):
     return [i.after for i in action.items.filter(model=label, role=Role.CREATED).order_by("id") if i.after]
 
 
-def form_values(action) -> dict:
-    """What was entered for a step, under the names its form uses, so that "Edit" can show the form filled in."""
+def _bundles_typed(action) -> dict:
+    """The bundles a step made, as they are typed: {"bundles_<size>": "25 25 22"}."""
     from masters.models import SKU
 
+    made = _after(action, "production.bundle")
+    size_of = dict(SKU.objects.filter(pk__in={b["sku_id"] for b in made}).values_list("pk", "size_id"))
+    per_size = {}
+    for b in made:
+        per_size.setdefault(size_of.get(b["sku_id"]), []).append(str(b["original_qty"]))
+    return {f"bundles_{size}": " ".join(counts) for size, counts in per_size.items()}
+
+
+def form_values(action) -> dict:
+    """What was entered for a step, under the names its form uses, so that "Edit" can show the form filled in."""
     vals = {}
     if action.kind == Kind.FABRIC:
         for issue in _after(action, "production.fabricissue"):
@@ -353,13 +374,9 @@ def form_values(action) -> dict:
         vals.update({f"pieces_{s['size_id']}": s["pieces"] for s in _after(action, "production.cuttingsize")})
         for r in _after(action, "production.cuttingrolluse"):
             vals.update({f"used_{r['roll_id']}": r["used_qty"], f"waste_{r['roll_id']}": r["waste_qty"], f"remnant_{r['roll_id']}": r["remnant_qty"]})
+        vals.update(_bundles_typed(action))               # a cutting recorded from its bundles
     elif action.kind == Kind.BUNDLES:
-        made = _after(action, "production.bundle")
-        size_of = dict(SKU.objects.filter(pk__in={b["sku_id"] for b in made}).values_list("pk", "size_id"))
-        per_size = {}
-        for b in made:
-            per_size.setdefault(size_of.get(b["sku_id"]), []).append(str(b["original_qty"]))
-        vals.update({f"bundles_{size}": " ".join(counts) for size, counts in per_size.items()})
+        vals.update(_bundles_typed(action))
         for i in action.items.filter(model="production.cuttingsize", role=Role.CHANGED):
             vals[f"loss_{i.after['size_id']}"] = i.after["loss"] or ""
         vals["entry"] = str(action.doc_id or "")

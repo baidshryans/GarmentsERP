@@ -22,7 +22,7 @@
     {% more "notes" open=notes_open %}<div class="field"><label for="remarks">Notes</label><input id="remarks" name="remarks" type="text" value="{{ d.remarks }}"></div>{% endmore %}
     <div class="field" style="max-width:420px"><label for="scan">Scan bundle QR codes here</label><input id="scan" type="text" autocomplete="off" placeholder="Scan and press Enter"></div>
     <div class="table-wrap"><table>
-      <thead><tr><th scope="col"></th><th scope="col">Bundle</th><th scope="col">Size</th><th scope="col" class="num">Pieces</th><th scope="col">Now at</th></tr></thead>
+      <thead><tr><th scope="col">{% if bundles %}<input type="checkbox" data-select-all aria-label="Select all bundles" title="Select all">{% endif %}</th><th scope="col">Bundle</th><th scope="col">Size</th><th scope="col" class="num">Pieces</th><th scope="col">Now at</th></tr></thead>
       <tbody>{% for b in bundles %}<tr data-token="{{ b.qr_token }}" data-no="{{ b.bundle_no }}"><td><input type="checkbox" name="bundle" value="{{ b.pk }}"{% if b.picked %} checked{% endif %} aria-label="Issue {{ b.bundle_no }}"></td><td><strong>{{ b.bundle_no }}</strong></td><td>{{ b.sku.size.code }}</td><td class="num">{% if kind == "rework" %}{{ b.rework_qty }}{% else %}{{ b.qty }}{% endif %}</td><td>{{ b.current_step.process.name|default:"Cut" }} · {{ b.location.name }}</td></tr>
       {% empty %}<tr><td colspan="5" class="muted">{% if kind == "rework" %}No bundles are waiting for rework at this step.{% else %}No bundles can be issued to this step right now.{% endif %}</td></tr>{% endfor %}</tbody>
     </table></div>

@@ -406,6 +406,11 @@ class FabricIssueView(LoginRequiredMixin, ScreenPermissionMixin, View):
         return redirect("lot_cutting", pk=pk)
 
 
+def _typed_bundles(p, size) -> list:
+    """The pieces of each bundle typed for a size ("25 25, 22"), as whole numbers."""
+    return [vu.whole(n, f"Bundles of {size.code}") for n in p.get(f"bundles_{size.pk}", "").replace(",", " ").split()]
+
+
 class CuttingView(LoginRequiredMixin, ScreenPermissionMixin, View):
     screen_code = "production.cutting"
 
@@ -418,8 +423,9 @@ class CuttingView(LoginRequiredMixin, ScreenPermissionMixin, View):
         rolls = list(rolls)
         for rb in rolls:
             rb.typed_used, rb.typed_waste, rb.typed_remnant = (vals.get(f"{n}_{rb.roll_id}", "") for n in ("used", "waste", "remnant"))
+        new_cutting = not vals.get("entry")      # the values are for the form on top, not for an older cutting below
         for s in sizes:
-            s.typed = vals.get(f"pieces_{s.pk}", "")
+            s.typed = vals.get(f"bundles_{s.pk}", "") if new_cutting else ""
         _mark_steps(request.user, entries, ProductionAction.Kind.CUTTING, "cut_step")
         _mark_steps(request.user, entries, ProductionAction.Kind.BUNDLES, "bundles_step")
         for e in entries:
@@ -429,8 +435,15 @@ class CuttingView(LoginRequiredMixin, ScreenPermissionMixin, View):
             if vals and str(e.pk) == vals.get("entry"):     # a refused try: give back what was typed
                 for cs in e.sizes.all():
                     cs.typed_bundles, cs.typed_loss = vals.get(f"bundles_{cs.size_id}", ""), vals.get(f"loss_{cs.size_id}", "")
+        planned = {s.size_id: s.qty for s in lot.order_line.sizes.all()}
+        planned_total, cut_so_far = sum(planned.values()), sum(e.cut_total for e in entries)
+        # the plan is cut: the form is put away until the user says there is more to cut (or is correcting an entry)
+        enough = bool(entries) and planned_total > 0 and cut_so_far >= planned_total
+        asked = request.GET.get("more") == "1" or (new_cutting and any(k.startswith("bundles_") for k in vals))
+        for s in sizes:
+            s.planned = planned.get(s.pk)
         return {"lot": lot, "rolls": rolls, "sizes": sizes, "vals": vals, "entries": entries,
-                "planned": {s.size_id: s.qty for s in lot.order_line.sizes.all()},
+                "planned": planned, "planned_total": planned_total, "cut_so_far": cut_so_far, "show_form": not enough or asked,
                 "can_create": request.user.has_screen_perm("production.cutting", "create"),
                 "perms_lot": request.user.has_screen_perm("production.lot", "view")}
 
@@ -448,20 +461,12 @@ class CuttingView(LoginRequiredMixin, ScreenPermissionMixin, View):
         try:
             if p.get("action") == "bundles":
                 entry = get_object_or_404(CuttingEntry, pk=p.get("entry"), lot=lot)
-                loss = {cs.size: vu.whole(p.get(f"loss_{cs.size_id}"), f"Lost pieces of {cs.size.code}", 0)
-                        for cs in entry.sizes.select_related("size")}
-                counted = {cs.size: [vu.whole(n, f"Bundles of {cs.size.code}") for n in p.get(f"bundles_{cs.size_id}", "").replace(",", " ").split()]
-                           for cs in entry.sizes.select_related("size")}
-                made = cutting.create_bundles(entry, bundles=counted, user=request.user, loss=loss)
-                lost = sum(loss.values())
-                messages.success(request, f"{len(made)} bundles made" + (f" ({lost} pieces lost in cutting left out)" if lost else "")
-                                 + ". Print their QR tags now.")
+                # a cutting recorded earlier without its bundles
+                counted = {cs.size: _typed_bundles(p, cs.size) for cs in entry.sizes.select_related("size")}
+                made = cutting.create_bundles(entry, bundles=counted, user=request.user)
+                messages.success(request, f"{len(made)} bundles made. Print their QR tags now.")
                 return redirect("lot_tags", pk=pk)
-            pieces = {}
-            for size in lot.style.style_sizes.select_related("size"):
-                n = p.get(f"pieces_{size.size_id}", "").strip()
-                if n:
-                    pieces[size.size] = vu.whole(n, f"Pieces of {size.size.code}")
+            counted = {ss.size: _typed_bundles(p, ss.size) for ss in lot.style.style_sizes.select_related("size")}
             rolls = []
             for key in p:
                 if key.startswith("used_"):
@@ -469,16 +474,18 @@ class CuttingView(LoginRequiredMixin, ScreenPermissionMixin, View):
                     used, waste, rem = (vu.dec(p.get(f"{n}_{rid}"), n, Decimal("0")) for n in ("used", "waste", "remnant"))
                     if used or waste or rem:
                         rolls.append(cutting.RollUseSpec(get_object_or_404(FabricRoll, pk=rid), used, waste, rem))
-            entry = cutting.record_cutting(lot=lot, pieces=pieces, rolls=rolls, user=request.user,
-                                           date=vu.day(p.get("date"), default=timezone.localdate()), notes=p.get("notes", ""))
+            entry = cutting.receive_cutting(lot=lot, bundles=counted, rolls=rolls, user=request.user,
+                                            date=vu.day(p.get("date"), default=timezone.localdate()), notes=p.get("notes", ""))
         except (ValueError, BusinessRuleError) as exc:
             vu.report(request, exc)
             return render(request, "production/cutting.html", self._ctx(request, lot, p))
         if entry.over_tolerance:
             messages.warning(request, f"Pieces cut are {entry.variance_pct}% against the estimate ({entry.expected_pieces} expected from the fabric burnt): beyond the {lot.company.bom_tolerance_pct}% tolerance (BR-10).")
-        else:
-            messages.success(request, f"Lay {entry.lay_no} recorded." + (f" Against the estimate of {entry.expected_pieces} pieces: {entry.variance_pct}%." if entry.variance_pct is not None else ""))
-        return redirect("lot_cutting", pk=pk)
+        made = entry.bundles.count()
+        messages.success(request, f"Cutting {entry.lay_no} recorded: {sum(cs.pieces for cs in entry.sizes.all())} pieces in {made} bundle(s)."
+                         + (f" Against the estimate of {entry.expected_pieces} pieces: {entry.variance_pct}%." if entry.variance_pct is not None and not entry.over_tolerance else "")
+                         + " Print their QR tags now.")
+        return redirect("lot_tags", pk=pk)
 
 
 # ================================================================ QR tags (E7.5)

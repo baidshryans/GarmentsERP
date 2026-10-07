@@ -4,12 +4,23 @@
 {% block content %}
   <div class="page-head"><h1 class="page-title">Cutting</h1><span class="muted">{{ lot.lot_no }} · {{ lot.style.style_no }} {{ lot.colour }}</span>
     <div class="actions"><a class="btn" href="{% url 'lot_fabric' lot.pk %}">Issue fabric</a>{% if perms_lot %}<a class="btn" href="{% url 'lot_detail' lot.pk %}">Back to lot</a>{% endif %}</div></div>
-  {% if can_create %}
-  <form method="post" class="island" novalidate>{% csrf_token %}
-    <h2>Record cutting</h2>
+  {% if can_create and not show_form %}
+  <div class="island"><h2>Cutting is complete</h2>
+    <p>{{ cut_so_far }} pieces are cut against the {{ planned_total }} planned for this lot.</p>
+    <p class="muted">Nothing more needs cutting. If you are cutting extra pieces for this lot, add another cutting.</p>
+    <div class="form-actions"><a class="btn" href="?more=1">Record another cutting</a></div></div>
+  {% elif can_create %}
+  <form method="post" action="{% url 'lot_cutting' lot.pk %}" class="island" novalidate>{% csrf_token %}
+    <h2>Record cutting</h2>{% if cut_so_far %}<p class="muted">{{ cut_so_far }} of the {{ planned_total }} planned pieces are cut so far.</p>{% endif %}
     <div class="field" style="max-width:220px"><label for="date">Date</label><input id="date" name="date" type="date" value="{{ vals.date|default:today }}"></div>
-    <div class="label">Pieces cut per size</div>
-    <div class="field-row">{% for s in sizes %}<div class="field"><label for="p{{ s.pk }}">{{ s.code }}{% if planned %}<span class="muted"> (planned {% for k, v in planned.items %}{% if k == s.pk %}{{ v }}{% endif %}{% endfor %})</span>{% endif %}</label><input id="p{{ s.pk }}" type="text" inputmode="numeric" name="pieces_{{ s.pk }}" value="{{ s.typed }}"></div>{% endfor %}</div>
+    <div class="label">Bundles received from cutting</div>
+    <div class="table-wrap"><table>
+      <thead><tr><th scope="col">Size</th><th scope="col" class="num">Planned</th><th scope="col">Pieces in each bundle</th><th scope="col" class="num">Bundles</th><th scope="col" class="num">Pieces</th></tr></thead>
+      <tbody>{% for s in sizes %}<tr data-bundle-row><td><strong>{{ s.code }}</strong></td><td class="num">{{ s.planned|default_if_none:"" }}</td>
+        <td><input aria-label="Pieces in each bundle, {{ s.code }}" data-bundle-list name="bundles_{{ s.pk }}" type="text" inputmode="numeric" autocomplete="off" placeholder="25 25 22 18" value="{{ s.typed }}" style="width:100%;min-width:220px"></td>
+        <td class="num" data-bundle-count></td><td class="num" data-bundle-tally></td></tr>{% endfor %}</tbody>
+    </table></div>
+    <p class="muted">Type the pieces of every bundle as it came from the cutting floor, with a space between them: 25 25 22 18 makes four bundles of that size. The pieces cut are what the bundles hold; leave a size empty if none came.</p>
     <div class="label">Fabric on the cutting floor</div>
     {% if rolls %}<div class="table-wrap"><table>
       <thead><tr><th scope="col">Roll</th><th scope="col">Fabric</th><th scope="col" class="num">On the floor</th><th scope="col" class="num">Used</th><th scope="col" class="num">Waste</th><th scope="col" class="num">Remnant returned</th></tr></thead>
@@ -17,12 +28,12 @@
         <td class="num"><input type="text" inputmode="decimal" name="used_{{ rb.roll_id }}" value="{{ rb.typed_used }}"></td><td class="num"><input type="text" inputmode="decimal" name="waste_{{ rb.roll_id }}" value="{{ rb.typed_waste }}"></td><td class="num"><input type="text" inputmode="decimal" name="remnant_{{ rb.roll_id }}" value="{{ rb.typed_remnant }}"></td></tr>{% endfor %}</tbody>
     </table></div><p class="muted">What you used, wasted and returned should add up to what was issued. Used and waste become the lot's fabric cost; the remnant goes back to the store.</p>
     <div class="field" style="margin-top:12px"><label for="notes">Notes</label><input id="notes" name="notes" type="text" value="{{ vals.notes }}"></div>
-    <div class="form-actions"><button class="btn primary">Record cutting</button></div>
+    <div class="form-actions"><button class="btn primary">Record cutting and make QR tags</button></div>
     {% else %}<div class="empty"><div class="hand">No fabric on the cutting floor</div><p><a href="{% url 'lot_fabric' lot.pk %}">Issue fabric</a> first.</p></div>{% endif %}
   </form>{% endif %}
   {% for e in entries %}
-  <div class="island"><h2>Lay {{ e.lay_no }} <span class="muted" style="font-weight:400">{{ e.date|date:"d M Y" }}</span></h2>
-    {% if e.cut_step and not e.bundled %}<p><a class="btn" href="{% url 'step_undo' e.cut_step.pk %}?edit=1">Edit this lay</a> <a class="btn ghost" href="{% url 'step_undo' e.cut_step.pk %}">Undo this lay</a></p>{% endif %}
+  <div class="island"><h2>Cutting {{ e.lay_no }} <span class="muted" style="font-weight:400">{{ e.date|date:"d M Y" }}</span></h2>
+    {% if e.cut_step and not e.bundles_step %}<p><a class="btn" href="{% url 'step_undo' e.cut_step.pk %}?edit=1">Edit this cutting</a> <a class="btn ghost" href="{% url 'step_undo' e.cut_step.pk %}">Undo this cutting</a></p>{% endif %}
     <p>{% for s in e.sizes.all %}<span class="pill">{{ s.size.code }}: {{ s.pieces }}{% if s.loss %} − {{ s.loss }} lost{% endif %}</span> {% endfor %}</p>
     <p class="muted">{% if e.expected_pieces is not None %}By your estimate the fabric burnt should give {{ e.expected_pieces }} pieces · {% endif %}cut {{ e.cut_total }}{% if e.loss_total %} · lost in cutting {{ e.loss_total }} · to bundle {{ e.good_total }}{% endif %}</p>
     <p class="muted">{% for r in e.rolls.all %}{{ r.roll.label_code }}: used {{ r.used_qty|floatformat:"-3" }}, waste {{ r.waste_qty|floatformat:"-3" }}, remnant {{ r.remnant_qty|floatformat:"-3" }}{% if not forloop.last %}; {% endif %}{% endfor %}</p>
@@ -30,14 +41,13 @@
     {% if not e.bundled and can_create %}<form method="post" novalidate>{% csrf_token %}<input type="hidden" name="action" value="bundles"><input type="hidden" name="entry" value="{{ e.pk }}">
       <div class="label">Bundles received from cutting</div>
       <div class="table-wrap"><table>
-        <thead><tr><th scope="col">Size</th><th scope="col" class="num">Cut</th><th scope="col" class="num">Lost in cutting</th><th scope="col">Pieces in each bundle</th><th scope="col" class="num">Bundles</th><th scope="col" class="num">Pieces</th></tr></thead>
-        <tbody>{% for s in e.sizes.all %}<tr data-bundle-row data-cut="{{ s.pieces }}"><td><strong>{{ s.size.code }}</strong></td><td class="num">{{ s.pieces }}</td>
-          <td class="num"><input aria-label="Lost in cutting, {{ s.size.code }}" data-bundle-loss name="loss_{{ s.size_id }}" type="text" inputmode="numeric" value="{% if s.typed_loss is not None %}{{ s.typed_loss }}{% else %}{{ s.loss|default:"" }}{% endif %}" style="width:90px"></td>
+        <thead><tr><th scope="col">Size</th><th scope="col" class="num">Cut</th><th scope="col">Pieces in each bundle</th><th scope="col" class="num">Bundles</th><th scope="col" class="num">Pieces</th></tr></thead>
+        <tbody>{% for s in e.sizes.all %}<tr data-bundle-row data-cut="{{ s.good }}"><td><strong>{{ s.size.code }}</strong></td><td class="num">{{ s.good }}</td>
           <td><input aria-label="Pieces in each bundle, {{ s.size.code }}" data-bundle-list name="bundles_{{ s.size_id }}" type="text" inputmode="numeric" autocomplete="off" placeholder="25 25 22 18" value="{{ s.typed_bundles|default:"" }}" style="width:100%;min-width:220px"></td>
           <td class="num" data-bundle-count></td><td class="num" data-bundle-tally></td></tr>{% endfor %}</tbody>
       </table></div>
-      <p class="muted">Type the pieces of every bundle as it came from the cutting floor, with a space between them: 25 25 22 18 makes four bundles. The bundles of a size must add up to the pieces cut, less any lost in cutting.</p>
-      <div class="form-actions"><button class="btn primary">Make bundles and QR tags</button></div></form>{% elif e.bundled %}<p class="muted">Bundles made.{% if e.bundles_step %} Wrong pieces cut or wrong bundles? <a href="{% url 'step_undo' e.bundles_step.pk %}?edit=1">Edit the bundles</a> or <a href="{% url 'step_undo' e.bundles_step.pk %}">undo them</a>; the lay itself can be edited once its bundles are undone.{% endif %}</p>{% endif %}
+      <p class="muted">Type the pieces of every bundle as it came from the cutting floor, with a space between them: 25 25 22 18 makes four bundles. The bundles of a size must add up to the pieces cut.</p>
+      <div class="form-actions"><button class="btn primary">Make bundles and QR tags</button></div></form>{% elif e.bundled %}{% if e.bundles_step %}<p class="muted">Bundles made. Wrong pieces or wrong bundles? <a href="{% url 'step_undo' e.bundles_step.pk %}?edit=1">Edit the bundles</a> or <a href="{% url 'step_undo' e.bundles_step.pk %}">undo them</a>; the cutting itself can be edited once its bundles are undone.</p>{% endif %}{% endif %}
   </div>{% endfor %}
   <script src="{% static 'js/bundle_tally.js' %}?v={{ asset_v }}" defer></script>
 {% endblock %}

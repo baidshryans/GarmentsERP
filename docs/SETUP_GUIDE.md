@@ -822,7 +822,7 @@ Run one small lot through the whole system. This is the same flow as BRD scenari
 2. **Create a production order** for `JGR-104`, Black, 20 pieces each of M and L, and release it. Route B is copied into the lot.
 3. **Plan the route.** On the lot page open **Route and rates** and check each step; assign stitching to Gurpreet Garments and embroidery to Royal Embroidery.
 4. **Issue fabric** by roll (the lot's Next button), with the pieces you expect from it. The roll balance reduces.
-5. **Cut.** Enter pieces per size, fabric used and waste. Compare the pieces cut with the estimate you gave when issuing the fabric. Make bundles by entering the pieces in each bundle as it came from cutting, then print the tags.
+5. **Cut.** Enter the pieces in each bundle received from cutting, with the fabric used and waste. Saving makes the bundles; print the tags. Compare the pieces cut with the estimate you gave when issuing the fabric.
 6. **Issue a challan** to the embroiderer with the bundles; print it. On route B embroidery is a mandatory step, so it is the Next button (Send to … for Embroidery). On a route where embroidery is optional, such as the seeded route A, it is not the Next button: it appears as the smaller link "Send to … for Embroidery (optional)" under **Also waiting**.
 7. **Receive** the work back (Next: Receive from …; enter a small shortage to see how it is handled), then **QC** (Next: Check received pieces): accept most, reject one.
 8. **Move** accepted bundles through the next steps to Packing. Try moving one bundle backwards to see that a reason is required.
@@ -898,7 +898,7 @@ Part A prepared the masters. This part follows one lot from the production order
 | --- | --- | --- |
 | 1 | Make → Production orders → New order → **Release order** (or **Release** in the list) | Order numbered; one **lot** per style and colour, each with its own copy of the route |
 | 2 | Lot → Next button **Issue fabric** | Rolls move from godown to cutting floor |
-| 3 | Lot → Next button **Record cutting**, then **Make bundles** (continues to the tags) | Fabric cost goes into the lot; pieces become **bundles** with QR tags, less any pieces lost in cutting |
+| 3 | Lot → Next button **Record cutting**: the pieces in each bundle received, and the fabric used (continues to the tags) | Fabric cost goes into the lot; the pieces received become **bundles** with QR tags |
 | 4 | Lot → Next button **Move to …** (in-house step) or **Send to … for …** (fabricator step) | Bundle moves to the next step on the route |
 | 5 | Lot → Next button **Receive from …**, then **Check received pieces** | Accepted pieces become ready for the next step; pieces for rework become a bundle of their own and go back |
 | 6 | Repeat 4–5 down the route | |
@@ -1066,41 +1066,40 @@ Rules: quantity must be above zero and cannot exceed the roll's balance; only fa
 
 **Your estimate.** The page shows **Planned pieces**, **Fabric with the lot** and, once an issue carries an estimate, **Your estimate so far**. If the estimate is fewer than planned it says how many pieces short, so you can issue more before cutting. Each issue in "Issued so far" shows its own "estimated N pieces". Estimates of several issues add up. Fabric you send back as a remnant is taken out of the estimate in proportion, so you are judged only on the fabric you kept. The system never works the pieces out from kg per piece: the figure is yours.
 
-### 22.2 Record the cutting
+### 22.2 Record the cutting from the bundles received
 
 Lot page → Next button **Record cutting** (or **Cutting** in the Corrections row) → *Record cutting*.
+
+You record what you receive from the cutting floor. Bundles come with different numbers of pieces, so each one is entered as it is, and the pieces cut are simply what the bundles hold. There is no separate "pieces cut" figure to type and no "lost in cutting": a piece spoiled on the table is never counted.
 
 | Field | Example |
 | --- | --- |
 | Date | 06-10-2026 |
-| Pieces cut per size (planned shown beside each) | S 50, M 100, L 100, XL 50 |
+| Pieces in each bundle, for every size (planned shown beside each) | S `25 25`, M `25 25 22 18`, L `30 28 24`, XL `20 20 10` |
 | Per roll: Used | OLD-001: 24.000 |
 | Per roll: Waste | 0.500 |
 | Per roll: Remnant returned | 0.000 |
-| Notes | Lay 1, black fleece |
+| Notes | First cutting, black fleece |
 
-Press **Record cutting**.
+In **Pieces in each bundle**, type the pieces of every bundle of that size with a space (or a comma) between them: `25 25 22 18` makes four bundles of 25, 25, 22 and 18 pieces. As you type, the row shows the number of bundles and the pieces they hold. Leave a size empty if none came.
+
+Press **Record cutting and make QR tags**. The cutting is saved, the bundles are made, and you go straight on to the tags.
 
 - Used and waste become the lot's fabric cost. Remnant goes back to the godown.
 - You cannot use more than the roll holds on the cutting floor.
-- **Pieces cut against your estimate.** Under each lay: "By your estimate the fabric burnt should give N pieces · cut N" and "Pieces cut against the estimate: N%". Example: you expected 150 pieces from 60 kg, the lay burnt 43 kg (used plus waste), so it should give 107; you cut 100, which is −6.54%. Beyond the tolerance set in Inventory settings (default 5%), over or under, you get a warning. It does not block you. With no estimate on the fabric issue there is no comparison.
-- The lot page shows **Planned**, **Estimated from fabric** and **Cut** side by side.
-- If the cutting step has a **rate** and is in-house, that rate times the pieces cut is added to the lot's cost as in-house labour.
-
-Each lay is numbered 1, 2, … You can record several lays for one lot.
-
-### 22.3 Make bundles and print tags
-
-Bundles come from the cutting floor with different numbers of pieces, so you record each one as it is. Under the lay, **Bundles received from cutting** has one row per size. In **Pieces in each bundle**, type the pieces of every bundle of that size with a space (or a comma) between them: `25 25 22 18` makes four bundles of 25, 25, 22 and 18 pieces. If pieces were lost or spoiled in cutting, enter them in **Lost in cutting** on the same row. Then press **Make bundles and QR tags**. After you save you go straight on to the tags.
-
-- As you type, the row shows the number of bundles and the pieces against what is to be bundled, for example "90 of 90", or "55 of 60" with **5 short**.
-- The bundles of a size must add up exactly to the pieces cut of that size, less the pieces lost in cutting. If they do not, nothing is saved and the message names the size and the gap. Correct a bundle, or enter the missing pieces as lost in cutting if they really are lost.
-- Pieces lost in cutting are left out of the bundles, and can be no more than the pieces cut of that size. Their fabric stays in the lot's cost, and the cutting rate is still paid on every piece cut. The lot page shows **Lost in cutting**.
 - A bundle holds one size. Bundles are numbered B001, B002, … across the lot, in the order you typed them within each size, and each tag prints its own number of pieces.
-- One lay can be bundled only once. To change the bundles, or the pieces cut, use **Edit the bundles** on the lay (section 24, *Correct a mistake*).
 - Pieces now sit on the cutting floor with status **Cut**.
+- **Pieces cut against your estimate.** Under each cutting: "By your estimate the fabric burnt should give N pieces · cut N" and "Pieces cut against the estimate: N%". Example: you expected 150 pieces from 60 kg, the cutting burnt 43 kg (used plus waste), so it should give 107; you received 100, which is −6.54%. Beyond the tolerance set in Inventory settings (default 5%), over or under, you get a warning. It does not block anything. This is where cutting wastage shows: fabric burnt against pieces received.
+- The lot page shows **Planned**, **Estimated from fabric** and **Cut** side by side.
+- If the cutting step has a **rate** and is in-house, that rate times the pieces received is added to the lot's cost as in-house labour.
 
-Lot page → **Print tags** (also shown after making bundles): choose **A4 sheet**, **Thermal 4 x 2 in** or **Thermal 2 x 1 in** and press Print, or download the **ZPL** file for a Zebra-type printer. Each tag shows the QR, style, colour and size, quantity, bundle number and lot number. Attach a tag to every bundle. All later work is done by scanning it.
+Each cutting you record is numbered: Cutting 1, Cutting 2, … A lot can be cut in more than one go. Once the pieces cut reach the pieces planned for the lot, the Record cutting form is put away and the page says so; press **Record another cutting** if you really are cutting more.
+
+To change a cutting (its bundles, its pieces or its fabric), use **Edit this cutting** on it (section 24, *Correct a mistake*): the cutting and its bundles are one step, so one Edit takes back both and opens the form with everything you typed.
+
+### 22.3 Print tags
+
+Lot page → **Print tags** (also shown after recording a cutting): choose **A4 sheet**, **Thermal 4 x 2 in** or **Thermal 2 x 1 in** and press Print, or download the **ZPL** file for a Zebra-type printer. Each tag shows the QR, style, colour and size, quantity, bundle number and lot number. Attach a tag to every bundle. All later work is done by scanning it.
 
 ---
 
@@ -1120,7 +1119,7 @@ Bundle statuses you will see: Cut → At stage → Received, awaiting QC → Rea
 *Make → Move bundles*, or the lot's Next button **Move to …**.
 
 1. Choose the **Lot** and press **Show bundles**.
-2. **Scan** each bundle's QR (or type its number) in the scan box and press Enter. Scanning only ticks the row; everything is checked when you save.
+2. **Scan** each bundle's QR (or type its number) in the scan box and press Enter. Scanning only ticks the row; everything is checked when you save. To take every bundle on the list, tick the box in the table heading (**Select all**); tick it again to clear them all.
 3. For any bundle with pieces that did not arrive, fill **Loss**, **Rejected** or **Short** on its row.
 4. Pick **Move to stage** (shown as "5. Ironing and pressing — in-house"). When you came from the lot's Next button, the stage it named is already chosen. The **Next stage** column on each row names where that bundle goes next: the next mandatory step after where the bundle actually is, the same step the lot's Next button names. A bundle sitting at Stitching shows the step after Stitching, and optional steps are passed over. Only when no mandatory step is left does it show the next optional step. Two cases cannot be moved from this screen, and the column says so: **With fabricator** for a bundle that is out on a challan (receive it first, 23.3), and the stage name followed by **(by challan)** when the next stage is done by a fabricator (issue a challan, 23.2).
 5. **At factory**: leave as "Stage default", or choose another factory to send the goods there (inter-factory move).
@@ -1147,7 +1146,7 @@ What the system checks:
 
 1. Choose the **Lot** and the **Step**, then **Show bundles**. The form is for normal job work, so it does not ask the kind. **Kind** (Job work, or Rework for pieces sent back) is under **More options**, and the lot's **Send back for rework** link opens the form with Rework already chosen. For Rework the step starts on the one the first waiting bundle came back from.
 2. Choose the **Fabricator**, Date and **Expected by**. The fabricator starts on "Choose…" unless the step already has one; without one the form is refused with "Choose the fabricator." and your ticks are kept. **Notes** are under More options.
-3. Scan or tick the bundles to send. Only eligible bundles not already on an open challan are listed. For Kind = Rework, only the bundles waiting for rework **at the chosen step** are listed.
+3. Scan or tick the bundles to send, or tick the box in the table heading to select them all. Only eligible bundles not already on an open challan are listed. For Kind = Rework, only the bundles waiting for rework **at the chosen step** are listed.
 4. Press **Save and issue** to save the challan and hand the bundles over in one step. It opens the issued challan, ready to **Print**. If issuing fails, nothing is saved and the form comes back with your bundles still ticked. Or press **Save** to keep a Draft, where you can change the materials going with the bundles, and issue later. Save and issue sends the materials exactly as the list fills them in. Save and issue shows only if your role may issue challans.
 
 **Rework goes back on its own step.** A bundle sent back by QC waits at the step of the challan it came back on, and a rework challan can only be made for that step. If you pick another step the system refuses with "Bundle … is waiting for rework at …, not …". The lot's **Send back for rework** link opens the form on the right step.
@@ -1192,7 +1191,7 @@ Lot page or challan page → Next button **Receive from …**, Home → **Receiv
 | Counted, per bundle | the pieces actually counted, with the tick box |
 | Trims: Returned / Missing | 0 / 10 |
 
-Press **Receive**. Scanning the bundle tags ticks the rows.
+Press **Receive**. Scanning the bundle tags ticks the rows, and the box in the table heading ticks them all.
 
 - Counted **less than** issued records a **shortage**. It is valued at lot cost and recoverable on the labour bill.
 - Counted **more than** issued is an **over-receipt**. Nothing moves, and the receipt waits for the owner. The owner opens the receipt and presses **Approve over-receipt**. Until then QC is blocked.
@@ -1232,7 +1231,7 @@ What is payable follows the challan's **Pay on**: the accepted pieces, or every 
 
 | Step | What the user does | Bundle status after |
 | --- | --- | --- |
-| 1 Cutting | Issue fabric, record the lay, make bundles, print tags | Cut |
+| 1 Cutting | Issue fabric, record the cutting, make bundles, print tags | Cut |
 | 2 Embroidery (Royal Embroidery) | Send to fabricator for all bundles, issue, print. Later: Receive, then QC (say 296 accepted, 4 rejected) | Ready for next stage |
 | 3 Stitching (Gurpreet Garments) | Send to fabricator, issue. Later: Receive, then QC | Ready for next stage |
 | 4 Ironing (in-house) | Move bundles to "Ironing and pressing"; enter Loss on a row if a piece was damaged | At stage |
@@ -1270,14 +1269,23 @@ The lot becomes **Completed** when none of its bundles is still live; packed, wr
 - **Make → Production dashboard:** Cut today, Stitched today, Packed today; work in progress by stage and by factory; pieces with fabricators; late lots (past the due date); oldest open lots.
 - **Home → Items in production** lists each open lot with its **Next step**.
 - The **Where is it?** box searches by order number, style number, lot number or order reference and lists each bundle with size, pieces, current stage, location and status.
+- **Stock → Stock** lists everything on hand with a **Type** on each line, and the **Type** filter shows one kind at a time:
+
+  | Type | What it is |
+  | --- | --- |
+  | **Raw material** | Fabric, accessories and packing material |
+  | **Semi-finished goods** | Pieces still being made: on the cutting floor, at a process, with a fabricator, or rejected. Only the quantity is shown; their value is in the lot's cost |
+  | **Finished goods** | Packed pieces ready to sell |
+
+  You can combine it with the search box and the Location filter.
 
 ### Correct a mistake: Edit or Undo a step
 
-Every step you record for a lot is listed on the lot page under **Steps recorded**, newest first: fabric issued, cutting recorded, bundles made, bundles moved, pieces taken out, bundle split, sent to fabricator, received from fabricator, over-receipt approved, QC recorded and packed. Each one has two buttons.
+Every step you record for a lot is listed on the lot page under **Steps recorded**, newest first: fabric issued, cutting recorded (with its bundles), bundles moved, pieces taken out, bundle split, sent to fabricator, received from fabricator, over-receipt approved, QC recorded and packed. Each one has two buttons.
 
 | Button | What it does |
 | --- | --- |
-| **Edit** | Takes the step back and opens its form again. Fabric issue, cutting and bundles open with the figures you entered, so you change only what was wrong and save. The other forms open empty |
+| **Edit** | Takes the step back and opens its form again. Fabric issue and cutting open with the figures you entered, so you change only what was wrong and save. The other forms open empty |
 | **Undo** | Takes the step back and leaves it at that |
 
 Both ask for a **Reason** and a **Date of the reversal** (today unless you choose another; never before the step itself, and never in a locked period).
@@ -1293,8 +1301,8 @@ What happens when a step is taken back:
 
 | You want to correct | Do this |
 | --- | --- |
-| The pieces cut, after bundles were made | Undo (or Edit) the **bundles** of that lay, then **Edit** the lay. Enter the right pieces, then make the bundles again; they are numbered afresh, so print new tags |
-| The pieces cut, after bundles have moved on | Undo the move (and anything after it) for those bundles, then the bundles, then edit the lay |
+| The pieces cut or the bundles of a cutting | **Edit** the cutting. The form opens with the bundles and fabric you typed; correct them and save. The bundles are made again and numbered afresh, so print new tags |
+| A cutting whose bundles have moved on | Undo the move (and anything after it) for those bundles, then edit the cutting |
 | A fabric issue | Undo the cutting that used the fabric first |
 | A challan | Undo its receipts first. A challan that was saved as a draft and then issued goes back to a draft; one saved and issued in one go is cancelled |
 | A receipt | Undo its QC first |
@@ -1303,9 +1311,9 @@ What happens when a step is taken back:
 
 Bundles that went different ways are independent: undoing the move of one bundle does not need the others to come back.
 
-The same list, for that document only, is at the bottom of the challan page and the receipt page. The cutting page has **Edit this lay** and **Edit the bundles** on each lay, and the fabric page has Edit and Undo beside each issue.
+The same list, for that document only, is at the bottom of the challan page and the receipt page. The cutting page has **Edit this cutting** and **Undo this cutting** on each cutting, and the fabric page has Edit and Undo beside each issue.
 
-**Who can do it:** whoever may record a step may take it back, in their own factory. A cutting master can undo cutting and bundles; a supervisor who records moves can undo moves.
+**Who can do it:** whoever may record a step may take it back, in their own factory. A cutting master can undo fabric issues and cuttings; a supervisor who records moves can undo moves.
 
 ---
 
@@ -1624,8 +1632,8 @@ A supplier bill posts what you owe the supplier (reference = their bill number, 
 | Receipt shows "Over-receipt, needs approval" | Counted more than issued | Owner approves, or recount |
 | Nothing payable on a labour bill | No checked, unpaid pieces | Complete QC first |
 | "… allows no loss" | The bundle is at a step marked no loss allowed | Move it with no count. If pieces really are lost, untick **No loss allowed** on the process |
-| "the pieces lost cannot be more than the N cut" | Lost in cutting is above the pieces cut of that size | Correct the figure |
-| "the bundles add up to N pieces but M are to be bundled" | The pieces typed for the bundles of that size do not equal the pieces cut less those lost in cutting | Correct the pieces of a bundle, or enter the missing pieces in **Lost in cutting** |
+| "Enter the pieces in each bundle received" | Record cutting was pressed with no bundles typed | Type the pieces of each bundle for at least one size |
+| "the bundles add up to N pieces but M are to be bundled" | Only for a cutting recorded before bundles were entered with it: the bundles typed do not equal its pieces cut | Correct the pieces of a bundle |
 | "These bundles first went out on different pay terms" | One rework challan mixes bundles paid on accepted and on received pieces | Make a separate rework challan for each |
 | "Pick a single factory in the top bar before entering a voucher" | Voucher entry needs one factory | Switch factory in the top bar |
 | "No rate found; enter one" | No customer rate, price list or last invoice rate | Add a price list rate (section 12) or type the rate |

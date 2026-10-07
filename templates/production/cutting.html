@@ -5,7 +5,7 @@
     <div class="actions"><a class="btn" href="{% url 'lot_fabric' lot.pk %}">Issue fabric</a>{% if perms_lot %}<a class="btn" href="{% url 'lot_detail' lot.pk %}">Back to lot</a>{% endif %}</div></div>
   {% if can_create %}
   <form method="post" class="island" novalidate>{% csrf_token %}
-    <h2>Record a lay</h2>
+    <h2>Record cutting</h2>
     <div class="field" style="max-width:220px"><label for="date">Date</label><input id="date" name="date" type="date" value="{{ vals.date|default:today }}"></div>
     <div class="label">Pieces cut per size</div>
     <div class="field-row">{% for s in sizes %}<div class="field"><label for="p{{ s.pk }}">{{ s.code }}{% if planned %}<span class="muted"> (planned {% for k, v in planned.items %}{% if k == s.pk %}{{ v }}{% endif %}{% endfor %})</span>{% endif %}</label><input id="p{{ s.pk }}" type="text" inputmode="numeric" name="pieces_{{ s.pk }}"></div>{% endfor %}</div>
@@ -26,7 +26,7 @@
     <p class="muted">{% for r in e.rolls.all %}{{ r.roll.label_code }}: used {{ r.used_qty|floatformat:"-3" }}, waste {{ r.waste_qty|floatformat:"-3" }}, remnant {{ r.remnant_qty|floatformat:"-3" }}{% if not forloop.last %}; {% endif %}{% endfor %}</p>
     {% if e.variance_pct is not None %}<p>Pieces cut against the estimate: <span class="pill {% if e.over_tolerance %}danger{% else %}success{% endif %}">{{ e.variance_pct }}%</span></p>{% endif %}
     {% if not e.bundled and can_create %}<form method="post" class="field-row" style="align-items:end">{% csrf_token %}<input type="hidden" name="action" value="bundles"><input type="hidden" name="entry" value="{{ e.pk }}">
-      <div class="field"><label for="bs{{ e.pk }}">Pieces per bundle</label><input id="bs{{ e.pk }}" name="bundle_size" type="text" inputmode="numeric" value="25"></div>
+      <div class="field"><label for="bs{{ e.pk }}">Pieces per bundle</label><input id="bs{{ e.pk }}" name="bundle_size" type="text" inputmode="numeric" value="{{ e.bundle_size }}"></div>
       {% for s in e.sizes.all %}<div class="field"><label for="ls{{ e.pk }}_{{ s.size_id }}">Lost in cutting, {{ s.size.code }}</label><input id="ls{{ e.pk }}_{{ s.size_id }}" name="loss_{{ s.size_id }}" type="text" inputmode="numeric" value="{{ s.loss|default:"" }}" style="width:110px"></div>{% endfor %}
       <div class="field"><button class="btn primary">Make bundles and QR tags</button></div></form>{% elif e.bundled %}<p class="muted">Bundles made.</p>{% endif %}
   </div>{% endfor %}

@@ -774,7 +774,7 @@ def test_a_split_does_not_inflate_the_pieces_cut_or_clash_with_new_bundle_number
     cutting.issue_fabric(lot=ns.lot, lines=[(ns.roll_b, D("10"))], user=owner, date=DAY)
     entry = cutting.record_cutting(lot=ns.lot, user=owner, date=DAY, pieces={ns.sizes["M"]: 20},
                                    rolls=[cutting.RollUseSpec(ns.roll_b, used=D("8"), remnant=D("2"))])
-    (new,) = cutting.create_bundles(entry, bundle_size=25, user=owner)
+    (new,) = cutting.create_bundles(entry, bundle_size=20, user=owner)
     assert new.bundle_no == "B007"                                          # six bundles were cut before: the split is not counted
     assert lot_guide.lot_guide(ns.lot, owner) is not None
 

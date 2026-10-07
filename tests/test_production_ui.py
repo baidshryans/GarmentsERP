@@ -59,7 +59,10 @@ def test_order_cutting_and_qr_tags_through_the_screens(company, factory, owner):
     assert r.status_code == 302
     entry = lot.cuttings.get()
     assert entry.expected_pieces == 62 and entry.variance_pct == D("-3.23") and not entry.over_tolerance   # 25 kg burnt, 60 cut
-    r = c.post(reverse("lot_cutting", args=[lot.pk]), {"action": "bundles", "entry": entry.pk, "bundle_size": "25"})
+    r = c.post(reverse("lot_cutting", args=[lot.pk]), {"action": "bundles", "entry": entry.pk, "bundle_size": "25"}, follow=True)
+    assert "largest size has 20 pieces" in r.content.decode() and not lot.bundles.exists()   # 25 is more than any size cut
+    assert 'name="bundle_size" type="text" inputmode="numeric" value="20"' in r.content.decode()   # the form offers what fits
+    r = c.post(reverse("lot_cutting", args=[lot.pk]), {"action": "bundles", "entry": entry.pk, "bundle_size": "20"})
     assert r.status_code == 302 and lot.bundles.count() == 4
     tags = c.get(reverse("lot_tags", args=[lot.pk]))
     html = tags.content.decode()

@@ -220,6 +220,11 @@ def create_bundles(entry, *, bundle_size, user, loss=None) -> list:
         for cs in sizes:
             cs.loss = loss.get(cs.size, 0)
             cs.save(update_fields=["loss"])
+    most = max((cs.good for cs in sizes), default=0)
+    if most and bundle_size > most:   # a bundle holds one size, so it can never be bigger than the largest size cut
+        raise BusinessRuleError(
+            f"A bundle of {bundle_size} is more than the pieces cut: the largest size has {most} pieces to bundle. "
+            f"Enter {most} or fewer per bundle.")
     seq = lot.bundles.filter(split_from__isnull=True).count()     # a split bundle is numbered after its first
     made = []
     for cs in sizes:

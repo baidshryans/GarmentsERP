@@ -1068,7 +1068,7 @@ Rules: quantity must be above zero and cannot exceed the roll's balance; only fa
 
 ### 22.2 Record the cutting
 
-Lot page → Next button **Record cutting** (or **Cutting** in the Corrections row) → *Record a lay*.
+Lot page → Next button **Record cutting** (or **Cutting** in the Corrections row) → *Record cutting*.
 
 | Field | Example |
 | --- | --- |
@@ -1091,7 +1091,7 @@ Each lay is numbered 1, 2, … You can record several lays for one lot.
 
 ### 22.3 Make bundles and print tags
 
-Under the lay, enter **Pieces per bundle** (for example 20). If pieces were lost or spoiled in cutting, enter them per size in **Lost in cutting**. Then press **Make bundles and QR tags**. After you save you go straight on to the tags.
+Under the lay, enter **Pieces per bundle** (for example 20). If pieces were lost or spoiled in cutting, enter them per size in **Lost in cutting**. Then press **Make bundles and QR tags**. A bundle holds one size, so pieces per bundle cannot be more than the pieces left to bundle in the largest size (after loss); a smaller size just gets one short bundle. After you save you go straight on to the tags.
 
 - Pieces lost in cutting are left out of the bundles, and can be no more than the pieces cut of that size. Their fabric stays in the lot's cost, and the cutting rate is still paid on every piece cut. The lot page shows **Lost in cutting**.
 - Bundles are made per size. The last bundle of a size may be smaller. They are numbered B001, B002, … across the lot.

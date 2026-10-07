@@ -410,6 +410,7 @@ class CuttingView(LoginRequiredMixin, ScreenPermissionMixin, View):
             e.cut_total = sum(cs.pieces for cs in e.sizes.all())
             e.loss_total = sum(cs.loss for cs in e.sizes.all())
             e.good_total = e.cut_total - e.loss_total
+            e.bundle_size = min(25, max((cs.good for cs in e.sizes.all()), default=25) or 25)   # never more than the largest size
         return {"lot": lot, "rolls": rolls, "sizes": sizes, "vals": vals or {}, "entries": entries,
                 "planned": {s.size_id: s.qty for s in lot.order_line.sizes.all()},
                 "can_create": request.user.has_screen_perm("production.cutting", "create"),

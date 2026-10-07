@@ -242,6 +242,24 @@ def test_bundles_are_made_per_size_with_unique_qr_tokens(company, factory, owner
         cutting.create_bundles(ns.entry, bundle_size=10, user=owner)
 
 
+def test_a_bundle_cannot_be_bigger_than_the_pieces_cut(company, factory, owner):
+    ns = build(company, factory, owner)
+    cutting.issue_fabric(lot=ns.lot, lines=[(ns.roll_a, D("60"))], user=owner, date=DAY)
+    entry = cutting.record_cutting(
+        lot=ns.lot, user=owner, date=DAY, pieces={ns.sizes["S"]: 17, ns.sizes["M"]: 33},
+        rolls=[cutting.RollUseSpec(ns.roll_a, used=D("41"), waste=D("2"), remnant=D("17"))])
+    with pytest.raises(BusinessRuleError, match="largest size has 33 pieces"):
+        cutting.create_bundles(entry, bundle_size=34, user=owner)
+    # pieces lost in cutting are not there to bundle, so they bring the limit down; a refused try saves nothing
+    with pytest.raises(BusinessRuleError, match="largest size has 30 pieces"):
+        cutting.create_bundles(entry, bundle_size=33, user=owner, loss={ns.sizes["M"]: 3})
+    entry.refresh_from_db()
+    assert not entry.bundled and not ns.lot.bundles.exists() and not entry.sizes.filter(loss__gt=0).exists()
+    # the largest size sets the limit; a smaller size simply gets one short bundle
+    made = cutting.create_bundles(entry, bundle_size=33, user=owner)
+    assert sorted(b.qty for b in made) == [17, 33]
+
+
 # ---------------- stage moves (E7.6, E7.7, BR-21, BR-22) ----------------
 
 def all_in_house(ns, stitch_rate="10"):

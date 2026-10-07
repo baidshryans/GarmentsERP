@@ -230,3 +230,40 @@ def test_masters_lists_show_edit_and_delete_as_icons(company, owner, client_for)
         page = c.get(reverse(name)).content.decode()
         assert ">Edit<" not in page and ">Delete<" not in page, name           # text links are gone
     assert "#i-edit" in c.get(reverse("unit_list")).content.decode()
+
+
+# ---------------- deleting a style: its own SKUs go with it, anything that uses it blocks it ----------------
+
+def test_a_style_is_deleted_with_its_own_skus(company, owner, client_for):
+    c = client_for(owner)
+    s = _style(company, "DEL-1", colours=("Black", "Navy"), sizes=("M", "L"))
+    assert SKU.objects.filter(style=s).count() == 4
+    r = c.post(reverse("style_delete", args=[s.pk]), follow=True)
+    assert "deleted" in r.content.decode()
+    assert not Style.objects.filter(style_no="DEL-1").exists() and not SKU.objects.filter(style_id=s.pk).exists()
+
+
+def test_a_style_whose_sku_is_in_use_is_not_deleted_and_keeps_every_sku(company, factory, owner, client_for):
+    from core.models import Location
+    from inventory.models import StockBalance
+
+    c = client_for(owner)
+    s = _style(company, "DEL-2", colours=("Black", "Navy"), sizes=("M", "L"))
+    loc = Location.objects.filter(factory=factory).first() or Location.objects.create(factory=factory, name="Test Godown")
+    StockBalance.objects.create(factory=factory, location=loc, sku=s.skus.first())   # a zero balance: once stocked, now empty
+    r = c.post(reverse("style_delete", args=[s.pk]), follow=True)
+    assert "cannot be deleted" in r.content.decode() and "Archive it instead" in r.content.decode()
+    assert Style.objects.filter(pk=s.pk).exists() and SKU.objects.filter(style=s).count() == 4   # all rolled back
+
+
+def test_a_style_with_a_price_rate_is_not_deleted(company, owner, client_for):
+    import datetime
+
+    from masters.models import PriceListRate
+
+    c = client_for(owner)
+    s = _style(company, "DEL-3")
+    pl = PriceList.objects.first() or PriceList.objects.create(name="Test list")
+    PriceListRate.objects.create(price_list=pl, style=s, rate=Decimal("100"), effective_from=datetime.date(2026, 10, 1))
+    c.post(reverse("style_delete", args=[s.pk]))
+    assert Style.objects.filter(pk=s.pk).exists() and SKU.objects.filter(style=s).count() == 1

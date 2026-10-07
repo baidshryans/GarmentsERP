@@ -607,7 +607,7 @@ More example styles:
 | `SET-401` | Tracksuit, zipper jacket | Tracksuit | 6112 | Navy, Black | M–XXL | 1,299 |
 | `JGR-105K` | Kids jogger | Jogger | 6104 | Black, Navy | 4-6Y, 6-8Y, 8-10Y | 449 |
 
-Discontinued styles are **archived**, not deleted, and stay searchable with full history.
+Discontinued styles are **archived**, not deleted, and stay searchable with full history. A style entered by mistake can be deleted with the bin icon: its own SKUs, colours, sizes and BOM go with it. Once the style or any of its SKUs has stock, an order, a lot, an invoice or a price against it, it cannot be deleted; archive it instead.
 
 ### 10.2 BOM (materials by process)
 

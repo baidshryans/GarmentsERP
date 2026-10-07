@@ -586,6 +586,9 @@ class StyleDelete(ObjectDelete):
     def get_object(self, request, pk):
         return get_object_or_404(Style, pk=pk)
 
+    def perform_delete(self, obj):
+        styles.delete_style(obj)
+
 
 class PartyDelete(ObjectDelete):
     screen_code, success_url_name, noun = "masters.party", "party_list", "party"

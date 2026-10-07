@@ -32,6 +32,10 @@ class ObjectDelete(LoginRequiredMixin, ScreenPermissionMixin, View):
         """Return a sentence if this record may never be deleted, else None."""
         return None
 
+    def perform_delete(self, obj):
+        """Delete the record. Override to go through a service that also removes what the record owns."""
+        obj.delete()
+
     def _back(self, obj):
         return redirect(self.success_url_name, *self.success_url_args(obj))
 
@@ -52,7 +56,7 @@ class ObjectDelete(LoginRequiredMixin, ScreenPermissionMixin, View):
         back = self._back(obj)
         try:
             with transaction.atomic():
-                obj.delete()
+                self.perform_delete(obj)
         except (ProtectedError, RestrictedError):
             messages.error(request, f"'{name}' is used by other records, so it cannot be deleted. "
                                     "Mark it inactive instead; it then stops appearing in pick lists.")

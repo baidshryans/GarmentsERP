@@ -3,6 +3,7 @@ from io import BytesIO
 
 from django.core.files.base import ContentFile
 from django.db import transaction
+from django.db.models import ProtectedError, RestrictedError
 from PIL import Image
 
 from core.exceptions import BusinessRuleError
@@ -63,6 +64,22 @@ def create_style(*, company, style_no, product, name, colours, sizes, **extra) -
     if style.image:
         make_thumbnail(style)
     return style
+
+
+@transaction.atomic
+def delete_style(style):
+    """Delete a style together with its own SKUs, colours, sizes and BOM.
+
+    The SKUs belong to the style, so they do not stop it being deleted. What does stop it is anything that uses the
+    style or one of its SKUs: stock, orders, lots, invoices or price rates. Then nothing is deleted.
+    """
+    try:
+        style.skus.all().delete()
+        style.delete()
+    except (ProtectedError, RestrictedError):
+        raise BusinessRuleError(
+            f"'{style}' has stock, orders or prices against it, so it cannot be deleted. "
+            "Archive it instead; it then stops appearing in pick lists.")
 
 
 def make_thumbnail(style):

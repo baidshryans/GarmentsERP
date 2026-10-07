@@ -17,8 +17,10 @@ Open http://127.0.0.1:8000/ and sign in; the first-install setup wizard opens au
 ## Tests
 
 ```bash
-.venv/Scripts/python -m pytest
+.venv/Scripts/python -m pytest -n auto
 ```
+
+`-n auto` (pytest-xdist) runs the suite on every processor core: about 5 minutes instead of 27. Each worker has its own in-memory database. Leave it off when running one test file; starting the workers takes longer than the file.
 
 After every test the autouse fixture in `tests/conftest.py` checks that all vouchers balance and the trial balance tallies.
 

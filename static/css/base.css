@@ -615,15 +615,20 @@ td .ss, th .ss { max-width: 26rem; }
 .stat-row .island { margin-bottom: 0; }
 
 /* ---- lot journey and next step ---- */
-.journey { display: flex; flex-wrap: wrap; gap: var(--space-2); list-style: none; margin: 0 0 var(--space-4); padding: 0; }
-.journey li { flex: 1 1 110px; display: flex; flex-direction: column; gap: 2px; padding: var(--space-2) var(--space-3); border-radius: var(--radius); background: var(--color-primary-soft); color: var(--color-muted); border-top: 3px solid var(--color-hairline); }
-.journey li.done { color: var(--color-ink); border-top-color: var(--color-success); }
-.journey li.now { color: var(--color-ink); background: var(--color-primary-pale); border-top-color: var(--color-primary); }
+/* A row of arrows, each pointing into the next: --j-tip is the depth of the point, --j-lap how far an arrow tucks into the
+   one before it (the rest is the white gap between them). Done is pale violet with a tick, now is solid violet. */
+.journey { --j-tip: 14px; --j-lap: 11px; display: flex; flex-wrap: wrap; row-gap: var(--space-2); list-style: none; margin: 0 0 var(--space-4); padding: 0 0 0 var(--j-lap); }
+.journey li { flex: 1 1 120px; display: flex; flex-direction: column; justify-content: center; gap: 2px; min-height: 56px; margin-left: calc(-1 * var(--j-lap)); padding: var(--space-2) calc(var(--j-tip) + var(--space-1)) var(--space-2) calc(var(--j-tip) + var(--space-3)); background: var(--color-primary-soft); color: var(--color-muted); clip-path: polygon(0 0, calc(100% - var(--j-tip)) 0, 100% 50%, calc(100% - var(--j-tip)) 100%, 0 100%, var(--j-tip) 50%); }
+.journey li:first-child { padding-left: var(--space-3); clip-path: polygon(0 0, calc(100% - var(--j-tip)) 0, 100% 50%, calc(100% - var(--j-tip)) 100%, 0 100%); }
+.journey li.done { color: var(--color-ink); background: var(--color-primary-pale); }
+.journey li.done .j-label::before { content: "\2713\00a0"; color: var(--color-success); }
+.journey li.now { color: var(--color-on-primary); background: var(--color-primary); }
 .journey .j-label { font-weight: 600; }
 .journey .j-detail, .journey .j-pieces, .journey .j-tag { font-size: var(--text-label); font-variant-numeric: tabular-nums; }
 .journey .j-tag { color: var(--color-muted); }
-.journey li.now .j-tag { color: inherit; }   /* muted on the pale violet falls just short of AA in the dark theme */
-.journey.closed li { color: var(--color-muted); background: var(--color-primary-soft); border-top-color: var(--color-hairline); }
+.journey li.now .j-tag { color: inherit; }
+.journey.closed li { color: var(--color-muted); background: var(--color-primary-soft); }
+.journey.closed li .j-label::before { content: none; }
 .guide-next { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3); }
 .guide-next .btn { min-height: 44px; }
 .guide-also { margin: var(--space-2) 0 0; }

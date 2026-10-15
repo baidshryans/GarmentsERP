@@ -169,7 +169,7 @@ def _journey(challan, lines, receipts, finished):
         billed = status in (S.BILLED, S.CLOSED) or (finished and payable)   # every payable piece is paid
         stages = [
             stage("Draft", "done"),
-            stage("Issued", "done" if all_in else "now", sum(l.qty_issued for l in lines)),
+            stage("Issued", "done" if all_in else "now", sum(l.qty_issued for l in lines if not l.is_held)),
             stage("Received", "done" if all_in else ("now" if any_in else "todo"), sum(l.qty_received for l in lines)),
             stage("Checked", "done" if checked else ("now" if any_in else "todo"), accepted, "accepted" if accepted else ""),
             stage("Billed", "done" if billed else ("now" if payable and checked else ("now" if accepted else "todo"))),

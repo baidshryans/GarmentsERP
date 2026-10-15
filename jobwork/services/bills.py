@@ -81,7 +81,7 @@ def amount_for(result):
     cb = result.line.challan_bundle
     challan = cb.challan
     if challan.rate_type == "D" and challan.kind == "issue":
-        total_issued = sum(b.qty_issued for b in challan.bundles.all())
+        total_issued = sum(b.qty_issued for b in challan.bundles.all() if not b.is_held)
         return costing.r2(challan.flat_amount * min(result.pay_qty, cb.qty_issued) / total_issued), ZERO
     return costing.r2(result.rate * result.pay_qty), result.rate
 

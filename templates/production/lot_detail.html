@@ -14,7 +14,7 @@
     {% if bundles %}<div class="table-wrap"><table>
       <thead><tr><th scope="col">Bundle</th><th scope="col">Size</th><th scope="col" class="num">Pieces</th><th scope="col">Stage</th><th scope="col">Where</th><th scope="col">Status</th></tr></thead>
       <tbody>{% for b in bundles %}<tr><td>{{ b.bundle_no }}{% if b.split_from_id %} <span class="muted">from {{ b.split_from.bundle_no }}</span>{% if can_tags %} <a href="{% url 'lot_tags' lot.pk %}?bundle={{ b.pk }}">tag</a>{% endif %}{% endif %}</td><td>{{ b.sku.size.code }}</td><td class="num">{{ b.qty }}</td>
-        <td>{{ b.current_step.process.name|default:"Cut" }}{% if b.is_rework %} <span class="pill warning">Rework</span>{% endif %}</td><td>{{ b.location.name }}</td>
+        <td>{{ b.current_step.process.name|default:"Cut" }}{% if b.is_rework %} <span class="pill warning">Rework</span>{% endif %}{% if b.held_for_rework %} <span class="pill warning">Held for rework</span>{% endif %}</td><td>{{ b.location.name }}</td>
         <td><span class="pill">{{ b.get_status_display }}</span></td></tr>{% endfor %}</tbody>
     </table></div>
     {% if pack_ready and can_pack %}<form id="pack" method="post" action="{% url 'pack_bundles' lot.pk %}" style="margin-top:12px">{% csrf_token %}

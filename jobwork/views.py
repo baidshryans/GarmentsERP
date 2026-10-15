@@ -166,12 +166,13 @@ class ChallanDetail(LoginRequiredMixin, ScreenPermissionMixin, View):
         ch = self._ch(request, pk)
         guide = guide_service.challan_guide(ch, request.user)
         return render(request, "jobwork/challan_detail.html", {
-            "ch": ch, "lines": ch.bundles.select_related("bundle__sku__size", "bundle__sku__colour"), "trims": ch.trims.select_related("material"),
+            "ch": ch, "lines": ch.bundles.select_related("bundle__sku__size", "bundle__sku__colour", "held_from__bundle"), "trims": ch.trims.select_related("material"),
             "rows": material_rows({t.material: t.qty_issued for t in ch.trims.select_related("material__unit")}),
             "materials": material_choices(),
             "receipts": ch.receipts.all(), "can_edit": request.user.has_screen_perm("jobwork.challan", "edit"),
             "can_receive": any(a["kind"] == "receive" for a in [guide["primary"], *guide["others"]] if a),
-            "total_pieces": sum(l.qty_issued for l in ch.bundles.all()),
+            "total_pieces": sum(l.qty_issued for l in ch.bundles.all() if not l.is_held),
+            "held_pieces": sum(l.pending for l in ch.bundles.all() if l.is_held),
             "can_open_lot": request.user.has_screen_perm("production.lot", "view"),
             "guide": guide, "recorded": step_actions.for_docs(request.user, [ch, *ch.receipts.all()]),
         })
@@ -208,10 +209,10 @@ class ChallanPrint(LoginRequiredMixin, ScreenPermissionMixin, View):
         import segno
 
         qr = segno.make(f"JWC:{ch.number or ch.pk}", error="m").svg_inline(scale=3, border=1, dark="#000", light="#fff")
-        lines = list(ch.bundles.select_related("bundle__sku__size"))
+        lines = list(ch.bundles.select_related("bundle__sku__size", "held_from__bundle"))
         return render(request, "jobwork/challan_print.html", {
             "ch": ch, "lines": lines, "trims": ch.trims.select_related("material"), "qr": qr,
-            "total": sum(l.qty_issued for l in lines),
+            "total": sum(l.qty_issued for l in lines if not l.is_held),
         })
 
 
@@ -242,6 +243,8 @@ class ReceiptNew(LoginRequiredMixin, ScreenPermissionMixin, View):
                  if not (cb.qty_received or cb.qty_shortage) and cb.pk not in counted]
         for cb in lines:
             cb.scan = scan_text(cb.bundle)
+            cb.count_val = (d or {}).get(f"count_{cb.pk}", cb.qty_issued)    # what was typed comes back with the form
+            cb.held_val = (d or {}).get(f"held_{cb.pk}", "")
         locations = list(Location.objects.filter(factory=challan.factory, is_active=True).exclude(loc_type__in=("transit", "fabricator", "rejects")))
         # prefilled with the process area, as before; what the user chose comes back with the form
         usual = next((l for l in reversed(locations) if l.loc_type == "process"), locations[0] if locations else None)
@@ -264,7 +267,8 @@ class ReceiptNew(LoginRequiredMixin, ScreenPermissionMixin, View):
             counts = []
             for cb in ch.bundles.all():
                 if p.get(f"use_{cb.pk}"):
-                    counts.append(Counted(cb, vu.whole(p.get(f"count_{cb.pk}"), f"Pieces counted for {cb.bundle.bundle_no}")))
+                    counts.append(Counted(cb, vu.whole(p.get(f"count_{cb.pk}"), f"Pieces counted for {cb.bundle.bundle_no}"),
+                                          held=vu.whole(p.get(f"held_{cb.pk}"), f"Pieces held for rework in {cb.bundle.bundle_no}", 0)))
             trims = {}
             for t in ch.trims.all():
                 returned, missing = vu.dec(p.get(f"returned_{t.pk}"), "Returned", Decimal("0")), vu.dec(p.get(f"missing_{t.pk}"), "Missing", Decimal("0"))
@@ -296,7 +300,8 @@ class ReceiptDetail(LoginRequiredMixin, ScreenPermissionMixin, View):
         for l in lines:
             l.qc_result = getattr(l, "qc", None) if hasattr(l, "qc") else None
             # rework pieces QC split out of this bundle on this challan's step
-            l.split_bundles = list(l.challan_bundle.bundle.splits.filter(current_step=r.challan.step_id)) if l.qc_done else []
+            l.split_bundles = list(l.challan_bundle.bundle.splits.filter(current_step=r.challan.step_id)
+                                   .exclude(challan_lines__held_from__isnull=False)) if l.qc_done else []   # not pieces held back
         return render(request, "jobwork/receipt_detail.html", {
             "r": r, "lines": lines, "trims": r.trims.select_related("challan_trim__material"),
             "can_approve": user.has_screen_perm("jobwork.receipt", "approve"),

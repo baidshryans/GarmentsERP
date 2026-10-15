@@ -1,8 +1,8 @@
 """Receiving work back and QC (E8.2, E8.3, BR-03, BR-17).
 
 The supervisor counts bundles back from the fabricator. A fabricator marking a bundle "Done" is not a receipt (MOB-03).
-A count above what was issued needs approval (BR-03). Pieces not returned are a shortage recorded against the
-fabricator. QC then accepts, rejects or sends pieces back for rework. What is paid follows the challan's pay basis:
+A count above what was issued needs approval (BR-03). Pieces not returned are either held back for rework, to come
+later on the same challan, or a shortage recorded against the fabricator. QC then accepts, rejects or sends pieces back for rework. What is paid follows the challan's pay basis:
 the accepted pieces, or every piece received.
 """
 from dataclasses import dataclass
@@ -30,11 +30,12 @@ RECEIPT_SCREEN = "jobwork.receipt"
 
 @dataclass
 class Counted:
-    """What came back for one challan bundle: the pieces counted, and (when closing the line) any that will not come."""
+    """What came back for one challan bundle: the pieces counted, and the pieces the fabricator kept back for rework.
+    Whatever else is missing is a shortage."""
 
     challan_bundle: object
     counted: int
-    shortage: int = 0  # filled in automatically: issued minus counted, when positive
+    held: int = 0      # still with the fabricator for rework: split into a bundle of their own, received later
 
 
 def _cost_per_piece(lot, factory):
@@ -96,14 +97,20 @@ def create_receipt(*, challan, counts, user, date, location=None, trims=None) ->
         if cb.pk in pending:
             # counted once already: approving that receipt will move the bundle, so a second count would move it twice
             raise BusinessRuleError(f"Bundle {cb.bundle.bundle_no} is on a receipt waiting for the owner's approval.")
-        if c.counted < 0:
-            raise BusinessRuleError("The counted pieces cannot be negative.")
+        if c.counted < 0 or c.held < 0:
+            raise BusinessRuleError("The counted and held pieces cannot be negative.")
+        if c.held and c.held >= cb.qty_issued:
+            raise BusinessRuleError(f"Bundle {cb.bundle.bundle_no}: all its pieces are still with the fabricator. "
+                                    "Leave it off this receipt and receive it when it comes back.")
+        if c.held and c.counted + c.held > cb.qty_issued:
+            raise BusinessRuleError(f"Bundle {cb.bundle.bundle_no}: {c.counted} counted and {c.held} held for rework are more "
+                                    f"than the {cb.qty_issued} pieces issued.")
         over_qty = max(0, c.counted - cb.qty_issued)
-        short = max(0, cb.qty_issued - c.counted)
+        short = max(0, cb.qty_issued - c.counted - c.held)
         over = over or over_qty > 0
         ReceiptLine.objects.create(
             receipt=receipt, challan_bundle=cb, qty_received=c.counted, over_qty=over_qty, shortage_qty=short,
-            shortage_value=costing.r2(_cost_per_piece(challan.lot, challan.factory) * short))
+            held_qty=c.held, shortage_value=costing.r2(_cost_per_piece(challan.lot, challan.factory) * short))
     for t, (returned, missing) in (trims or {}).items():
         t = ChallanTrim.objects.get(pk=t.pk, challan=challan)
         if returned < 0 or missing < 0 or returned + missing > t.qty_issued - t.qty_returned - t.qty_missing:
@@ -135,12 +142,14 @@ def _post_receipt(receipt, user) -> Receipt:
     lot, factory, date = challan.lot, challan.factory, receipt.date
     for line in receipt.lines.select_related("challan_bundle", "challan_bundle__bundle"):
         cb = line.challan_bundle
+        if line.held_qty:
+            _hold_back(cb, line.held_qty, user=user, date=date)
         bundle_service.apply_move(
             bundle=cb.bundle, kind="receipt", to_location=receipt.location, user=user, date=date,
             new_status=Bundle.Status.RECEIVED, shortage=line.shortage_qty, extra=line.over_qty,
             reason=f"Received from {challan.party.name}", challan=challan)
-        cb.qty_received, cb.qty_shortage = line.qty_received, line.shortage_qty
-        cb.save(update_fields=["qty_received", "qty_shortage"])
+        cb.qty_received, cb.qty_shortage, cb.qty_held = line.qty_received, line.shortage_qty, line.held_qty
+        cb.save(update_fields=["qty_received", "qty_shortage", "qty_held"])
     returned_value = ZERO
     godown = godown_location(factory)
     for rt in receipt.trims.select_related("challan_trim", "challan_trim__material"):
@@ -169,6 +178,18 @@ def _post_receipt(receipt, user) -> Receipt:
     _refresh_challan(challan)
     bundle_service.refresh_steps(lot)
     return receipt
+
+
+def _hold_back(cb, held, *, user, date):
+    """The fabricator kept `held` pieces of a bundle back to fix them. They are split into a bundle of their own that
+    stays with the fabricator on this challan, on a line of its own at the same rate, and are received later like any
+    other bundle. Nothing leaves the fabricator, so no stock changes place."""
+    challan = cb.challan
+    child = bundle_service.split_bundle(cb.bundle, held, user=user, date=date,
+                                        reason=f"{held} pieces held by {challan.party.name} for rework")
+    child.held_for_rework = True
+    child.save(update_fields=["held_for_rework"])
+    return ChallanBundle.objects.create(challan=challan, bundle=child, qty_issued=held, rate=cb.rate, held_from=cb)
 
 
 def _refresh_challan(challan):

@@ -369,7 +369,7 @@ The default only pre-fills the lot. It never locks it.
 
 To make a route, open **Masters → Setup → Routes → New route**, give it a name and fill one row per step, top to bottom. The form opens with two blank rows; click **Add step** under the table for each further step, as many as the route needs. A row whose process is left blank is ignored when you save, so to drop a step from a route, set its process back to "—". Steps are saved in the order of the rows.
 
-Quantity is tracked **bundle by bundle** through the route. At every move, `quantity out = quantity received at next step + loss + rejection + shortage`. Moving a bundle back to an earlier step always needs a reason.
+Quantity is tracked **bundle by bundle** through the route. At every move, `quantity out = quantity received at next step + loss + rejection + shortage`. Pieces held back to be fixed are not a loss: they are split into a bundle of their own that follows later on the same lot (23.1, 23.3). Moving a bundle back to an earlier step always needs a reason.
 
 ### 8.2 Route A — Standard track pant (seeded)
 
@@ -1122,7 +1122,7 @@ Bundle statuses you will see: Cut → At stage → Received, awaiting QC → Rea
 
 1. Choose the **Lot** and press **Show bundles**.
 2. **Scan** each bundle's QR (or type its number) in the scan box and press Enter. Scanning only ticks the row; everything is checked when you save. To take every bundle on the list, tick the box in the table heading (**Select all**); tick it again to clear them all.
-3. For any bundle with pieces that did not arrive, fill **Loss**, **Rejected** or **Short** on its row.
+3. For any bundle with pieces that did not arrive, fill **Loss**, **Rejected** or **Short** on its row. If some pieces are not lost but need fixing first, fill **Held for rework** instead (see "Pieces held for rework" below).
 4. Pick **Move to stage** (shown as "5. Ironing and pressing — in-house"). When you came from the lot's Next button, the stage it named is already chosen. The **Next stage** column on each row names where that bundle goes next: the next mandatory step after where the bundle actually is, the same step the lot's Next button names. A bundle sitting at Stitching shows the step after Stitching, and optional steps are passed over. Only when no mandatory step is left does it show the next optional step. Two cases cannot be moved from this screen, and the column says so: **With fabricator** for a bundle that is out on a challan (receive it first, 23.3), and the stage name followed by **(by challan)** when the next stage is done by a fabricator (issue a challan, 23.2).
 5. **At factory**: leave as "Stage default", or choose another factory to send the goods there (inter-factory move).
 6. Press **Move selected bundles**.
@@ -1141,6 +1141,8 @@ What the system checks:
 - When a bundle leaves an in-house step that has a rate, labour is added to the lot cost, on the pieces that pass. A bundle sent back is paid the step's rework rate for the stage it redoes, then the normal rate again once it moves on.
 - **No loss allowed.** For a bundle at a step marked so (ironing), the three boxes are replaced by "No loss allowed at this stage".
 - **Only take out loss, do not move.** When pieces are lost at an in-house step and the next step is a fabricator's, fill Loss, Rejected or Short, type a **Reason** and press this button. The pieces come out of the bundle where it stands. Do this before the challan: a challan sends whatever is in the bundle, and the fabricator would otherwise be shown short.
+
+**Pieces held for rework.** Pieces that are not lost but must be fixed before they go on are entered under **Held for rework**. When you press Move, those pieces are split into a bundle of their own (B002 gives B002-R1). It stays at the step it is at, marked **Held for rework** on this screen and on the lot page, and the rest of the bundle moves on. The held pieces are not a loss: they stay on the same lot and production order. When they are fixed, tick the new bundle and move it on like any other; the mark goes and the step's **normal** rate is added for them then. Print a tag for the new bundle from the lot page. At least one piece must move: if the whole bundle needs fixing, leave it where it is and move it when it is ready. Held for rework is offered at a "no loss" step too, because nothing is lost.
 
 ### 23.2 Issue to a fabricator (challan)
 
@@ -1191,11 +1193,14 @@ Lot page or challan page → Next button **Receive from …**, Home → **Receiv
 | Date | 12-10-2026 |
 | Receive into | Process Area. Filled in for you; it is under **More options** if you need to change it |
 | Counted, per bundle | the pieces actually counted, with the tick box |
+| Held for rework, per bundle | pieces the fabricator kept back to fix, which will come later. Leave blank if none |
 | Trims: Returned / Missing | 0 / 10 |
 
 Press **Receive**. Scanning the bundle tags ticks the rows, and the box in the table heading ticks them all.
 
 - Counted **less than** issued records a **shortage**. It is valued at lot cost and recoverable on the labour bill.
+- **Held for rework.** When the fabricator has kept some pieces back to fix them, enter them under **Held for rework**. Only the pieces that are neither counted nor held are a shortage: issued 25, counted 20, held 3 records a shortage of 2. The held pieces are split into a bundle of their own (B002-R1) that stays with the fabricator **on the same challan**, as a line marked **Held for rework, from B002**. The challan stays **Partly received** and the lot keeps waiting for them. When they come back, receive that bundle like any other (scan its new tag, or tick it) and check it at QC. They are paid at the challan's **normal** rate, like the rest of the bundle, and no piece is paid twice: the first bundle is paid on the pieces received on it, the held bundle on its own. If held pieces never come back, receive their bundle with **0** counted: they become a shortage then. You cannot hold back every piece of a bundle; leave that bundle off the receipt until it comes back.
+- The challan page shows a **Held for rework** column and, at the top, the pieces still held and with whom. Its **Pieces** figure counts the held pieces once, as issued on the first line. The fabricator ledger (*Job work reports*) shows them in the column **of which held for rework**. The printed challan marks a held line as "not counted again".
 - Counted **more than** issued is an **over-receipt**. Nothing moves, and the receipt waits for the owner. The owner opens the receipt and presses **Approve over-receipt**. Until then QC is blocked.
 - A bundle cannot be received twice. A bundle counted on an over-receipt that still waits for approval is not listed again and cannot be received again ("Bundle … is on a receipt waiting for the owner's approval"); approve that receipt first.
 - After posting, the receipt is numbered, bundles become "Received, awaiting QC", returned trims go back to stock and missing trims become a deduction.

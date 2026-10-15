@@ -31,11 +31,13 @@ ZERO = Decimal("0.00")
 @dataclass
 class Count:
     """What the supervisor counted at the receiving stage. qty_in is whatever is left after the three kinds of
-    difference, so the move always balances (BR-21)."""
+    difference, so the move always balances (BR-21). `held` pieces are kept back at the stage to be fixed: they are
+    split into a bundle of their own that stays where it is and moves on later."""
 
     loss: int = 0
     rejection: int = 0
     shortage: int = 0
+    held: int = 0
 
 
 def steps_ahead(bundle, steps):
@@ -176,6 +178,8 @@ def apply_move(*, bundle, kind, to_location, user, date, new_status, to_step=Non
         bundle.completed_seq = completed_seq
     if to_step is not None:
         bundle.is_rework = is_rework          # rework lasts for the stage gone back to; moving on clears it
+    if kind != StageMovement.Kind.WRITE_OFF:
+        bundle.held_for_rework = False        # held pieces that move on, or come back from the fabricator, are no longer held
     if bundle.rework_qty > bundle.qty:
         bundle.rework_qty = bundle.qty
     bundle.save()
@@ -263,6 +267,21 @@ def check_entry(b, to_step, reason=""):
     return in_step, done, backwards
 
 
+def hold_back(bundle, count, *, user, date) -> Bundle:
+    """Split `count.held` pieces out of a bundle that is moving on: they stay at the stage, marked held for rework,
+    and move on later at the normal rate. At least one piece must still move."""
+    if count.held < 0:
+        raise BusinessRuleError("Held pieces cannot be negative.")
+    moving = bundle.qty - count.held - count.loss - count.rejection - count.shortage
+    if moving < 1:
+        raise BusinessRuleError(f"Bundle {bundle.bundle_no}: nothing is left to move after the {count.held} pieces held "
+                                "for rework. Leave the bundle where it is and move it when it is ready.")
+    child = split_bundle(bundle, count.held, user=user, date=date, reason=f"{count.held} pieces held for rework")
+    child.held_for_rework = True
+    child.save(update_fields=["held_for_rework"])
+    return child
+
+
 def accrue_leaving_labour(lot, items, date, user, note):
     """In-house piece-rate labour for stages bundles are leaving. items = [(bundle, stage left, pieces that pass)]."""
     labour = {}
@@ -310,6 +329,16 @@ def move_bundles(*, bundles, to_step, user, date=None, factory=None, location=No
     if dest_location.factory_id != dest_factory.pk:
         raise BusinessRuleError("The chosen place is not in that factory.")
     assert_factory_access(user, bundles[0].location.factory)
+
+    for i, b in enumerate(bundles):          # pieces held back stay where they are, as a bundle of their own
+        c = counts.get(b.pk) or Count()
+        if c.held:
+            assert_factory_access(user, b.location.factory)
+            check_entry(b, to_step, reason)
+            hold_back(b, c, user=user, date=date)
+            bundles[i] = Bundle.objects.select_related(
+                "lot", "lot__factory", "lot__company", "location", "location__factory", "current_step",
+                "current_step__process", "sku").get(pk=b.pk)
 
     plan = []
     for b in bundles:

@@ -136,8 +136,11 @@ class ChallanBundle(models.Model):
     rate = models.DecimalField("Rate per piece (when issued)", max_digits=10, decimal_places=2, default=ZERO)
     qty_received = models.PositiveIntegerField(default=0)
     qty_shortage = models.PositiveIntegerField(default=0)
+    qty_held = models.PositiveIntegerField(default=0, help_text="Pieces the fabricator kept back for rework: they follow on a line of their own")
     qty_accepted = models.PositiveIntegerField(default=0)
     qty_rejected = models.PositiveIntegerField(default=0)
+    held_from = models.ForeignKey("self", on_delete=models.PROTECT, null=True, blank=True, related_name="held_lines",
+                                  help_text="The line these pieces were held back from at a receipt; they were issued on it")
 
     history = HistoricalRecords()
 
@@ -149,7 +152,12 @@ class ChallanBundle(models.Model):
 
     @property
     def pending(self):
-        return max(0, self.qty_issued - self.qty_received - self.qty_shortage)
+        return max(0, self.qty_issued - self.qty_received - self.qty_shortage - self.qty_held)
+
+    @property
+    def is_held(self):
+        """A line for pieces held back for rework. Its pieces were counted as issued on the line they came from."""
+        return self.held_from_id is not None
 
 
 class ChallanTrim(models.Model):
@@ -207,6 +215,7 @@ class ReceiptLine(models.Model):
     qty_received = models.PositiveIntegerField()
     over_qty = models.PositiveIntegerField(default=0, help_text="Pieces above what was pending")
     shortage_qty = models.PositiveIntegerField(default=0, help_text="Pieces the fabricator did not return, written off to them")
+    held_qty = models.PositiveIntegerField(default=0, help_text="Pieces the fabricator kept back for rework, to be received later")
     shortage_value = models.DecimalField(max_digits=16, decimal_places=2, default=ZERO)
     qc_done = models.BooleanField(default=False)
 

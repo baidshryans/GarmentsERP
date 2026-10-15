@@ -629,8 +629,9 @@ class MoveView(LoginRequiredMixin, ScreenPermissionMixin, View):
             counts = {}
             for b in bundles:
                 c = bundle_service.Count(loss=vu.whole(p.get(f"loss_{b.pk}"), "Loss", 0), rejection=vu.whole(p.get(f"rejection_{b.pk}"), "Rejection", 0),
-                                         shortage=vu.whole(p.get(f"shortage_{b.pk}"), "Shortage", 0))
-                if c.loss or c.rejection or c.shortage:
+                                         shortage=vu.whole(p.get(f"shortage_{b.pk}"), "Shortage", 0),
+                                         held=vu.whole(p.get(f"held_{b.pk}"), "Held for rework", 0))
+                if c.loss or c.rejection or c.shortage or c.held:
                     counts[b.pk] = c
             if p.get("action") == "count":      # take the pieces out where the bundles stand; nothing moves
                 done = bundle_service.count_bundles(bundles=bundles, counts=counts, user=request.user, reason=p.get("reason", ""))

@@ -266,7 +266,9 @@ def _take_away(item):
 
     model = apps.get_model(item.model)
     obj = model._base_manager.filter(pk=item.object_id).first()
-    if obj is None or item.model in KEPT:
+    if obj is None:
+        return
+    if item.model in KEPT and not getattr(obj, "held_from_id", None):   # a line of held pieces goes with its receipt
         return
     if item.model == "production.bundle":
         obj.voided = True

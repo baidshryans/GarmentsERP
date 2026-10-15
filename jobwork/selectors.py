@@ -16,14 +16,15 @@ def fabricator_ledger(user, party, factory=None):
         qs = qs.filter(factory=factory)
     rows = []
     for ch in qs.select_related("lot", "step__process").prefetch_related("bundles", "trims__material"):
-        issued = sum(b.qty_issued for b in ch.bundles.all())
+        issued = sum(b.qty_issued for b in ch.bundles.all() if not b.is_held)   # held pieces were issued on their first line
         received = sum(b.qty_received for b in ch.bundles.all())
         short = sum(b.qty_shortage for b in ch.bundles.all())
         accepted = sum(b.qty_accepted for b in ch.bundles.all())
         rejected = sum(b.qty_rejected for b in ch.bundles.all())
+        held = sum(b.pending for b in ch.bundles.all() if b.is_held)
         rows.append({
             "challan": ch, "issued": issued, "received": received, "shortage": short, "accepted": accepted,
-            "rejected": rejected, "in_process": max(0, issued - received - short),
+            "rejected": rejected, "in_process": max(0, issued - received - short), "held": held,
             "trims": [(t.material.name, t.qty_issued, t.qty_returned, t.qty_missing) for t in ch.trims.all()],
         })
     return rows

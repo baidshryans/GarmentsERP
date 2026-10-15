@@ -11,17 +11,19 @@
     <h2>{{ lot.style.style_no }} · {{ lot.colour }} <span class="muted" style="font-weight:400">{{ lot.lot_no }}</span></h2>
     <div class="field" style="max-width:420px"><label for="scan">Scan a bundle QR (or type its number) and press Enter</label><input id="scan" type="text" autocomplete="off" autofocus placeholder="Scan here"></div>
     <div class="table-wrap"><table>
-      <thead><tr><th scope="col">{% if bundles %}<input type="checkbox" data-select-all aria-label="Select all bundles" title="Select all">{% endif %}</th><th scope="col">Bundle</th><th scope="col">Size</th><th scope="col" class="num">Pieces</th><th scope="col">Now at</th><th scope="col">Next stage</th><th scope="col" class="num">Loss</th><th scope="col" class="num">Rejected</th><th scope="col" class="num">Short</th></tr></thead>
+      <thead><tr><th scope="col">{% if bundles %}<input type="checkbox" data-select-all aria-label="Select all bundles" title="Select all">{% endif %}</th><th scope="col">Bundle</th><th scope="col">Size</th><th scope="col" class="num">Pieces</th><th scope="col">Now at</th><th scope="col">Next stage</th><th scope="col" class="num">Loss</th><th scope="col" class="num">Rejected</th><th scope="col" class="num">Short</th><th scope="col" class="num">Held for rework</th></tr></thead>
       <tbody>{% for b in bundles %}<tr data-scan="{{ b.scan }}" data-token="{{ b.qr_token }}" data-no="{{ b.bundle_no }}">
-        <td><input type="checkbox" name="bundle" value="{{ b.pk }}" aria-label="Move {{ b.bundle_no }}"></td><td><strong>{{ b.bundle_no }}</strong></td><td>{{ b.sku.size.code }}</td><td class="num">{{ b.qty }}</td>
+        <td><input type="checkbox" name="bundle" value="{{ b.pk }}" aria-label="Move {{ b.bundle_no }}"></td><td><strong>{{ b.bundle_no }}</strong>{% if b.held_for_rework %} <span class="pill warning">Held for rework</span>{% endif %}</td><td>{{ b.sku.size.code }}</td><td class="num">{{ b.qty }}</td>
         <td>{{ b.current_step.process.name|default:"Cut" }} · {{ b.location.name }}</td><td>{{ b.next_label|default:"—" }}</td>
-        {% if b.no_loss %}<td colspan="3" class="muted">No loss allowed at this stage</td></tr>{% else %}
+        {% if b.no_loss %}<td colspan="3" class="muted">No loss allowed at this stage</td>
+        <td class="num"><input type="text" inputmode="numeric" name="held_{{ b.pk }}" style="width:70px" aria-label="Pieces of {{ b.bundle_no }} held for rework"></td></tr>{% else %}
         <td class="num"><input type="text" inputmode="numeric" name="loss_{{ b.pk }}" style="width:70px"></td>
         <td class="num"><input type="text" inputmode="numeric" name="rejection_{{ b.pk }}" style="width:70px"></td>
-        <td class="num"><input type="text" inputmode="numeric" name="shortage_{{ b.pk }}" style="width:70px"></td></tr>{% endif %}
-      {% empty %}<tr><td colspan="9" class="muted">No bundles are ready to move.</td></tr>{% endfor %}</tbody>
+        <td class="num"><input type="text" inputmode="numeric" name="shortage_{{ b.pk }}" style="width:70px"></td>
+        <td class="num"><input type="text" inputmode="numeric" name="held_{{ b.pk }}" style="width:70px" aria-label="Pieces of {{ b.bundle_no }} held for rework"></td></tr>{% endif %}
+      {% empty %}<tr><td colspan="10" class="muted">No bundles are ready to move.</td></tr>{% endfor %}</tbody>
     </table></div>
-    <p class="muted">Loss, rejected and short pieces are taken out of the count, so every move balances. Bundles with a fabricator are received on the job work screens, not moved here.</p>
+    <p class="muted">Loss, rejected and short pieces are taken out of the count, so every move balances. Pieces under <strong>Held for rework</strong> are not lost: they stay at this stage as a bundle of their own, marked held for rework, and you move them on when they are fixed. Bundles with a fabricator are received on the job work screens, not moved here.</p>
     {% if bundles and can_move %}
     <div class="field-row" style="margin-top:12px">
       <div class="field"><label for="to_step">Move to stage</label><select id="to_step" name="to_step">{% for s in steps %}<option value="{{ s.pk }}"{% if s.pk|stringformat:"s" == to_step %} selected{% endif %}>{{ s.sequence }}. {{ s.process.name }} — {% if s.assignment == "in_house" %}in-house{% else %}fabricator{% endif %}</option>{% endfor %}</select></div>

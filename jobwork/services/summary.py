@@ -31,6 +31,8 @@ def build_summary(factory, on_date: date, *, user=None) -> DailySummary:
     for cb in ChallanBundle.objects.filter(challan__factory=factory, challan__date=on_date, challan__status__in=POSTED
                                            ).select_related("challan__party"):
         r = row(cb.challan.party)
+        if cb.is_held:                       # pieces held back at a receipt were issued on their first line
+            continue
         r["issued_bundles"] += 1
         r["issued_pcs"] += cb.qty_issued
     for rl in ReceiptLine.objects.filter(receipt__factory=factory, receipt__date=on_date).exclude(
@@ -42,7 +44,7 @@ def build_summary(factory, on_date: date, *, user=None) -> DailySummary:
         r["accepted_pcs"] += qc.accepted
         r["earnings"] += bills.amount_for(qc)[0]
     for cb in ChallanBundle.objects.filter(challan__factory=factory, challan__status__in=OPEN).select_related("challan__party"):
-        left = max(0, cb.qty_issued - cb.qty_received - cb.qty_shortage)
+        left = cb.pending
         if left:
             r = row(cb.challan.party)
             r["pending_pcs"] += left

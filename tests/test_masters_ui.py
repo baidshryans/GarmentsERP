@@ -213,6 +213,22 @@ def test_nav_lists_master_screens_by_permission(company, merch, accountant, clie
     assert "Parties" in html and "Styles" not in html
 
 
+def test_route_screen_saves_more_steps_than_the_blank_rows_and_offers_add_step(company, factory, merch, client_for):
+    c = client_for(merch)
+    assert 'id="add-step"' in c.get(reverse("route_new")).content.decode()
+    codes = ["CUT", "STITCH", "EMB", "PRINT", "WASH", "PACK"]
+    procs = [Process.objects.get(code=code).pk for code in codes if Process.objects.filter(code=code).exists()]
+    n = len(procs)
+    assert n > 2
+    r = c.post(reverse("route_new"), {
+        "name": "Long route", "process": procs, **{f"mandatory_{i}": "on" for i in range(n)},
+        "assignment": ["in_house"] * n, "factory": [factory.pk] * n, "party": [""] * n, "rate": [""] * n,
+    })
+    assert r.status_code == 302
+    steps = RouteTemplate.objects.get(name="Long route").steps.order_by("sequence")
+    assert [s.process_id for s in steps] == procs and [s.sequence for s in steps] == list(range(1, n + 1))
+
+
 def test_new_route_preselects_the_only_factory(company, factory, merch, client_for):
     page = client_for(merch).get(reverse("route_new")).content.decode()
     assert f'<option value="{factory.pk}" selected>' in page

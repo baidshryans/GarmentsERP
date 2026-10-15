@@ -367,6 +367,8 @@ Each route step records:
 
 The default only pre-fills the lot. It never locks it.
 
+To make a route, open **Masters → Setup → Routes → New route**, give it a name and fill one row per step, top to bottom. The form opens with two blank rows; click **Add step** under the table for each further step, as many as the route needs. A row whose process is left blank is ignored when you save, so to drop a step from a route, set its process back to "—". Steps are saved in the order of the rows.
+
 Quantity is tracked **bundle by bundle** through the route. At every move, `quantity out = quantity received at next step + loss + rejection + shortage`. Moving a bundle back to an earlier step always needs a reason.
 
 ### 8.2 Route A — Standard track pant (seeded)

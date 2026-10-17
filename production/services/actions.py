@@ -330,7 +330,7 @@ def undo(action, *, user, reason, date=None) -> ProductionAction:
     for item in by_role.get(Role.COST, []):
         entry = LotCostEntry.objects.get(pk=item.object_id)
         costing.add_cost(lot=entry.lot, factory=entry.factory, kind=entry.kind, amount=-entry.amount, date=date,
-                         note=f"Undone: {entry.note}", source=action, voucher=reversals.get(entry.voucher_id))
+                         note=f"Undone: {entry.note}", source=action, voucher=reversals.get(entry.voucher_id), step=entry.step)
     for item in action.items.filter(role__in=(Role.CREATED, Role.CHANGED)).order_by("-id"):
         if item.role == Role.CHANGED:
             _put_back(item)

@@ -1,0 +1,33 @@
+{# Step by step: pieces and cost at each route step, and what was recorded there. Needs `sv` (step_view.LotView) and `can_cost`. #}
+<div class="island" id="steps"><h2>Step by step</h2>
+  <p class="muted">Each step of the route with the pieces that came in and went out{% if can_cost %} and what it cost{% endif %}. Click a step to see what was recorded there.{% if can_cost %} Cost per piece is on the good pieces that came out, and counts job work still to be billed.{% endif %}</p>
+  <div class="table-scroll"><table class="step-view" data-step-view>
+    <thead><tr><th scope="col" class="num">#</th><th scope="col">Step</th><th scope="col">Status</th><th scope="col" class="num">In</th><th scope="col" class="num">Out</th>
+      <th scope="col" class="num">Lost</th><th scope="col" class="num">Held for rework</th><th scope="col" class="num">Still here</th>
+      {% if can_cost %}<th scope="col" class="num">Cost</th><th scope="col" class="num">To bill</th><th scope="col" class="num">Per piece</th>{% endif %}</tr></thead>
+    {% for r in sv.rows %}<tbody class="step-group{% if r.step.status == 'skipped' %} muted{% endif %}">
+      <tr class="step-row">
+        <td class="num">{{ r.step.sequence }}</td>
+        <td>{% if r.events %}<button type="button" class="step-toggle" aria-expanded="false" aria-controls="ev-{{ r.step.pk }}">{{ r.step.process.name }}</button>{% else %}{{ r.step.process.name }}{% endif %}
+          <div class="muted small">{% if r.step.assignment == "in_house" %}In-house · {{ r.step.factory.code|default:lot.factory.code }}{% else %}{{ r.step.party.name|default:"Fabricator to be chosen" }}{% endif %}{% if r.first %} · {{ r.first|date:"d M" }}{% if r.last and r.last != r.first %} – {{ r.last|date:"d M" }}{% endif %}{% endif %}</div></td>
+        <td><span class="pill {% if r.step.status == 'done' %}success{% elif r.step.status == 'in_progress' %}warning{% endif %}">{{ r.step.get_status_display }}</span></td>
+        <td class="num">{{ r.pieces_in|default:"" }}</td><td class="num">{{ r.pieces_out|default:"" }}</td>
+        <td class="num">{% if r.lost %}<span data-tip="Loss {{ r.loss }} · rejected {{ r.rejected }} · short {{ r.short }}">{{ r.lost }}</span>{% endif %}</td>
+        <td class="num">{{ r.held|default:"" }}</td><td class="num">{{ r.here|default:"" }}{% if r.rework_in %} <span class="pill warning" data-tip="Pieces sent back to this step">{{ r.rework_in }} rework</span>{% endif %}</td>
+        {% if can_cost %}<td class="num">{% if r.cost %}{{ r.cost }}{% endif %}</td><td class="num">{% if r.to_bill %}{{ r.to_bill }}{% endif %}</td><td class="num">{{ r.per_piece|default_if_none:"" }}</td>{% endif %}
+      </tr>
+      {% if r.events %}<tr class="step-events" id="ev-{{ r.step.pk }}"><td></td><td colspan="{% if can_cost %}10{% else %}7{% endif %}">
+        {% if can_cost and r.cost %}<p class="small muted">{% if r.fabric %}Fabric {{ r.fabric }} · {% endif %}{% if r.materials %}Materials {{ r.materials }} · {% endif %}{% if r.labour %}In-house labour {{ r.labour }} · {% endif %}{% if r.jobwork %}Job work billed {{ r.jobwork }}{% endif %}</p>{% endif %}
+        {% include "production/_step_events.html" with events=r.events %}</td></tr>{% endif %}
+    </tbody>{% endfor %}
+    {% if can_cost %}<tfoot>
+      <tr><td></td><td colspan="7">Spent on the steps</td><td class="num">{{ sv.spent }}</td><td class="num">{% if sv.to_bill %}{{ sv.to_bill }}{% endif %}</td><td></td></tr>
+      {% if sv.unlinked %}<tr><td></td><td colspan="7" class="muted">of which not linked to a step (recorded before steps carried their cost)</td><td class="num">{{ sv.unlinked }}</td><td colspan="2"></td></tr>{% endif %}
+      {% if sv.transfer %}<tr><td></td><td colspan="7">Moved between factories</td><td class="num">{{ sv.transfer }}</td><td colspan="2"></td></tr>{% endif %}
+      {% if sv.write_off %}<tr><td></td><td colspan="7">Written off</td><td class="num">{{ sv.write_off }}</td><td colspan="2"></td></tr>{% endif %}
+      {% if sv.relief %}<tr><td></td><td colspan="7">Moved to finished goods</td><td class="num">{{ sv.relief }}</td><td colspan="2"></td></tr>{% endif %}
+      <tr><td></td><th scope="row" colspan="7">Work in progress now</th><td class="num"><strong>{{ sv.wip }}</strong></td><td colspan="2"></td></tr>
+    </tfoot>{% endif %}
+  </table></div>
+  {% if sv.lot_events %}<details class="fold" style="margin-top:12px"><summary>For the whole lot</summary>{% include "production/_step_events.html" with events=sv.lot_events %}</details>{% endif %}
+</div>

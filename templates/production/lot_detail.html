@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load static %}
 {% block title %}Lot {{ lot.lot_no }}{% endblock %}
 {% block content %}
   <div class="page-head"><h1 class="page-title">{{ lot.style.style_no }} · {{ lot.colour }}</h1><span class="muted">{{ lot.lot_no }}</span><span class="pill">{{ lot.get_status_display }}</span>
@@ -10,6 +11,7 @@
       <div><div class="label muted">Planned</div><span class="stat">{{ planned }}</span></div>{% if expected_from_fabric is not None %}<div><div class="label muted">Estimated from fabric</div><span class="stat">{{ expected_from_fabric }}</span></div>{% endif %}<div><div class="label muted">Cut</div><span class="stat">{{ cut_pieces }}</span></div>{% if cutting_loss %}<div><div class="label muted">Lost in cutting</div><span class="stat">{{ cutting_loss }}</span></div>{% endif %}
       <div><div class="label muted">In progress</div><span class="stat">{{ live_pieces }}</span></div></div>
       <p class="muted">Factory {{ lot.factory.code }} · BOM version {{ lot.bom_version.version_no|default:"—" }}</p></div>
+  {% include "production/_step_view.html" %}
   <div class="island"><h2>Bundles</h2>
     {% if bundles %}<div class="table-wrap"><table>
       <thead><tr><th scope="col">Bundle</th><th scope="col">Size</th><th scope="col" class="num">Pieces</th><th scope="col">Stage</th><th scope="col">Where</th><th scope="col">Status</th></tr></thead>
@@ -33,18 +35,8 @@
     {% else %}<div class="empty"><div class="hand">No bundles yet</div><p>Issue fabric, record the cutting, then make bundles.</p></div>{% endif %}
   </div>
   {% if unused_lines %}<div class="island"><p><span class="pill warning">Not on this route</span> {% for l in unused_lines %}{{ l.material.name }} ({{ l.process.name|default:"by kind" }}){% if not forloop.last %}, {% endif %}{% endfor %}: the style's list uses {{ unused_lines|length|pluralize:"this material,these materials" }} in a process this lot's route does not have, so nothing is filled in for {{ unused_lines|length|pluralize:"it,them" }}. Add {{ unused_lines|length|pluralize:"it,them" }} by hand where needed.</p></div>{% endif %}
-  {% if material_issues %}<div class="island"><details class="fold"><summary>Materials used in-house</summary><div class="table-scroll"><table>
-    <thead><tr><th scope="col">Date</th><th scope="col">Process</th><th scope="col" class="num">Pieces</th><th scope="col">Materials</th></tr></thead>
-    <tbody>{% for i in material_issues %}<tr><td>{{ i.date|date:"d M Y" }}</td><td>{{ i.step.process.name }}</td><td class="num">{{ i.pieces }}</td>
-      <td>{% for l in i.lines.all %}{{ l.material.name }} {{ l.qty|floatformat:"-3" }} {{ l.material.unit }}{% if not forloop.last %}, {% endif %}{% endfor %}</td></tr>{% endfor %}</tbody></table></div></details></div>{% endif %}
-  {% if breakdown %}<div class="island"><details class="fold"><summary>Lot cost</summary>
-      <div class="table-scroll"><table><tbody>
-        <tr><td>Fabric</td><td class="num">{{ breakdown.fabric }}</td></tr><tr><td>Accessories and packing</td><td class="num">{{ breakdown.trim }}</td></tr>
-        <tr><td>In-house labour</td><td class="num">{{ breakdown.labour }}</td></tr><tr><td>Job work</td><td class="num">{{ breakdown.jobwork }}</td></tr>
-        {% if breakdown.write_off != 0 %}<tr><td>Written off</td><td class="num">{{ breakdown.write_off }}</td></tr>{% endif %}
-        {% if breakdown.relief != 0 %}<tr><td>Moved to finished goods</td><td class="num">{{ breakdown.relief }}</td></tr>{% endif %}</tbody>
-        <tfoot><tr><td>Work in progress now</td><td class="num">{{ total_cost }}</td></tr></tfoot></table></div></details></div>{% endif %}
-  <div class="island"><details class="fold"{% if route_open %} open{% endif %}><summary>Route and rates</summary>
+  <div class="island"><details class="fold"{% if route_open %} open{% endif %}><summary>Change the route</summary>
+    <p class="muted">Where each step is done and at what rate. While a step has not started you can reassign, skip or remove it, add a step or move one.</p>
     <div class="table-wrap"><table>
       <thead><tr><th scope="col" class="num">#</th><th scope="col">Process</th><th scope="col">Where</th><th scope="col" class="num">Rate</th><th scope="col">Status</th>{% if can_edit %}<th scope="col">Change</th>{% endif %}</tr></thead>
       <tbody>{% for s in steps %}<tr {% if s.status == "skipped" %}class="muted"{% endif %}>
@@ -83,9 +75,9 @@
         <div class="field"><label>Reason</label><input type="text" name="reason" required></div>
         <div style="align-self:end"><button class="btn">Move</button></div></form></details>{% endif %}
   </details></div>
-  {% include "production/_steps_recorded.html" %}
   {% if changes %}<div class="island"><details class="fold"><summary>History</summary><div class="table-scroll"><table><tbody>{% for c in changes %}<tr><td>{{ c.at|date:"d M H:i" }}</td><td>{{ c.user.username }}</td><td>{{ c.detail }}</td><td class="muted">{{ c.reason }}</td></tr>{% endfor %}</tbody></table></div></details></div>{% endif %}
   {% if can_cut or can_move %}<div class="guide-more"><span class="muted">Corrections</span>
     {% if can_cut %}<a class="btn ghost" href="{% url 'lot_fabric' lot.pk %}">Fabric issue</a><a class="btn ghost" href="{% url 'lot_cutting' lot.pk %}">Cutting</a>{% endif %}
     {% if can_move %}<a class="btn ghost" href="{% url 'move_bundles' %}?lot={{ lot.pk }}&amp;back=1">Move bundles</a>{% endif %}</div>{% endif %}
+  <script src="{% static 'js/step_view.js' %}?v={{ asset_v }}" defer></script>
 {% endblock %}

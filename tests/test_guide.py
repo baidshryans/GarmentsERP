@@ -425,11 +425,11 @@ def test_the_lot_page_opens_with_the_journey_and_one_next_button(company, factor
     assert 'class="journey"' in g and 'aria-current="step"' in g
     assert re.search(r'<a class="btn primary" href="%s">Issue fabric</a>' % re.escape(reverse("lot_fabric", args=[ns.lot.pk])), g)
     # the route is folded away, not removed: its table and its change forms are still on the page
-    assert "<summary>Route and rates</summary>" in html and '<th scope="col">Process</th>' in html
+    assert "<summary>Change the route</summary>" in html and '<th scope="col">Process</th>' in html
     # a planned lot is where the route gets planned, so for someone who may change it the fold starts open
-    assert '<details class="fold" open><summary>Route and rates</summary>' in html
+    assert '<details class="fold" open><summary>Change the route</summary>' in html
     assert 'value="reassign"' in html and "<summary>Add a step</summary>" in html
-    assert "<summary>Lot cost</summary>" in html
+    assert "Step by step" in html and "Work in progress now" in html   # the lot cost now sits under each step
     assert g.count('class="j-tag"') == 3  # embroidery, printing and washing are marked optional
     # only labels, counts and links are shown: the permission and sort keys stay inside the service
     assert "production.cutting" not in html and "jobwork.challan" not in html
@@ -451,7 +451,7 @@ def test_a_role_that_may_not_cut_sees_what_the_lot_waits_for_and_no_link(company
     assert "Waiting for: Issue fabric" in g and "btn primary" not in g
     assert f'href="{reverse("lot_fabric", args=[ns.lot.pk])}"' not in html
     looker = role_user("looker", {"production.lot": ["view"]}, factory)
-    assert '<details class="fold"><summary>Route and rates</summary>' in lot_page(ns, looker)  # cannot edit: folded
+    assert '<details class="fold"><summary>Change the route</summary>' in lot_page(ns, looker)  # cannot edit: folded
 
 
 def test_the_orders_list_names_the_next_step_of_each_order(ns):
@@ -510,7 +510,7 @@ def test_a_closed_lot_shows_no_stage_as_current(company, factory, owner):
 def test_the_lot_page_offers_optional_steps_as_smaller_links_never_as_the_button(ns):
     stitched(ns)
     html = lot_page(ns, ns.owner)
-    assert '<details class="fold"><summary>Route and rates</summary>' in html  # past planning: folded again
+    assert '<details class="fold"><summary>Change the route</summary>' in html  # past planning: folded again
     g = guide_of(html)
     assert re.search(r'<a class="btn primary" href="[^"]*">Move to Ironing and pressing</a>', g)
     also = g[g.index("Also waiting"):]

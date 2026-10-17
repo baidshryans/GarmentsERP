@@ -1,0 +1,9 @@
+{# What was recorded at one step, oldest first, with Edit and Undo for whoever may record it. Needs `events` and `can_cost`. #}
+<table class="step-event-table"><tbody>{% for ev in events %}<tr{% if ev.action.undone %} class="muted"{% endif %}>
+  <td style="white-space:nowrap">{{ ev.date|date:"d M Y" }}</td>
+  <td>{% if ev.url %}<a href="{{ ev.url }}">{{ ev.title }}</a>{% else %}{{ ev.title }}{% endif %}<div class="muted small">{{ ev.detail }}{% if ev.action.created_by %} · {{ ev.action.created_by.username }}{% endif %}</div>
+    {% if ev.materials %}<div class="small">{% for l in ev.materials %}{{ l.material.name }} {{ l.qty|floatformat:"-3" }} {{ l.material.unit }}{% if not forloop.last %}, {% endif %}{% endfor %}</div>{% endif %}</td>
+  {% if can_cost %}<td class="num">{% if ev.cost is not None %}{{ ev.cost }}{% endif %}</td>{% endif %}
+  <td>{% if ev.action.undone %}<span class="pill">Undone</span> <span class="muted small">{{ ev.action.undone_at|date:"d M" }} by {{ ev.action.undone_by.username }}: {{ ev.action.undo_reason }}</span>
+    {% elif ev.action.can %}<span style="white-space:nowrap"><a class="btn" href="{% url 'step_undo' ev.action.pk %}?edit=1">Edit</a> <a class="btn ghost" href="{% url 'step_undo' ev.action.pk %}">Undo</a></span>{% endif %}</td>
+</tr>{% endfor %}</tbody></table>

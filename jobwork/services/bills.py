@@ -170,17 +170,20 @@ def post_bill(bill, *, user) -> JobWorkBill:
     voucher = post_voucher(
         company=company, factory=factory, voucher_type="job_work_bill", date=bill.date, lines=lines, user=user,
         narration=f"Labour bill {number}: {party.name}", source=bill)
-    per_lot = {}
-    for l in bill.lines.select_related("lot"):
-        per_lot[l.lot_id] = per_lot.get(l.lot_id, ZERO) + l.amount
-    lots = {l.lot_id: l.lot for l in bill.lines.select_related("lot")}
-    for d in bill.deduction_lines.select_related("lot"):
-        per_lot[d.lot_id] = per_lot.get(d.lot_id, ZERO) - d.amount
-        lots[d.lot_id] = d.lot
-    for lot_id, amount in per_lot.items():
+    per_step = {}                                      # (lot, route step of the challan) -> amount
+    lots, steps = {}, {}
+    for l in bill.lines.select_related("lot", "challan__step"):
+        key = (l.lot_id, l.challan.step_id)
+        per_step[key] = per_step.get(key, ZERO) + l.amount
+        lots[l.lot_id], steps[l.challan.step_id] = l.lot, l.challan.step
+    for d in bill.deduction_lines.select_related("lot", "challan__step"):
+        key = (d.lot_id, d.challan.step_id)
+        per_step[key] = per_step.get(key, ZERO) - d.amount
+        lots[d.lot_id], steps[d.challan.step_id] = d.lot, d.challan.step
+    for (lot_id, step_id), amount in per_step.items():
         if amount != 0:
             costing.add_cost(lot=lots[lot_id], factory=factory, kind=LotCostEntry.Kind.JOBWORK, amount=amount,
-                             date=bill.date, note=f"Labour bill {number}", source=bill, voucher=voucher)
+                             date=bill.date, note=f"Labour bill {number}", source=bill, voucher=voucher, step=steps[step_id])
     bill.number, bill.status, bill.voucher = number, JobWorkBill.Status.POSTED, voucher
     bill.save()
     for ch in JobWorkChallan.objects.filter(pk__in={l.challan_id for l in bill.lines.all()}):
@@ -244,7 +247,7 @@ def cancel_bill(bill, *, user, reason) -> JobWorkBill:
     reverse_voucher(bill.voucher, user=user, reason=f"Labour bill cancelled: {reason.strip()}", date=when)
     for e in LotCostEntry.objects.filter(source_type=bill._meta.label_lower, source_id=bill.pk):
         costing.add_cost(lot=e.lot, factory=e.factory, kind=e.kind, amount=-e.amount, date=when,
-                         note=f"Bill {bill.number} cancelled", source=bill)
+                         note=f"Bill {bill.number} cancelled", source=bill, step=e.step)
     QcResult.objects.filter(bill_line__bill=bill).update(bill_line=None)
     bill.status = JobWorkBill.Status.CANCELLED
     bill.notes = f"Cancelled: {reason.strip()}"[:255]

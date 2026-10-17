@@ -170,7 +170,7 @@ def record_cutting(*, lot, pieces, rolls, user, date, notes="", loss=None) -> Cu
     for cut_step in bundles_module.cutting_steps(lot):   # in-house cutting is paid on the pieces cut
         if cut_step.status != LotStep.Status.SKIPPED and cut_step.assignment == LotStep.Assignment.IN_HOUSE:
             costing.accrue_labour(lot=lot, factory=factory, amount=cut_step.rate * cut_total, date=date, user=user,
-                                  note=f"Cutting {lay_no}: {cut_total} pieces", source=entry)
+                                  note=f"Cutting {lay_no}: {cut_total} pieces", source=entry, step=cut_step)
 
     consumed = []
     actual = Decimal("0")
@@ -207,8 +207,9 @@ def record_cutting(*, lot, pieces, rolls, user, date, notes="", loss=None) -> Cu
             narration=f"Fabric cut for lot {lot.lot_no}, cutting {lay_no}",
             lines=[LineSpec(ledger=costing.ledger_for(company, "stock_wip"), debit=costing.r2(total_value)),
                    LineSpec(ledger=costing.ledger_for(company, "stock_raw_material"), credit=costing.r2(total_value))])
+        heads = bundles_module.cutting_steps(lot)       # fabric is the cost of the cutting step
         costing.add_cost(lot=lot, factory=factory, kind=LotCostEntry.Kind.FABRIC, amount=total_value, date=date,
-                         note=f"Cutting {lay_no}", source=entry, voucher=voucher)
+                         note=f"Cutting {lay_no}", source=entry, voucher=voucher, step=heads[0] if heads else None)
 
     entry.fabric_value = costing.r2(total_value)
     entry.expected_pieces = estimated_pieces(lot, actual)

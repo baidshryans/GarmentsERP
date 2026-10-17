@@ -207,7 +207,7 @@ def issue_challan(challan, *, user) -> JobWorkChallan:
                 lines=[LineSpec(ledger=costing.ledger_for(company, "stock_wip"), debit=total),
                        LineSpec(ledger=costing.ledger_for(company, "stock_raw_material"), credit=total)])
             costing.add_cost(lot=lot, factory=factory, kind=LotCostEntry.Kind.TRIM, amount=total, date=date,
-                             note=f"Materials to {party.name}", source=challan, voucher=voucher)
+                             note=f"Materials to {party.name}", source=challan, voucher=voucher, step=challan.step)
     challan.number = next_document_number(factory=factory, doc_type="challan", on_date=date)
     challan.status, challan.issued_at, challan.voucher = JobWorkChallan.Status.ISSUED, timezone.now(), voucher
     challan.save()

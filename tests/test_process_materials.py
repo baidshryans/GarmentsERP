@@ -213,7 +213,7 @@ def test_the_pack_screen_asks_for_the_packing_materials_first(ns, factory, owner
     assert r.status_code == 302 and Bundle.objects.filter(lot=ns.lot, status="packed").count() == 6
     assert ns.lot.material_issues.get().lines.get().qty == D("100.000")           # the label row was left empty
     page = c.get(reverse("lot_detail", args=[ns.lot.pk])).content.decode()
-    assert "Materials used in-house" in page and "Polybag 100 PCS" in page
+    assert "Step by step" in page and "Polybag 100 PCS" in page
 
 
 def test_the_move_screen_can_issue_materials_that_are_not_on_the_list(ns, factory, owner):

@@ -171,7 +171,7 @@ def _post_receipt(receipt, user) -> Receipt:
             lines=[LineSpec(ledger=costing.ledger_for(company, "stock_raw_material"), debit=returned_value),
                    LineSpec(ledger=costing.ledger_for(company, "stock_wip"), credit=returned_value)])
         costing.add_cost(lot=lot, factory=factory, kind=LotCostEntry.Kind.TRIM, amount=-returned_value, date=date,
-                         note="Trims returned", source=receipt, voucher=voucher)
+                         note="Trims returned", source=receipt, voucher=voucher, step=challan.step)
     receipt.number = next_document_number(factory=factory, doc_type="jw_receipt", on_date=date)
     receipt.status = Receipt.Status.RECEIVED
     receipt.save()

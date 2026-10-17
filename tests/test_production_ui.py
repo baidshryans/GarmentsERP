@@ -244,8 +244,8 @@ def test_roles_see_only_their_production_screens(company, factory, owner):
     assert s.get(reverse("bill_list")).status_code == 403 and s.get(reverse("rate_list")).status_code == 403
     assert s.get(reverse("move_bundles")).status_code == 200 and s.get(reverse("order_new")).status_code == 403
     html = s.get(reverse("lot_detail", args=[ns.lot.pk])).content.decode()
-    assert "Lot cost" not in html  # cost is hidden from roles without the cost permission
-    assert "Lot cost" in login(owner).get(reverse("lot_detail", args=[ns.lot.pk])).content.decode()
+    assert "Step by step" in html and "Work in progress now" not in html and "Per piece" not in html  # no money without the cost permission
+    assert "Work in progress now" in login(owner).get(reverse("lot_detail", args=[ns.lot.pk])).content.decode()
 
 
 def test_production_screens_never_show_a_customer(company, factory, owner):

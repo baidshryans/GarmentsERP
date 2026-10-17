@@ -25,7 +25,7 @@ from . import labels
 from .models import Bundle, CuttingEntry, Lot, LotStep, PackEntry, ProductionAction, ProductionOrder, StageMovement
 from .services import actions as step_actions
 from .services import bundles as bundle_service
-from .services import boxes, costing, cutting, guide, orders, routes
+from .services import boxes, costing, cutting, guide, orders, routes, step_view
 from .services import materials as material_service
 
 
@@ -237,7 +237,6 @@ class LotDetail(LoginRequiredMixin, ScreenPermissionMixin, View):
         bundles = list(lot.bundles.select_related("sku__size", "location", "current_step__process", "split_from").order_by("bundle_no"))
         cuts = list(lot.cuttings.all())
         planned = sum(l.qty for l in lot.order_line.sizes.all())
-        breakdown = costing.cost_breakdown(lot)
         can_cost = request.user.can_view_field("cost")
         can_edit = request.user.has_screen_perm("production.lot", "edit")
         live = [b for b in bundles if b.is_live]
@@ -249,10 +248,9 @@ class LotDetail(LoginRequiredMixin, ScreenPermissionMixin, View):
             "cut_pieces": sum(b.original_qty for b in bundles if not b.split_from_id), "live_pieces": sum(b.qty for b in live),
             "expected_from_fabric": cutting.estimated_pieces(lot),
             "cutting_loss": sum(cs.loss for c in cuts for cs in c.sizes.all()),
-            "breakdown": breakdown if can_cost else None, "total_cost": costing.lot_cost(lot) if can_cost else None,
             "expected_charges": expected_charges, "can_cost": can_cost,
+            "sv": step_view.build(lot, request.user),     # pieces and cost at each step; money shown only with can_cost
             "changes": lot.route_changes.select_related("user")[:20],
-            "recorded": step_actions.listed(request.user, lot=lot),
             "processes": Process.objects.filter(is_active=True), "factories": _factories(request.user),
             "fabricators": Party.objects.filter(is_fabricator=True, is_active=True),
             "can_edit": can_edit, "route_open": can_edit and lot.status == Lot.Status.PLANNED,   # the route is planned then
@@ -264,7 +262,6 @@ class LotDetail(LoginRequiredMixin, ScreenPermissionMixin, View):
             "pack_ready": pack_ready,
             "box_plan": boxes.plan_for_bundles([b for b in pack_ready if not b.rework_qty], lot.company),   # if all of them are packed
             "packs": lot.pack_entries.prefetch_related("lines__sku__size"),
-            "material_issues": lot.material_issues.select_related("step__process").prefetch_related("lines__material__unit"),
             "unused_lines": material_service.unused_lines(lot),
             "dispatch_locations": Location.objects.filter(factory=lot.factory, is_active=True).exclude(loc_type__in=("transit", "rejects", "fabricator")),
         })

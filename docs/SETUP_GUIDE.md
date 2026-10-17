@@ -1037,7 +1037,7 @@ Order statuses: Draft → Released → In production → Partly completed → Co
 
 ## 21. Plan the route of each lot
 
-Open the lot page and go to **Route and rates**. While the lot is still Planned it is already open for anyone who may change the route; later, click it to unfold. The table shows #, Process, Where, Rate and Status (Pending, In progress, Done, Skipped). The route was copied from the style, so for most lots **you change nothing**.
+Open the lot page and go to **Change the route**. While the lot is still Planned it is already open for anyone who may change the route; later, click it to unfold. The table shows #, Process, Where, Rate and Status (Pending, In progress, Done, Skipped). The route was copied from the style, so for most lots **you change nothing**.
 
 Change only what differs for this lot, using the **Change…** menu on a step or the forms below it. Every change needs a **reason** and is logged under **History** on the lot page with date, user and reason.
 
@@ -1126,7 +1126,7 @@ Bundle statuses you will see: Cut → At stage → Received, awaiting QC → Rea
 4. Pick **Move to stage** (shown as "5. Ironing and pressing — in-house"). When you came from the lot's Next button, the stage it named is already chosen. The **Next stage** column on each row names where that bundle goes next: the next mandatory step after where the bundle actually is, the same step the lot's Next button names. A bundle sitting at Stitching shows the step after Stitching, and optional steps are passed over. Only when no mandatory step is left does it show the next optional step. Two cases cannot be moved from this screen, and the column says so: **With fabricator** for a bundle that is out on a challan (receive it first, 23.3), and the stage name followed by **(by challan)** when the next stage is done by a fabricator (issue a challan, 23.2).
 5. **At factory**: leave as "Stage default", or choose another factory to send the goods there (inter-factory move).
 6. Press **Move selected bundles**.
-7. **Materials for the stage.** If the style's list has materials for this stage (10.2), a second page shows them with the quantity worked out for the pieces you are moving. Change a quantity to what is really handed over, clear it to leave a material out, or add another material in the empty rows, then press **Move to …**. The materials leave the factory's Main Godown and go into the lot's cost in the same save as the move; if stock is short the move is refused and nothing is saved (unless negative stock is allowed in Inventory settings). **Cancel** takes you back with nothing moved. To issue materials that are not on the list, tick **Issue materials from the store with this move** before pressing Move. A stage with nothing on the list, and no tick, moves straight away as before. The lot page lists what was issued under **Materials used in-house**.
+7. **Materials for the stage.** If the style's list has materials for this stage (10.2), a second page shows them with the quantity worked out for the pieces you are moving. Change a quantity to what is really handed over, clear it to leave a material out, or add another material in the empty rows, then press **Move to …**. The materials leave the factory's Main Godown and go into the lot's cost in the same save as the move; if stock is short the move is refused and nothing is saved (unless negative stock is allowed in Inventory settings). **Cancel** takes you back with nothing moved. To issue materials that are not on the list, tick **Issue materials from the store with this move** before pressing Move. A stage with nothing on the list, and no tick, moves straight away as before. On the lot page, **Step by step** lists what was issued under the step it was used at.
 
 What the system checks:
 
@@ -1286,9 +1286,41 @@ The lot becomes **Completed** when none of its bundles is still live; packed, wr
 
   You can combine it with the search box and the Location filter.
 
+### Step by step: what happened at each step and what it cost
+
+The lot page has a **Step by step** table just under the guide: one row per step of the lot's route, in order.
+
+| Column | What it shows |
+| --- | --- |
+| Step | The process, where it is done (in-house and the factory, or the fabricator) and the dates of the first and last thing recorded there |
+| Status | Pending, In progress, Done or Skipped |
+| In | Pieces that came to this step. For cutting: the pieces cut |
+| Out | Good pieces that went on from this step (to the next step, a fabricator or finished goods) |
+| Lost | Loss, rejected and short together; point at the figure to see each |
+| Held for rework | Pieces kept back at this step to be fixed (23.1, 23.3) |
+| Still here | Pieces at this step now, including pieces back from a fabricator that wait for QC or to move on. "rework" marks pieces sent back to this step |
+| Cost | What the books hold for this step: fabric (on cutting), materials issued at the step or sent with a challan, in-house labour, and job work on posted labour bills less their deductions |
+| To bill | Job work QC has checked and that is payable, but not yet on a posted labour bill: the payable pieces at the challan rate. It is not in the books yet |
+| Per piece | (Cost + To bill) ÷ Out: what each good piece out of the step cost there |
+
+Pieces lost, rejected or short are counted at the step the pieces were **leaving**, the same step whose labour they would have earned. Pieces in = out + lost + held for rework + still here, unless pieces went back for rework.
+
+**Click a step** to open what was recorded there, oldest first: the fabric issue and cuttings, moves, challans, receipts, QC, packing and labour bills, each with its date, who recorded it, the materials it issued and its cost, with links to the challan, receipt or bill. A move appears under the step it brought the bundles to, and again under the step they left, marked "(cost of this step)", where its labour belongs. A step that was undone is shown greyed with the reason and no cost. **Edit** and **Undo** are here (see the next section).
+
+Under the table, for owner and accounts:
+
+- **Spent on the steps**, with **To bill** beside it.
+- **of which not linked to a step**: cost recorded before steps carried their cost and that could not be placed on one step (for instance a labour bill that paid two steps of the same lot). It is in the lot's cost all the same.
+- **Moved between factories**, **Written off** and **Moved to finished goods**: cost of the whole lot, not of a step.
+- **Work in progress now**: what is left on the lot. It always equals the lot's share of the Work in Progress ledger.
+
+Production roles (supervisor, cutting master, QC) see the same table with pieces only: the Cost, To bill and Per piece columns and the totals show only to roles that may see cost.
+
+**For the whole lot** (below the table) lists anything recorded that is not about one step.
+
 ### Correct a mistake: Edit or Undo a step
 
-Every step you record for a lot is listed on the lot page under **Steps recorded**, newest first: fabric issued, cutting recorded (with its bundles), bundles moved, pieces taken out, bundle split, sent to fabricator, received from fabricator, over-receipt approved, QC recorded and packed. Each one has two buttons.
+Every step you record for a lot is listed on the lot page under **Step by step**: click a route step to see what was recorded there, oldest first. That covers fabric issued, cutting recorded (with its bundles), bundles moved, pieces taken out, bundle split, sent to fabricator, received from fabricator, over-receipt approved, QC recorded and packed. Each one has two buttons.
 
 | Button | What it does |
 | --- | --- |
@@ -1649,7 +1681,7 @@ A supplier bill posts what you owe the supplier (reference = their bill number, 
 | "What this step put there has been used since" | The stock a step brought in (fabric on the cutting floor, packed pieces) has been used or sold | Undo the later step first; sold pieces cannot be unpacked |
 | "is on a labour bill. Cancel the bill first." | The QC result you want to undo has been billed | Cancel the labour bill (25.1), then undo the QC |
 | "is on draft challan" | A bundle of the step is on a challan not yet issued | Discard the draft challan, then undo |
-| A wrong production step (pieces cut, bundles, a move, a challan, a receipt, QC, a pack) | Recorded steps are not overwritten | Lot page → **Steps recorded** → **Edit** or **Undo** (section 24, *Correct a mistake*) |
+| A wrong production step (pieces cut, bundles, a move, a challan, a receipt, QC, a pack) | Recorded steps are not overwritten | Lot page → **Step by step** → click the step → **Edit** or **Undo** (section 24, *Correct a mistake*) |
 | A wrong posted document | Posted documents are never edited | Cancel with a reason, then enter a correct one |
 
 ---

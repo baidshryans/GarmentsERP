@@ -103,7 +103,7 @@ def issue_to_step(*, lot, step, factory, lines, user, date, pieces=0):
             lines=[LineSpec(ledger=costing.ledger_for(company, "stock_wip"), debit=total),
                    LineSpec(ledger=costing.ledger_for(company, "stock_raw_material"), credit=total)])
         costing.add_cost(lot=lot, factory=factory, kind=LotCostEntry.Kind.TRIM, amount=total, date=date,
-                         note=f"Materials at {step.process.name}", source=issue, voucher=voucher)
+                         note=f"Materials at {step.process.name}", source=issue, voucher=voucher, step=step)
         issue.voucher = voucher
         issue.save(update_fields=["voucher"])
     return issue

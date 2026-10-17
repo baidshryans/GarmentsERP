@@ -46,16 +46,17 @@ def live_pieces(lot, factory=None) -> int:
     return qs.aggregate(s=Sum("qty"))["s"] or 0
 
 
-def add_cost(*, lot, factory, kind, amount, date, note="", source=None, voucher=None) -> LotCostEntry:
-    """Record cost on a lot. The caller posts the matching GL entry (and passes its voucher)."""
+def add_cost(*, lot, factory, kind, amount, date, note="", source=None, voucher=None, step=None) -> LotCostEntry:
+    """Record cost on a lot. The caller posts the matching GL entry (and passes its voucher). `step` is the route
+    step the cost belongs to; leave it empty for cost of the whole lot (moves between factories, write-offs)."""
     return LotCostEntry.objects.create(
-        lot=lot, factory=factory, kind=kind, amount=r2(amount), date=date, note=note[:255], voucher=voucher,
+        lot=lot, factory=factory, kind=kind, amount=r2(amount), date=date, note=note[:255], voucher=voucher, step=step,
         source_type=source._meta.label_lower if source is not None else "", source_id=source.pk if source is not None else None,
     )
 
 
 @transaction.atomic
-def accrue_labour(*, lot, factory, amount, date, user, note="", source=None):
+def accrue_labour(*, lot, factory, amount, date, user, note="", source=None, step=None):
     """In-house piece-rate labour on accepted output: Dr WIP, Cr Labour Absorbed. Actual wages are booked separately."""
     amount = r2(amount)
     if amount <= 0:
@@ -68,7 +69,7 @@ def accrue_labour(*, lot, factory, amount, date, user, note="", source=None):
                LineSpec(ledger=ledger_for(company, "labour_absorbed"), credit=amount)],
     )
     return add_cost(lot=lot, factory=factory, kind=LotCostEntry.Kind.LABOUR, amount=amount, date=date, note=note,
-                    source=source, voucher=voucher)
+                    source=source, voucher=voucher, step=step)
 
 
 @transaction.atomic

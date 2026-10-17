@@ -284,15 +284,15 @@ def hold_back(bundle, count, *, user, date) -> Bundle:
 
 def accrue_leaving_labour(lot, items, date, user, note):
     """In-house piece-rate labour for stages bundles are leaving. items = [(bundle, stage left, pieces that pass)]."""
-    labour = {}
+    labour = {}                                   # (factory, stage left) -> amount
     for b, in_step, passing in items:
         if in_step is not None and in_step.assignment == LotStep.Assignment.IN_HOUSE and passing > 0:
             rate = in_step.rework_rate if b.is_rework else in_step.rate
             if rate > 0:
-                f = b.location.factory
-                labour[f] = labour.get(f, ZERO) + costing.r2(rate * passing)
-    for f, amount in labour.items():
-        costing.accrue_labour(lot=lot, factory=f, amount=amount, date=date, user=user, note=note, source=lot)
+                key = (b.location.factory, in_step)
+                labour[key] = labour.get(key, ZERO) + costing.r2(rate * passing)
+    for (f, step), amount in labour.items():
+        costing.accrue_labour(lot=lot, factory=f, amount=amount, date=date, user=user, note=note, source=lot, step=step)
 
 
 def _check_same_lot(bundles):
@@ -461,7 +461,7 @@ def pack_bundles(*, bundles, user, date=None, location=None, materials=None) -> 
             labour += costing.r2(rate * b.qty)
     if labour > 0:
         costing.accrue_labour(lot=lot, factory=factory, amount=labour, date=date, user=user,
-                              note=f"Packing, {sum(b.qty for b in bundles)} pieces", source=lot)
+                              note=f"Packing, {sum(b.qty for b in bundles)} pieces", source=lot, step=pack_step)
 
     packed = sum(b.qty for b in bundles)
     material_service.issue_to_step(lot=lot, step=pack_step, factory=factory, lines=materials, user=user, date=date,

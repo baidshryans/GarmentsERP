@@ -405,7 +405,7 @@ def test_a_wrong_cutting_is_edited_from_the_screens(ns, factory):
 
     # the lot page lists every step, the undone ones with the reason
     owner_page = login(ns.owner).get(reverse("lot_detail", args=[lot.pk])).content.decode()
-    assert "Steps recorded" in owner_page and owner_page.count("Pieces cut were wrong") == 1 and "Undone" in owner_page
+    assert "Step by step" in owner_page and owner_page.count("Pieces cut were wrong") == 1 and "Undone" in owner_page
     assert f'{reverse("step_undo", args=[last(K.FABRIC).pk])}?edit=1' in owner_page
 
 

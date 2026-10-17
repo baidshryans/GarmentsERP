@@ -650,3 +650,13 @@ details.more h2, details.more h3 { margin-top: var(--space-4); font-size: 15px; 
 fieldset.choices { margin: 0; padding: 0; border: 0; min-width: 0; }
 fieldset.choices > legend { padding: 0; margin-bottom: var(--space-1); font-size: var(--text-label); font-weight: 600; }
 @media (max-width: 640px) { details.more > summary { padding: var(--space-3) 0; min-height: 44px; } }
+
+/* ---- lot page: step by step ---- */
+.step-view .step-toggle { background: none; border: 0; padding: 0; font: inherit; font-weight: 600; color: var(--color-primary); cursor: pointer; text-align: left; }
+.step-view .step-toggle::before { content: "▸ "; color: var(--color-muted); }
+.step-view .step-toggle[aria-expanded="true"]::before { content: "▾ "; }
+.step-view .step-toggle:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 2px; border-radius: 4px; }
+.step-view tr.step-events > td { background: var(--color-primary-soft); padding-top: var(--space-2); padding-bottom: var(--space-3); }
+.step-view tr.step-events[hidden] { display: none; }
+.step-event-table { width: 100%; }
+.step-event-table td { border: 0; padding: 4px 8px; vertical-align: top; }

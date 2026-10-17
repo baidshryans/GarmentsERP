@@ -443,6 +443,9 @@ class LotCostEntry(models.Model):
 
     lot = models.ForeignKey(Lot, on_delete=models.PROTECT, related_name="cost_entries")
     factory = models.ForeignKey("core.Factory", on_delete=models.PROTECT, related_name="+")
+    step = models.ForeignKey(LotStep, on_delete=models.SET_NULL, null=True, blank=True, related_name="cost_entries",
+                             help_text="The route step the cost belongs to; empty for the whole lot (moves between "
+                                       "factories, write-offs, finished goods)")
     kind = models.CharField(max_length=10, choices=Kind.choices)
     amount = models.DecimalField(max_digits=16, decimal_places=2)
     date = models.DateField()

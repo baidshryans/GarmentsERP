@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% load static %}
+{% load static forms_ui %}
 {% block title %}Lot {{ lot.lot_no }}{% endblock %}
 {% block content %}
   <div class="page-head"><h1 class="page-title">{{ lot.style.style_no }} · {{ lot.colour }}</h1><span class="muted">{{ lot.lot_no }}</span><span class="pill">{{ lot.get_status_display }}</span>
@@ -49,8 +49,8 @@
             <form method="post" class="field-row" style="margin-top:8px">{% csrf_token %}<input type="hidden" name="step" value="{{ s.pk }}">
               <div class="field"><label>Reason</label><input type="text" name="reason" required></div>
               <div class="field"><label>Where</label><select name="assignment"><option value="in_house" {% if s.assignment == "in_house" %}selected{% endif %}>In-house</option><option value="subcontract" {% if s.assignment == "subcontract" %}selected{% endif %}>Fabricator</option></select></div>
-              <div class="field"><label>Factory</label><select name="factory"><option value="">—</option>{% for f in factories %}<option value="{{ f.pk }}" {% if s.factory_id == f.pk %}selected{% endif %}>{{ f.code }}</option>{% endfor %}</select></div>
-              <div class="field"><label>Fabricator</label><select name="party"><option value="">—</option>{% for p in fabricators %}<option value="{{ p.pk }}" {% if s.party_id == p.pk %}selected{% endif %}>{{ p.name }}</option>{% endfor %}</select></div>
+              <div class="field" {% show_when "assignment" s.assignment "in_house" "off" %}><label>Factory</label><select name="factory"><option value="">—</option>{% for f in factories %}<option value="{{ f.pk }}" {% if s.factory_id == f.pk %}selected{% endif %}>{{ f.code }}</option>{% endfor %}</select></div>
+              <div class="field" {% show_when "assignment" s.assignment "subcontract" "off" %}><label>Fabricator</label><select name="party"><option value="">—</option>{% for p in fabricators %}<option value="{{ p.pk }}" {% if s.party_id == p.pk %}selected{% endif %}>{{ p.name }}</option>{% endfor %}</select></div>
               <div class="field"><label>Rate</label><input type="text" name="rate" value="{{ s.rate }}"></div>
               <div class="field"><label>Rework rate</label><input type="text" name="rework_rate" value="{{ s.rework_rate }}"></div>
               <div style="align-self:end"><button class="btn" name="action" value="reassign">Reassign</button>
@@ -63,7 +63,7 @@
         <div class="field"><label>Process</label><select name="process">{% for p in processes %}<option value="{{ p.pk }}">{{ p.name }}</option>{% endfor %}</select></div>
         <div class="field"><label>After step no.</label><input type="text" name="after_sequence" value="1"></div>
         <div class="field"><label>Where</label><select name="assignment"><option value="in_house">In-house</option><option value="subcontract">Fabricator</option></select></div>
-        <div class="field"><label>Fabricator</label><select name="party"><option value="">—</option>{% for p in fabricators %}<option value="{{ p.pk }}">{{ p.name }}</option>{% endfor %}</select></div>
+        <div class="field" {% show_when "assignment" "in_house" "subcontract" "off" %}><label>Fabricator</label><select name="party"><option value="">—</option>{% for p in fabricators %}<option value="{{ p.pk }}">{{ p.name }}</option>{% endfor %}</select></div>
         <div class="field"><label>Rate</label><input type="text" name="rate" value="0"></div>
         <div class="field"><label>Reason</label><input type="text" name="reason" required></div>
         <div class="check" style="align-self:end"><input id="mand" type="checkbox" name="is_mandatory" checked><label for="mand">Mandatory</label></div>
@@ -80,4 +80,5 @@
     {% if can_cut %}<a class="btn ghost" href="{% url 'lot_fabric' lot.pk %}">Fabric issue</a><a class="btn ghost" href="{% url 'lot_cutting' lot.pk %}">Cutting</a>{% endif %}
     {% if can_move %}<a class="btn ghost" href="{% url 'move_bundles' %}?lot={{ lot.pk }}&amp;back=1">Move bundles</a>{% endif %}</div>{% endif %}
   <script src="{% static 'js/step_view.js' %}?v={{ asset_v }}" defer></script>
+  <script src="{% static 'js/reveal.js' %}?v={{ asset_v }}" defer></script>
 {% endblock %}

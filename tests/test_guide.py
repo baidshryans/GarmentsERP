@@ -429,6 +429,9 @@ def test_the_lot_page_opens_with_the_journey_and_one_next_button(company, factor
     # a planned lot is where the route gets planned, so for someone who may change it the fold starts open
     assert '<details class="fold" open><summary>Change the route</summary>' in html
     assert 'value="reassign"' in html and "<summary>Add a step</summary>" in html
+    # a step has a factory when in-house and a fabricator when subcontracted: the other box is hidden and not sent
+    assert 'data-show-when="assignment=in_house" data-off-when-hidden' in html
+    assert 'data-show-when="assignment=subcontract" data-off-when-hidden' in html and "js/reveal.js" in html
     assert "Step by step" in html and "Work in progress now" in html   # the lot cost now sits under each step
     assert g.count('class="j-tag"') == 3  # embroidery, printing and washing are marked optional
     # only labels, counts and links are shown: the permission and sort keys stay inside the service

@@ -361,13 +361,15 @@ Each route step records:
 | Process | From the process master |
 | Mandatory | Ticked: cannot be skipped. Unticked: optional, the planner decides per lot |
 | Assignment | **In-house** (your own factory) or **Subcontractor** (outside fabricator) |
-| Default factory | For in-house steps: which factory normally does it |
-| Default party | For subcontract steps: the usual fabricator. Leave blank if you choose per lot |
+| Default factory | For in-house steps: which factory normally does it. Hidden for a subcontracted step |
+| Default party | For subcontract steps: the usual fabricator. Leave blank if you choose per lot. Hidden for an in-house step |
 | Rate | Default rate per piece, shown to the planner as a starting figure |
 
 The default only pre-fills the lot. It never locks it.
 
 To make a route, open **Masters → Setup → Routes → New route**, give it a name and fill one row per step, top to bottom. The form opens with two blank rows; click **Add step** under the table for each further step, as many as the route needs. A row whose process is left blank is ignored when you save, so to drop a step from a route, set its process back to "—". Steps are saved in the order of the rows.
+
+A step is done either in your own factory or by a subcontractor, never both. When you set a row's **Default** to **Subcontractor**, its Factory box is cleared and hidden, so you only choose the fabricator (or leave it blank to choose one per lot). Set it back to **In-house** and the Fabricator box is cleared and hidden instead.
 
 Quantity is tracked **bundle by bundle** through the route. At every move, `quantity out = quantity received at next step + loss + rejection + shortage`. Pieces held back to be fixed are not a loss: they are split into a bundle of their own that follows later on the same lot (23.1, 23.3). Moving a bundle back to an earlier step always needs a reason.
 
@@ -1043,8 +1045,8 @@ Change only what differs for this lot, using the **Change…** menu on a step or
 
 | Need | How | Rule |
 | --- | --- | --- |
-| Give a step to a different fabricator | Change → **Reassign**: Where = Fabricator, choose the fabricator, rate, rework rate | The party must be marked as a fabricator |
-| Do a step in-house instead | Reassign: Where = In-house, choose the factory | An in-house step cannot carry a fabricator |
+| Give a step to a different fabricator | Change → **Reassign**: Where = Fabricator, choose the fabricator (or leave it blank to choose when you send the challan), rate, rework rate | The party must be marked as a fabricator. The Factory box is hidden while Where = Fabricator |
+| Do a step in-house instead | Reassign: Where = In-house, choose the factory | The Fabricator box is hidden while Where = In-house |
 | Skip washing on this lot | Change → **Skip** | Only optional steps can be skipped |
 | Add a missing step | **Add a step**: process, after step no., where, rate, reason | Cannot be inserted before a step that has started |
 | Change the order of steps | **Move a step**: step, new position, reason | No step in the range may have started |

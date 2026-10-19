@@ -21,16 +21,6 @@
         {% endfor %}</tbody>
       </table></div>
     </div>
-    <div class="island">
-      <h2>Fixed charges per piece</h2>
-      <div class="table-scroll"><table data-entry>
-        <thead><tr><th scope="col">Description</th><th scope="col">Process</th><th scope="col" class="num">Amount</th></tr></thead>
-        <tbody>{% for c in charge_rows %}<tr>
-          <td><input type="text" name="charge_desc" aria-label="Charge description" value="{{ c.description|default:'' }}" placeholder="Embroidery, printing, washing"></td>
-          <td><select name="charge_process"><option value="">—</option>{% for p in processes %}<option value="{{ p.pk }}" {% if c.process == p.pk|stringformat:"s" %}selected{% endif %}>{{ p.name }}</option>{% endfor %}</select></td>
-          <td class="num"><input type="text" inputmode="decimal" name="charge_amount" value="{{ c.amount|default:'' }}"></td></tr>{% endfor %}</tbody>
-      </table></div>
-    </div>
     {% more_open vals "notes" as notes_open %}
     {% more "version note" open=notes_open cls="island" %}<div class="field" style="max-width:640px"><label for="notes">Version note</label><input id="notes" name="notes" type="text" value="{{ vals.notes }}" placeholder="Why this changed"></div>{% endmore %}
     <div class="form-actions"><button class="btn primary">Save BOM</button><a class="btn ghost" href="{% url 'style_detail' style.pk %}">Cancel</a></div>

@@ -49,7 +49,7 @@ SCREENS = {
     "jobwork.challan": "Job work challans",
     "jobwork.receipt": "Job work receipts",
     "jobwork.qc": "QC of received work",
-    "jobwork.rate": "Labour rates",
+    "jobwork.rate": "Rates",
     "jobwork.bill": "Labour bills",
     "jobwork.report": "Fabricator ledger and reports",
     "sales.order": "Sale orders",

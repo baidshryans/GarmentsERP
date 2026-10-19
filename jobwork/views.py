@@ -343,10 +343,55 @@ class RateList(LoginRequiredMixin, ScreenPermissionMixin, View):
     screen_code = "jobwork.rate"
 
     def get(self, request):
+        rows = sorted(LabourRate.objects.select_related("party", "process"),
+                      key=lambda r: (r.process.name, r.party_id is not None, r.who, -r.effective_from.toordinal()))
+        for r in rows:
+            r.used = rates.in_use(r)
         return render(request, "jobwork/rate_list.html", {
-            "rates": LabourRate.objects.select_related("party", "process"),
+            "rates": rows, "in_use_text": rates.IN_USE,
             "can_create": request.user.has_screen_perm("jobwork.rate", "create"),
+            "can_edit": request.user.has_screen_perm("jobwork.rate", "edit"),
         })
+
+
+class RateEdit(LoginRequiredMixin, ScreenPermissionMixin, View):
+    """Change or delete a rate no recorded work has used yet."""
+    screen_code = "jobwork.rate"
+    screen_action = "edit"
+
+    def _ctx(self, rate, d=None):
+        d = d or {"rate": rate.rate, "effective_from": rate.effective_from.isoformat(), "pay_basis": rate.pay_basis}
+        return {"r": rate, "d": d, "pay_bases": PayBasis.choices, "used": rates.in_use(rate), "in_use_text": rates.IN_USE}
+
+    def get(self, request, pk):
+        rate = get_object_or_404(LabourRate.objects.select_related("party", "process"), pk=pk)
+        return render(request, "jobwork/rate_edit.html", self._ctx(rate))
+
+    def post(self, request, pk):
+        rate = get_object_or_404(LabourRate.objects.select_related("party", "process"), pk=pk)
+        p = request.POST
+        try:
+            rates.update_rate(rate, rate_value=vu.dec(p.get("rate"), "Rate per piece"),
+                              effective_from=vu.day(p.get("effective_from")), pay_basis=p.get("pay_basis") or rate.pay_basis)
+        except (ValueError, BusinessRuleError) as exc:
+            vu.report(request, exc)
+            return render(request, "jobwork/rate_edit.html", self._ctx(rate, p))
+        messages.success(request, "Rate changed.")
+        return redirect("rate_list")
+
+
+class RateDelete(LoginRequiredMixin, ScreenPermissionMixin, View):
+    screen_code = "jobwork.rate"
+    screen_action = "edit"
+
+    def post(self, request, pk):
+        rate = get_object_or_404(LabourRate, pk=pk)
+        try:
+            rates.delete_rate(rate)
+            messages.success(request, "Rate deleted.")
+        except BusinessRuleError as exc:
+            vu.report(request, exc)
+        return redirect("rate_list")
 
 
 class RateNew(LoginRequiredMixin, ScreenPermissionMixin, View):

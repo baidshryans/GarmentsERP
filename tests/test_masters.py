@@ -175,11 +175,9 @@ def test_changing_a_used_bom_creates_new_version_and_old_lots_keep_the_old(style
 def test_size_wise_consumption(style, elastic):
     fabric = elastic
     xxl, s = Size.objects.get(code="XXL"), Size.objects.get(code="S")
-    v, _ = boms.save_bom(style, lines=[boms.BomLineSpec(fabric, D("0.45"), D("3"), {xxl: D("0.55")})],
-                         charges=[boms.BomChargeSpec("Embroidery", D("6.50"), Process.objects.get(code="EMB"))])
+    v, _ = boms.save_bom(style, lines=[boms.BomLineSpec(fabric, D("0.45"), D("3"), {xxl: D("0.55")})])
     assert boms.consumption_for(v, xxl)[0][1] == D("0.55")
     assert boms.consumption_for(v, s)[0][1] == D("0.45")
-    assert v.charges.get().amount_per_piece == D("6.50")
 
 
 def test_fabric_is_not_on_the_list_and_a_material_is_used_in_one_process(style, fabric, zip_trim, elastic, polybag):
@@ -199,8 +197,6 @@ def test_fabric_is_not_on_the_list_and_a_material_is_used_in_one_process(style, 
     assert boms.needs(v, pack, {s: 100}) == {polybag: D("102.000")}                # wastage included
     assert boms.needs(None, stitch, {s: 10}) == {}                                 # a style with no list
     assert [l.material for l in boms.unused_lines(v, [stitch, pack])] == [elastic]  # a route with no embroidery
-    only_charges, _ = boms.save_bom(style, lines=[], charges=[boms.BomChargeSpec("Washing", D("4"))])
-    assert only_charges.lines.count() == 0
 
 
 def test_bom_rules(style, elastic):

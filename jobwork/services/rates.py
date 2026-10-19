@@ -81,9 +81,21 @@ def save_rate(*, who, process, effective_from, rate, pay_basis=PayBasis.ACCEPTED
                                      pay_basis=pay_basis)
 
 
+IN_USE = "Used on work already recorded. To change it, add a new rate from a later date."
+
+
+def in_use(rate) -> bool:
+    """Has recorded work been paid at this rate (a challan priced at it, or in-house labour costed at it)?"""
+    from production.models import LotCostEntry
+
+    return rate.challans.exists() or LotCostEntry.objects.filter(rate=rate).exists()
+
+
 @transaction.atomic
 def update_rate(rate, *, rate_value, effective_from, pay_basis) -> LabourRate:
     rate = LabourRate.objects.get(pk=rate.pk)
+    if in_use(rate):
+        raise BusinessRuleError(IN_USE)
     _check(rate.party, rate.process, effective_from, rate_value, pay_basis, exclude=rate)
     rate.rate, rate.effective_from, rate.pay_basis = rate_value, effective_from, pay_basis
     rate.save()
@@ -92,6 +104,8 @@ def update_rate(rate, *, rate_value, effective_from, pay_basis) -> LabourRate:
 
 @transaction.atomic
 def delete_rate(rate) -> None:
+    if in_use(rate):
+        raise BusinessRuleError(IN_USE)
     LabourRate.objects.filter(pk=rate.pk).delete()
 
 

@@ -160,3 +160,70 @@ def test_inhouse_cost_entry_records_rate_and_qty(company, factory, owner):
     cut(ns)
     entry = LotCostEntry.objects.get(lot=ns.lot, kind="labour")
     assert (entry.qty, entry.rate.rate, entry.amount) == (100, D("1.50"), D("150.00"))
+
+
+# ---------------- the Rates screen (Task 4) ----------------
+
+from django.test import Client
+from django.urls import reverse
+
+from core.models import Role
+from jobwork.models import LabourRate
+from tests.conftest import make_user
+
+
+def _client(user):
+    c = Client()
+    c.force_login(user)
+    return c
+
+
+def test_rates_screen_groups_by_process_with_in_house_first(company, factory, owner, fab, process):
+    rates.save_rate(who=fab, process=process, effective_from=DAY, rate=D("12"))
+    rates.save_rate(who=None, process=process, effective_from=DAY, rate=D("9"))
+    page = _client(owner).get(reverse("rate_list")).content.decode()
+    assert page.index("In-house") < page.index(fab.name)
+    assert "<h1 class=\"page-title\">Rates</h1>" in page
+
+
+def test_production_roles_do_not_see_rates(company, factory):
+    sup = make_user("sup")
+    sup.roles.add(Role.objects.get(name="Production Supervisor"))
+    sup.allowed_factories.add(factory)
+    assert _client(sup).get(reverse("rate_list")).status_code == 403
+
+
+def test_an_unused_rate_can_be_edited_and_deleted(company, owner, fab, process):
+    r = rates.save_rate(who=fab, process=process, effective_from=DAY, rate=D("12"))
+    c = _client(owner)
+    resp = c.post(reverse("rate_edit", args=[r.pk]), {"rate": "13", "effective_from": DAY.isoformat(), "pay_basis": "accepted"})
+    assert resp.status_code == 302 and LabourRate.objects.get(pk=r.pk).rate == D("13")
+    resp = c.post(reverse("rate_delete", args=[r.pk]))
+    assert resp.status_code == 302 and not LabourRate.objects.filter(pk=r.pk).exists()
+
+
+def test_edit_and_delete_refused_once_used(company, factory, owner):
+    from tests.prod_helpers import build, cut, set_inhouse_rate
+
+    ns = build(company, factory, owner)
+    set_inhouse_rate("CUT", "1.50")
+    cut(ns)                                                   # the cutting used the In-house cutting rate
+    used = LabourRate.objects.get(party__isnull=True, process__code="CUT")
+    assert rates.in_use(used)
+    with pytest.raises(BusinessRuleError, match="Used on work already recorded"):
+        rates.update_rate(used, rate_value=D("2"), effective_from=used.effective_from, pay_basis="accepted")
+    with pytest.raises(BusinessRuleError, match="Used on work already recorded"):
+        rates.delete_rate(used)
+    page = _client(owner).get(reverse("rate_list")).content.decode()
+    assert "Used on work already recorded. To change it, add a new rate from a later date." in page
+
+
+def test_menu_says_rates(company, owner):
+    page = _client(owner).get(reverse("home")).content.decode()
+    assert ">Rates<" in page and "Labour rates" not in page
+
+
+def test_bom_has_no_charges(company):
+    from masters import models as m
+
+    assert not hasattr(m, "BomCharge")

@@ -625,7 +625,7 @@ def test_small_masters_show_active_only_on_edit(company, owner_c):
 def test_the_bom_folds_only_its_version_note(ns, owner_c, trim):
     url = reverse("bom_edit", args=[ns.style.pk])
     html = html_of(owner_c.get(url))
-    assert in_view(html, "material", "qty", "wastage", "charge_desc") and folded(html, "notes")
+    assert in_view(html, "material", "qty", "wastage") and folded(html, "notes")
     assert '<label for="notes">Version note</label>' in html and f'name="size_{ns.sizes["S"].pk}"' in html
     html = html_of(owner_c.post(url, {"material": [trim.pk], "qty": ["lots"], "wastage": [""], "notes": "new zip",
                                       **{f"size_{s.pk}": [""] for s in ns.sizes.values()},

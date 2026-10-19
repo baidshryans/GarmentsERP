@@ -204,7 +204,6 @@ class StyleDetail(LoginRequiredMixin, ScreenPermissionMixin, View):
             "style": style, "sizes": sizes, "grid": grid, "bom": bom,
             "bom_lines": [l for l in bom.lines.select_related("material__unit", "process").prefetch_related("size_overrides")
                           if l.material.kind != "fabric"] if bom else [],   # fabric on old lists is no longer used
-            "bom_charges": bom.charges.all() if bom else [],
             "versions": style.bom_versions.all(),
             "can_edit": request.user.has_screen_perm("masters.style", "edit"),
             "can_bom": request.user.has_screen_perm("masters.bom", "edit"),
@@ -216,7 +215,7 @@ class BomEdit(LoginRequiredMixin, ScreenPermissionMixin, View):
     screen_code = "masters.bom"
     screen_action = "edit"
 
-    def _context(self, style, rows=None, charge_rows=None, notes=""):
+    def _context(self, style, rows=None, notes=""):
         sizes = [ss.size for ss in style.style_sizes.select_related("size").order_by("size__sort_order")]
         bom = boms.current_version(style)
         if rows is None:
@@ -229,11 +228,8 @@ class BomEdit(LoginRequiredMixin, ScreenPermissionMixin, View):
                                  "qty": line.qty_per_piece, "wastage": line.wastage_pct,
                                  "sizes": {str(o.size_id): o.qty_per_piece for o in line.size_overrides.all()}})
             rows = rows or [{}]
-        if charge_rows is None:
-            charge_rows = [{"description": c.description, "process": str(c.process_id or ""), "amount": c.amount_per_piece}
-                           for c in (bom.charges.all() if bom else [])]
         return {
-            "style": style, "sizes": sizes, "rows": rows + [{}, {}], "charge_rows": charge_rows + [{}, {}],
+            "style": style, "sizes": sizes, "rows": rows + [{}, {}],
             "materials": Material.objects.filter(is_active=True).exclude(kind="fabric").select_related("unit"),
             "processes": Process.objects.filter(is_active=True),
             "use_processes": Process.objects.filter(is_active=True).exclude(kind="cutting"),
@@ -250,7 +246,7 @@ class BomEdit(LoginRequiredMixin, ScreenPermissionMixin, View):
         post = request.POST
         mats, qtys, wastes = post.getlist("material"), post.getlist("qty"), post.getlist("wastage")
         procs = post.getlist("process") or [""] * len(mats)
-        rows, specs, charge_rows = [], [], None
+        rows, specs = [], []
         try:
             for i, mid in enumerate(mats):
                 size_vals = {str(s.pk): post.getlist(f"size_{s.pk}")[i] for s in sizes}
@@ -263,17 +259,10 @@ class BomEdit(LoginRequiredMixin, ScreenPermissionMixin, View):
                     size_qty={s: _decimal(size_vals[str(s.pk)], "Size consumption") for s in sizes if size_vals[str(s.pk)].strip()},
                     process=Process.objects.filter(pk=procs[i]).first() if procs[i] else None,
                 ))
-            charge_rows, charges = [], []  # noqa: F841
-            for i, desc in enumerate(post.getlist("charge_desc")):
-                amt, proc = post.getlist("charge_amount")[i], post.getlist("charge_process")[i]
-                charge_rows.append({"description": desc, "process": proc, "amount": amt})
-                if desc.strip():
-                    charges.append(boms.BomChargeSpec(
-                        desc.strip(), _decimal(amt, "Charge amount"), Process.objects.filter(pk=proc).first() if proc else None))
-            version, new = boms.save_bom(style, lines=specs, charges=charges, user=request.user, notes=post.get("notes", ""))
+            version, new = boms.save_bom(style, lines=specs, user=request.user, notes=post.get("notes", ""))
         except (ValueError, BusinessRuleError) as exc:
             _messages_for(request, exc)
-            return render(request, "masters/bom_form.html", self._context(style, rows, charge_rows, post.get("notes", "")))
+            return render(request, "masters/bom_form.html", self._context(style, rows, post.get("notes", "")))
         if new:
             messages.warning(request, f"Lots already use the previous BOM, so this was saved as version {version.version_no}. Old lots keep the old version.")
         else:

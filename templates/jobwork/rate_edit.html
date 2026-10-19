@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% load static forms_ui %}
+{% block title %}Change rate{% endblock %}
+{% block content %}
+  <div class="page-head"><h1 class="page-title">{{ r.who }} — {{ r.process.name }}</h1></div>
+  {% if used %}<div class="island"><p>{{ in_use_text }}</p><a class="btn" href="{% url 'rate_new' %}?{% if r.party_id %}who={{ r.party_id }}{% else %}who=inhouse{% endif %}&amp;process={{ r.process_id }}">New rate from a later date</a></div>
+  {% else %}<form method="post" novalidate>{% csrf_token %}
+    <div class="island"><div class="field-row">
+      <div class="field"><label for="rate">Rate per piece</label><input id="rate" name="rate" type="text" inputmode="decimal" value="{{ d.rate }}"></div>
+      <div class="field"><label for="effective_from">From</label><input id="effective_from" name="effective_from" type="date" value="{{ d.effective_from }}" required></div>
+      {% if r.party_id %}<div class="field"><label for="pay_basis">Pay on</label><select id="pay_basis" name="pay_basis">{% for v, l in pay_bases %}<option value="{{ v }}" {% if d.pay_basis == v %}selected{% endif %}>{{ l }}</option>{% endfor %}</select></div>{% endif %}
+    </div></div>
+    <div class="form-actions"><button class="btn primary">Save</button><a class="btn ghost" href="{% url 'rate_list' %}">Cancel</a></div>
+  </form>{% endif %}
+{% endblock %}

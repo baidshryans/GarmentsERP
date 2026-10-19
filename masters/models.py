@@ -320,18 +320,6 @@ class BomLineSize(models.Model):
         ]
 
 
-class BomCharge(models.Model):
-    """Fixed per-piece charge in the BOM: embroidery, printing, washing."""
-
-    version = models.ForeignKey(BomVersion, on_delete=models.CASCADE, related_name="charges")
-    description = models.CharField(max_length=80)
-    process = models.ForeignKey(Process, on_delete=models.PROTECT, null=True, blank=True, related_name="+")
-    amount_per_piece = models.DecimalField(max_digits=10, decimal_places=2)
-
-    class Meta:
-        constraints = [models.CheckConstraint(condition=Q(amount_per_piece__gte=0), name="bom_charge_non_negative")]
-
-
 # ---------------------------------------------------------------- price lists
 
 class PriceList(models.Model):

@@ -82,21 +82,17 @@ def test_bom_screen_saves_size_wise_lines(company, merch, client_for):
     r = c.post(reverse("bom_edit", args=[style.pk]), {
         "material": [fab.pk, ""], "process": [Process.objects.get(code="EMB").pk, ""], "qty": ["0.45", ""], "wastage": ["3", ""],
         f"size_{m.pk}": ["", ""], f"size_{xl.pk}": ["0.52", ""],
-        "charge_desc": ["Printing", ""], "charge_process": [Process.objects.get(code="PRINT").pk, ""],
-        "charge_amount": ["4.5", ""],
     })
     assert r.status_code == 302
     v = BomVersion.objects.get(style=style)
-    assert v.lines.get().size_overrides.get().qty_per_piece == D("0.52") and v.charges.get().amount_per_piece == D("4.50")
+    assert v.lines.get().size_overrides.get().qty_per_piece == D("0.52")
     assert v.lines.get().process.code == "EMB"
     assert "Embroidery" in c.get(reverse("style_detail", args=[style.pk])).content.decode()
     refused = c.post(reverse("bom_edit", args=[style.pk]), {
-        "material": [fleece.pk], "process": [""], "qty": ["0.4"], "wastage": [""], f"size_{m.pk}": [""], f"size_{xl.pk}": [""],
-        "charge_desc": [""], "charge_process": [""], "charge_amount": [""]})
+        "material": [fleece.pk], "process": [""], "qty": ["0.4"], "wastage": [""], f"size_{m.pk}": [""], f"size_{xl.pk}": [""]})
     assert refused.status_code == 200 and b"is fabric" in refused.content
     bad = c.post(reverse("bom_edit", args=[style.pk]), {
-        "material": [fab.pk], "qty": ["abc"], "wastage": [""], f"size_{m.pk}": [""], f"size_{xl.pk}": [""],
-        "charge_desc": [""], "charge_process": [""], "charge_amount": [""],
+        "material": [fab.pk], "qty": ["abc"], "wastage": [""], f"size_{m.pk}": [""], f"size_{xl.pk}": [""]
     })
     assert bad.status_code == 200 and b"not a number" in bad.content
 
@@ -109,8 +105,7 @@ def test_changing_bom_used_by_a_lot_warns_and_versions(company, merch, client_fo
     m = Size.objects.get(code="M")
 
     def payload(q):
-        return {"material": [fab.pk], "qty": [q], "wastage": [""], f"size_{m.pk}": [""],
-                "charge_desc": [""], "charge_process": [""], "charge_amount": [""]}
+        return {"material": [fab.pk], "qty": [q], "wastage": [""], f"size_{m.pk}": [""]}
 
     c = client_for(merch)
     c.post(reverse("bom_edit", args=[style.pk]), payload("0.4"))

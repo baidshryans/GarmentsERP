@@ -44,7 +44,7 @@ NAV = [
         ("challan_list", "Sent to fabricators", "jobwork.challan", "challans job work"),
         ("receipt_list", "Received from fabricators", "jobwork.receipt", "receipts and QC"),
         ("bill_list", "Labour bills", "jobwork.bill"),
-        ("rate_list", "Labour rates", "jobwork.rate"),
+        ("rate_list", "Rates", "jobwork.rate"),
     ]),
     ("Sell", [
         ("saleorder_list", "Sale orders", "sales.order"),

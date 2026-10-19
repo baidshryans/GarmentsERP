@@ -6,9 +6,11 @@
   <p class="muted" style="max-width:720px">The one place a process cost is set: who does it (a fabricator, or In-house for your own people), the rate per piece, and the date it applies from. Work uses the rate in force on its date; a later rate never changes work already recorded.</p>
   <div class="island">
     {% if rates %}<div class="table-wrap"><table>
-      <thead><tr><th scope="col">Process</th><th scope="col">Who</th><th scope="col" class="num">Rate per piece</th><th scope="col">Pay on</th><th scope="col">From</th></tr></thead>
-      <tbody>{% for r in rates %}<tr{% if not r.is_active %} class="muted"{% endif %}><td>{{ r.process.name }}</td><td>{{ r.who }}</td><td class="num">{{ r.rate }}</td>
-        <td>{% if r.party_id %}{{ r.get_pay_basis_display }}{% else %}<span class="muted">—</span>{% endif %}</td><td>{{ r.effective_from|date:"d M Y" }}</td></tr>{% endfor %}</tbody>
+      <thead><tr><th scope="col">Process</th><th scope="col">Who</th><th scope="col" class="num">Rate per piece</th><th scope="col">Pay on</th><th scope="col">From</th>{% if can_edit %}<th scope="col">Change</th>{% endif %}</tr></thead>
+      <tbody>{% for r in rates %}<tr{% if not r.is_active %} class="muted"{% endif %}><td>{% ifchanged r.process_id %}<strong>{{ r.process.name }}</strong>{% endifchanged %}</td><td>{{ r.who }}</td><td class="num">{{ r.rate }}</td>
+        <td>{% if r.party_id %}{{ r.get_pay_basis_display }}{% else %}<span class="muted">—</span>{% endif %}</td><td>{{ r.effective_from|date:"d M Y" }}{% if not r.is_active %} <span class="pill">Switched off</span>{% endif %}</td>
+        {% if can_edit %}<td>{% if r.used %}<span class="muted">{{ in_use_text }}</span>{% else %}<span style="white-space:nowrap"><a class="btn" href="{% url 'rate_edit' r.pk %}">Edit</a>
+          <form method="post" action="{% url 'rate_delete' r.pk %}" style="display:inline">{% csrf_token %}<button class="btn ghost">Delete</button></form></span>{% endif %}</td>{% endif %}</tr>{% endfor %}</tbody>
     </table></div>{% else %}<div class="empty"><div class="hand">No rates yet</div></div>{% endif %}
   </div>
 {% endblock %}

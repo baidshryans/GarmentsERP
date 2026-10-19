@@ -34,7 +34,7 @@ Later steps depend on earlier ones. Do not skip ahead.
 | 8 | Routes | Masters → Setup → Routes | Merchandiser + Production head | 30 min |
 | 9 | Parties: suppliers, fabricators, customers, agents, transporters | Masters → Parties | Accountant / Purchase | 1–3 hours |
 | 10 | Styles, SKUs and BOMs | Masters → Styles | Merchandiser | per style |
-| 11 | Labour rates for each fabricator | Make → Labour rates | Production head + Accountant | 1 hour |
+| 11 | Rates: what each process costs, in-house and at each fabricator | Make → Rates | Production head + Accountant | 1 hour |
 | 12 | Price lists | Masters → Price lists | Owner / Sales | 30 min |
 | 13 | Opening balances and opening stock | More → Accountant → Opening balances, Opening stock | Accountant + Store Keeper | 1 day |
 | 14 | Dry run with one real lot | Part 14 | Everyone | 1 day |
@@ -411,15 +411,15 @@ An installation set up before this route existed gets it by running `python mana
 
 Logo embroidered on cut panels before stitching, so embroidery comes before stitching.
 
-| Seq | Process | Mandatory | Assignment | Default party | Rate |
-| --- | --- | --- | --- | --- | --- |
-| 1 | Cutting | Yes | In-house (LDH1) | | 0 |
-| 2 | Embroidery | Yes | Subcontractor | Royal Embroidery | 8.00 |
-| 3 | Stitching | Yes | Subcontractor | Gurpreet Garments | 28.00 |
-| 4 | Flatlock | No | Subcontractor | Gurpreet Garments | 4.00 |
-| 5 | Ironing and pressing | Yes | In-house (LDH1) | | 0 |
-| 6 | Quality check | Yes | In-house (LDH1) | | 0 |
-| 7 | Packing | Yes | In-house (LDH1) | | 0 |
+| Seq | Process | Mandatory | Assignment | Default party |
+| --- | --- | --- | --- | --- |
+| 1 | Cutting | Yes | In-house (LDH1) | |
+| 2 | Embroidery | Yes | Subcontractor | Royal Embroidery |
+| 3 | Stitching | Yes | Subcontractor | Gurpreet Garments |
+| 4 | Flatlock | No | Subcontractor | Gurpreet Garments |
+| 5 | Ironing and pressing | Yes | In-house (LDH1) | |
+| 6 | Quality check | Yes | In-house (LDH1) | |
+| 7 | Packing | Yes | In-house (LDH1) | |
 
 ### 8.4 Route C — Fully in-house
 
@@ -437,14 +437,14 @@ Goods moving from LDH1 to LDH2 are an **inter-factory transfer** and are valued 
 
 ### 8.5 Route D — Washed jogger (wash before finishing)
 
-| Seq | Process | Mandatory | Assignment | Default party | Rate |
-| --- | --- | --- | --- | --- | --- |
-| 1 | Cutting | Yes | In-house (LDH1) | | 0 |
-| 2 | Stitching | Yes | Subcontractor | Gurpreet Garments | 27.00 |
-| 3 | Washing | Yes | Subcontractor | Shree Wash House | 9.00 |
-| 4 | Ironing and pressing | Yes | In-house (LDH1) | | 0 |
-| 5 | Quality check | Yes | In-house (LDH1) | | 0 |
-| 6 | Packing | Yes | In-house (LDH1) | | 0 |
+| Seq | Process | Mandatory | Assignment | Default party |
+| --- | --- | --- | --- | --- |
+| 1 | Cutting | Yes | In-house (LDH1) | |
+| 2 | Stitching | Yes | Subcontractor | Gurpreet Garments |
+| 3 | Washing | Yes | Subcontractor | Shree Wash House |
+| 4 | Ironing and pressing | Yes | In-house (LDH1) | |
+| 5 | Quality check | Yes | In-house (LDH1) | |
+| 6 | Packing | Yes | In-house (LDH1) | |
 
 ### 8.6 How to design your routes
 
@@ -458,7 +458,7 @@ Goods moving from LDH1 to LDH2 are an **inter-factory transfer** and are valued 
 **What not to do**
 
 - Do not put a new route in for every fabricator. Use "Default party" or choose at planning time.
-- Do not use the route rate as the fabricator's pay agreement. Pay is set in **Labour rates** (Part 11). Keep both in agreement.
+- A route has no rates. What each step costs is set in one place only: **Rates** (Part 11).
 - Do not leave out packing: it is what lets finished goods reach stock and billing. A QC step is needed only for a check you do in-house as its own stage; pieces back from a fabricator are always checked on the receipt.
 
 ---
@@ -530,7 +530,7 @@ Party codes (`P0001`, `P0002` …) are generated for you.
 | TDS section | 194C (suggestion) |
 | Payment terms | Weekly, on QC-accepted pieces |
 
-Create the **labour rates** for the fabricator next (Part 11), so their work can be priced.
+Add the fabricator's **rates** next (Part 11), so their work can be priced.
 
 Other fabricators in the examples: `Royal Embroidery` (embroidery, Mobile `9876522255`), `Shree Wash House` (washing, `9876533366`).
 
@@ -646,12 +646,6 @@ You can also add **per-piece charges** (not materials): a fixed amount per piece
 | Care label | Thread cutting and finishing | PCS | 1.0000 | 0 | |
 | Polybag 10x14 | Packing | PCS | 1.0000 | 0 | |
 
-Charges per piece (informational costing):
-
-| Description | Process | Amount (₹/pc) |
-| --- | --- | --- |
-| Logo embroidery | Embroidery | 8.00 |
-
 **How the list is used.** It only fills the screen in; what leaves the store is what you confirm.
 
 - **A fabricator's step:** the challan lists the materials of that step's process for the bundles on it, and you can change them while it is a draft (23.2).
@@ -664,42 +658,43 @@ Charges per piece (informational costing):
 
 ---
 
-## 11. Labour rates (what each fabricator is paid)
+## 11. Rates (what each process costs)
 
-*Make → Labour rates → New.* A rate is for one **fabricator + process**, with a start date. The first field is labelled **Fabricator or supplier**, because a supplier who also does job work can have a rate. Both start on "Choose…": the rate is not saved until you pick them ("Choose the fabricator or supplier.", "Choose the process."). A new rate never changes bills already made; it applies to challans issued after its date.
+*Make → Rates.* This is the **only** place a process cost is set. Routes, lots and challans have no rate fields of their own; they look the rate up here.
 
-**Pay on.** Every rate says which pieces the fabricator is paid for. It is fixed on each challan when the challan is made, so changing the rate later never changes a challan already out.
+A rate is **who does it + process + rate per piece + from date**:
+
+- **Who** is a fabricator (or a supplier who also does job work), or **In-house** for your own people. In-house is one rate per process, used at every factory.
+- **Rate per piece** is what one piece costs at that step. It can be 0, for a step your salaried staff do.
+- **From** is the date it applies from. Work uses the rate in force on its own date, so a new rate never changes work already recorded.
+
+Both **Who** and **Process** start on "Choose…" and must be picked.
+
+**If there is no rate, the work stops.** Recording a cutting, moving bundles out of an in-house step, packing, or making a challan is refused with, for example, "No rate for In-house — Cutting on 15 Jun. Add one on Rates." Nothing is saved; add the rate and try again.
+
+**Pay on** (fabricators only). Every fabricator rate says which pieces are paid. It is fixed on each challan when the challan is made, so changing it later never changes a challan already out.
 
 | Pay on | What is paid | Rework | Pieces not returned (shortage) |
 | --- | --- | --- | --- |
-| **Pieces accepted at QC** (the default) | Only pieces that pass QC | Paid when the redone pieces pass: the rate plus the rework rate | Offered as a deduction, ticked |
-| **Pieces received back** | Every piece that comes back, rejected or not. The loss on rejected pieces is yours | The first pass is already paid, so redone pieces earn the rework rate alone (nothing, if it is 0) | Offered as a deduction, **not** ticked: lost pieces are yours unless you tick it |
+| **Pieces accepted at QC** (the default) | Only pieces that pass QC | Paid once, at the same rate, when the redone pieces pass | Offered as a deduction, ticked |
+| **Pieces received back** | Every piece that comes back, rejected or not. The loss on rejected pieces is yours | Not paid again: the first pass already paid for it | Offered as a deduction, **not** ticked: lost pieces are yours unless you tick it |
 
-A fabricator who has no labour rate is paid the lot step's own rate, on accepted pieces.
+**A reworked piece is never paid twice**, in-house or outside. There is no separate rework rate.
 
-There are four rate types. Choose one under **Rate type**; the form then shows only that type's fields.
-
-| Rate type | Use when | What you enter |
-| --- | --- | --- |
-| **Per piece** | One rate per piece for the process | Rate per piece |
-| **Per piece plus extras** | A rate per piece plus extras (flatlock, pocket, bartack) | Rate per piece and named extras per piece |
-| **Different rate per size** | The rate depends on size | A rate for each size |
-| **Fixed amount per lot** | A fixed amount for the lot (washing, dyeing) | Fixed amount per lot |
-
-Every rate can also have a **rework rate per piece**: what the fabricator is paid to redo a rejected piece. It is under **More options**.
+**Changing a rate.** A rate no work has used yet can be changed (**Edit**) or removed (**Delete**). Once work has been recorded at it, the row says "Used on work already recorded. To change it, add a new rate from a later date." Add a **new** rate with the new date; the old one stays for the work done at it.
 
 **Examples**
 
-| Fabricator | Process | Rate type | Details | From |
+| Who | Process | Rate per piece | Pay on | From |
 | --- | --- | --- | --- | --- |
-| Gurpreet Garments | Stitching | Per piece | ₹26.00 per piece, rework ₹6.00 | 01-04-2026 |
-| Sharma Stitching | Stitching | Per piece | ₹25.00 per piece, **pay on pieces received back**, rework ₹0 | 01-04-2026 |
-| Gurpreet Garments | Stitching | Per piece plus extras | ₹24.00 per piece + Flatlock ₹3.00 + Bartack ₹1.50 | 01-04-2026 |
-| Gurpreet Garments | Stitching (kids) | Different rate per size | 4-6Y ₹16, 6-8Y ₹18, 8-10Y ₹20 | 01-04-2026 |
-| Royal Embroidery | Embroidery | Per piece | ₹8.00 per piece | 01-04-2026 |
-| Shree Wash House | Washing | Fixed amount per lot | ₹4,500 per lot, rework ₹5.00 | 01-04-2026 |
+| In-house | Cutting | ₹1.50 | — | 01-04-2026 |
+| In-house | Ironing and pressing | ₹2.00 | — | 01-04-2026 |
+| In-house | Packing | ₹0.00 (salaried) | — | 01-04-2026 |
+| Gurpreet Garments | Stitching | ₹26.00 | Pieces accepted at QC | 01-04-2026 |
+| Sharma Stitching | Stitching | ₹25.00 | Pieces received back | 01-04-2026 |
+| Royal Embroidery | Embroidery | ₹8.00 | Pieces accepted at QC | 01-04-2026 |
 
-If a fabricator's stitching rate goes to ₹28 from 1 July 2026, add a **new** rate dated `01-07-2026`. Do not edit the old one.
+If a fabricator's stitching rate goes to ₹28 from 1 July 2026, add a **new** rate dated `01-07-2026`.
 
 **Deductions at billing.** When the labour bill is made, the screen offers the shortage of pieces and the missing trims it found, and you can optionally apply TDS. You tick what to take off on each bill; the owner can also waive a deduction for good (25.1). These are not stored on the rate.
 
@@ -814,7 +809,7 @@ Rules for the sheet:
 - Materials: `kind` is fabric, trim or packing; `unit` is an existing unit code.
 - Opening stock: fabric needs a `roll_no` on every row.
 - Opening balances: `ledger` must match the ledger name exactly. Debtors and creditors need `reference` and optionally `due_date` in `YYYY-MM-DD`.
-- BOMs, routes, labour rates and price lists are entered on screen, not imported.
+- BOMs, routes, rates and price lists are entered on screen, not imported.
 
 ---
 
@@ -824,7 +819,7 @@ Run one small lot through the whole system. This is the same flow as BRD scenari
 
 1. **Purchase fabric.** *Buy → Purchase orders → New purchase order*, then **Save and submit**. From there follow the violet Next button on each page: **Receive goods** (into Main Godown, with roll numbers and weights) → **Check quality** → **Post goods received** → **Enter supplier bill** → **Post supplier bill** → **Pay …** (section 19 lists every step). Check the roll balance in *Stock → Stock*.
 2. **Create a production order** for `JGR-104`, Black, 20 pieces each of M and L, and release it. Route B is copied into the lot.
-3. **Plan the route.** On the lot page open **Route and rates** and check each step; assign stitching to Gurpreet Garments and embroidery to Royal Embroidery.
+3. **Plan the route.** On the lot page open **Change the route** and check each step; assign stitching to Gurpreet Garments and embroidery to Royal Embroidery.
 4. **Issue fabric** by roll (the lot's Next button), with the pieces you expect from it. The roll balance reduces.
 5. **Cut.** Enter the pieces in each bundle received from cutting, with the fabric used and waste. Saving makes the bundles; print the tags. Compare the pieces cut with the estimate you gave when issuing the fabric.
 6. **Issue a challan** to the embroiderer with the bundles; print it. On route B embroidery is a mandatory step, so it is the Next button (Send to … for Embroidery). On a route where embroidery is optional, such as the seeded route A, it is not the Next button: it appears as the smaller link "Send to … for Embroidery (optional)" under **Also waiting**.
@@ -847,7 +842,7 @@ If any figure looks wrong, fix the master (rate, BOM, route) and repeat. **Cance
 - [ ] 2–4 routes created and attached to styles
 - [ ] Suppliers, fabricators, customers, agents, transporters entered with mobile numbers and GSTIN/PAN
 - [ ] Active styles, SKUs and BOMs entered
-- [ ] Labour rates entered for every fabricator and process they do
+- [ ] Rates entered for every process done in-house and for every fabricator and process they do
 - [ ] Price lists entered and attached to customers
 - [ ] Opening balances posted; `Opening Balance Difference` is zero
 - [ ] Opening stock entered and matches the physical count
@@ -864,7 +859,7 @@ If any figure looks wrong, fix the master (rate, BOM, route) and repeat. **Cance
 | --- | --- | --- |
 | Two spellings of one colour | Two colours, split stock and reports | Use one; archive the other |
 | Wrong unit on a material | BOM and stock in different units | Fix before any stock is entered; after that, create a new material |
-| Fabricator has no labour rate | Work cannot be priced | Add a rate dated on or before the challan date |
+| No rate on Rates | The work is refused until a rate exists | Add a rate dated on or before the work's date |
 | Rate dated after the challan date | Rate not applied to that challan | Date it from the start of your books |
 | Duplicate customer mobile | Rejected on save | Search for the existing party first |
 | Opening balances do not tally | Amount in `Opening Balance Difference` | Find the missing ledger |
@@ -915,7 +910,7 @@ Part A prepared the masters. This part follows one lot from the production order
 
 - Quantities always balance: pieces out of a step = pieces received at the next + loss + rejection + shortage.
 - Moving a bundle **back** to an earlier step needs a reason.
-- A fabricator is paid by the terms of his labour rate: for pieces that **pass QC**, or for every piece **received back**. No piece is paid twice.
+- A fabricator is paid by the terms of their rate on Rates: for pieces that **pass QC**, or for every piece **received back**. No piece is paid twice.
 - A step marked **no loss allowed** (ironing) lets no piece be lost in-house.
 - Posted documents are never edited or deleted. You cancel them (with a reason) and enter a correct one.
 - You only see and post in the factories assigned to you. Pick your factory in the top bar before posting.
@@ -935,7 +930,7 @@ Part A prepared the masters. This part follows one lot from the production order
 
 Lot pages, fabric issue, cutting and tags are **not** menu items. Open the production order, then click the lot ("Lot … — status"). Releasing an order that has one lot opens that lot directly.
 
-The lot page tells you what to do next. At the top is a **journey strip**: Order, Fabric, Cut, each step of the route, then Finished goods. Each stage is shown as done, now or to come, with the pieces sitting there, the fabricator's name on outside steps, and an "optional" tag on steps that can be skipped. An optional step stays on the strip while bundles could still go to it; once every bundle is past it, the strip keeps it only if bundles really went there (showing those pieces, then done) and drops it if nobody used it. Below it is one violet **Next** button naming what the lot needs, for example Issue fabric, Record cutting, Make bundles, Move to a stage, Send to a fabricator, Receive from a fabricator, Check received pieces or Pack into finished goods. The Next button points at the next mandatory step. Optional steps, and any other pending actions when bundles are spread over several stages, are listed beside it as smaller links under **Also waiting**. If the next step belongs to another role, the page says **Waiting for:** and the step instead of a button. A finished lot says "This lot is complete." **Route and rates**, **Lot cost** and **History** are folded sections; click one to open it. A **Corrections** row keeps Fabric issue, Cutting and Move bundles reachable if you need to go back, and the header keeps **Print tags**. Fabric issue, cutting, tags, challan and receipt pages have a **Back to lot** button.
+The lot page tells you what to do next. At the top is a **journey strip**: Order, Fabric, Cut, each step of the route, then Finished goods. Each stage is shown as done, now or to come, with the pieces sitting there, the fabricator's name on outside steps, and an "optional" tag on steps that can be skipped. An optional step stays on the strip while bundles could still go to it; once every bundle is past it, the strip keeps it only if bundles really went there (showing those pieces, then done) and drops it if nobody used it. Below it is one violet **Next** button naming what the lot needs, for example Issue fabric, Record cutting, Make bundles, Move to a stage, Send to a fabricator, Receive from a fabricator, Check received pieces or Pack into finished goods. The Next button points at the next mandatory step. Optional steps, and any other pending actions when bundles are spread over several stages, are listed beside it as smaller links under **Also waiting**. If the next step belongs to another role, the page says **Waiting for:** and the step instead of a button. A finished lot says "This lot is complete." **Change the route**, **Lot cost** and **History** are folded sections; click one to open it. A **Corrections** row keeps Fabric issue, Cutting and Move bundles reachable if you need to go back, and the header keeps **Print tags**. Fabric issue, cutting, tags, challan and receipt pages have a **Back to lot** button.
 
 Challans and receipts guide you the same way (section 23.2). On Home, **Receive from fabricator** opens *Sent to fabricators* on the **Out with fabricators** tab: only the challans that are issued or partly received, each with a **Receive from …** button in its **Next step** column.
 
@@ -965,7 +960,7 @@ Challans and receipts guide you the same way (section 23.2). On Home, **Receive 
 - A short-closed order asks for no more goods, but what it did receive is still billed and paid from its Next button.
 - If the next step belongs to another role the page says **Waiting for:** and the step. The default roles: Purchase Officer orders, Store Keeper receives and checks, Accountant enters bills and pays, Owner approves.
 - **The buying forms ask only for what is needed every time.** *Purchase order:* Supplier, Date and the items; **Expected by** and **Notes** are under **More options**. *Goods received (GRN):* Supplier, Receive into, Date and the items; the supplier's challan no. and date and Notes are under More options. *Supplier bill:* Supplier's bill no., Bill date, the received goods to bill, and one **GST** choice that starts on "No tax". The GST template, the by-hand amounts and the input credit tick appear only for the choice that uses them, inside **Tax (GST / TDS)**, where **Deduct TDS** also sits; that section opens when you choose a GST option. The Booking date (today unless you change it) and Notes are under More options. *Return to supplier:* Supplier, Date, Reason and the items; GST on the return is under **Tax (GST)**. A folded section opens by itself when something inside is filled in or has an error.
-- **The supplier must be chosen.** On a purchase order, goods received and a return to supplier the **Supplier** starts on "Choose…" (it is filled in for you when you receive against a purchase order). Saving without one is refused with "Choose the supplier." and everything you typed is kept. The same rule holds for the **Customer** on a sale order and on quick billing, and for the **Fabricator** when you send to a fabricator or add a labour rate.
+- **The supplier must be chosen.** On a purchase order, goods received and a return to supplier the **Supplier** starts on "Choose…" (it is filled in for you when you receive against a purchase order). Saving without one is refused with "Choose the supplier." and everything you typed is kept. The same rule holds for the **Customer** on a sale order and on quick billing, and for the **Fabricator** when you send to a fabricator or add a rate.
 - **Editing a draft goods received** saves a change of supplier and of the supplier's challan date. One received against a purchase order keeps that order's supplier, shown as fixed text.
 - **Enter supplier bill** makes the bill in the factory chosen in the top bar. If another factory is chosen, you are sent back to the goods received page with a message; choose the right factory and press the button again.
 
@@ -1027,7 +1022,7 @@ Press **Save draft**. A draft can be edited; nothing else has happened yet. In t
 
 - The system reads the style's **current BOM** and **default route**. If a style has no default route, release stops with a message. Fix the style (section 10) and release again. A style with **no BOM** is released all the same, with a note that no accessories will be filled in for it: you enter them by hand when bundles go to a process (10.2).
 - The order gets its number, and **one lot per line** is created (Black and Navy are two lots).
-- Each lot gets **its own copy of the route**, with each step's in-house or fabricator setting, default party and rate.
+- Each lot gets **its own copy of the route**, with each step's in-house or fabricator setting and default party. What a step costs comes from **Rates** (Part 11).
 
 Order statuses: Draft → Released → In production → Partly completed → Completed → Closed. Status updates itself from the lots.
 
@@ -1039,13 +1034,13 @@ Order statuses: Draft → Released → In production → Partly completed → Co
 
 ## 21. Plan the route of each lot
 
-Open the lot page and go to **Change the route**. While the lot is still Planned it is already open for anyone who may change the route; later, click it to unfold. The table shows #, Process, Where, Rate and Status (Pending, In progress, Done, Skipped). The route was copied from the style, so for most lots **you change nothing**.
+Open the lot page and go to **Change the route**. While the lot is still Planned it is already open for anyone who may change the route; later, click it to unfold. The table shows #, Process, Where and Status (Pending, In progress, Done, Skipped). The route was copied from the style, so for most lots **you change nothing**.
 
 Change only what differs for this lot, using the **Change…** menu on a step or the forms below it. Every change needs a **reason** and is logged under **History** on the lot page with date, user and reason.
 
 | Need | How | Rule |
 | --- | --- | --- |
-| Give a step to a different fabricator | Change → **Reassign**: Where = Fabricator, choose the fabricator (or leave it blank to choose when you send the challan), rate, rework rate | The party must be marked as a fabricator. The Factory box is hidden while Where = Fabricator |
+| Give a step to a different fabricator | Change → **Reassign**: Where = Fabricator, choose the fabricator (or leave it blank to choose when you send the challan) | The party must be marked as a fabricator. The Factory box is hidden while Where = Fabricator |
 | Do a step in-house instead | Reassign: Where = In-house, choose the factory | The Fabricator box is hidden while Where = In-house |
 | Skip washing on this lot | Change → **Skip** | Only optional steps can be skipped |
 | Add a missing step | **Add a step**: process, after step no., where, rate, reason | Cannot be inserted before a step that has started |
@@ -1140,7 +1135,7 @@ What the system checks:
 - **Going back:** moving to a step at or before the bundle's completed step counts as moving back. It needs a **Reason** and flags the bundle as rework.
 - When you open the screen from the lot's Next button, saving returns you to the lot. When you open it from the menu it stays on the screen, so you can keep scanning.
 - Inter-factory moves carry the lot's cost to the receiving factory automatically.
-- When a bundle leaves an in-house step that has a rate, labour is added to the lot cost, on the pieces that pass. A bundle sent back is paid the step's rework rate for the stage it redoes, then the normal rate again once it moves on.
+- When a bundle leaves an in-house step, labour is added to the lot cost at the In-house rate on **Rates**, on the pieces that pass. A bundle sent back and redone is not paid again for that stage; it is paid normally once it moves on to a new one.
 - **No loss allowed.** For a bundle at a step marked so (ironing), the three boxes are replaced by "No loss allowed at this stage".
 - **Only take out loss, do not move.** When pieces are lost at an in-house step and the next step is a fabricator's, fill Loss, Rejected or Short, type a **Reason** and press this button. The pieces come out of the bundle where it stands. Do this before the challan: a challan sends whatever is in the bundle, and the fabricator would otherwise be shown short.
 
@@ -1157,7 +1152,7 @@ What the system checks:
 
 **Rework goes back on its own step.** A bundle sent back by QC waits at the step of the challan it came back on, and a rework challan can only be made for that step. If you pick another step the system refuses with "Bundle … is waiting for rework at …, not …". The lot's **Send back for rework** link opens the form on the right step.
 
-The challan fills in the **rate** from the fabricator's labour rate (section 11), falling back to the step's rate. If neither exists you see "There is no labour rate for X on PROCESS. Add one under Labour rates, or set a rate on the step". It also lists the **materials** the style's list has for this step's process (10.2) for these pieces, including wastage: accessories for stitching, embroidery thread for embroidery, and so on. A bundle going back to a step it has been through adds nothing. A challan covers one lot.
+The challan fills in the **rate** from the fabricator's rate on **Rates** (section 11). If there is none you see "No rate for X — PROCESS on DATE. Add one on Rates." and no challan is made. It also lists the **materials** the style's list has for this step's process (10.2) for these pieces, including wastage: accessories for stitching, embroidery thread for embroidery, and so on. A bundle going back to a step it has been through adds nothing. A challan covers one lot.
 
 If the same lot is already open with another fabricator you get a warning and must tick "Yes, issue this lot to another fabricator too".
 
@@ -1669,7 +1664,7 @@ A supplier bill posts what you owe the supplier (reference = their bill number, 
 | "Moving back to an earlier stage needs a reason" | The target is at or before the bundle's completed step | Type the reason, or pick the right step |
 | "pieces waiting for rework; finish that first" | QC sent the bundle back | Issue a Rework challan |
 | "is waiting for rework at …, not …" | The rework challan is for a different step than the one the bundle came back from | Make the rework challan for the step named first |
-| "There is no labour rate for X…" | No rate for that fabricator and process | Add it in Labour rates, dated on or before the challan date |
+| "No rate for X — PROCESS on DATE. Add one on Rates." | No rate on Rates for that fabricator (or In-house) and process on that date | Add it on Rates, dated on or before the work's date |
 | Receipt shows "Over-receipt, needs approval" | Counted more than issued | Owner approves, or recount |
 | Nothing payable on a labour bill | No checked, unpaid pieces | Complete QC first |
 | "… allows no loss" | The bundle is at a step marked no loss allowed | Move it with no count. If pieces really are lost, untick **No loss allowed** on the process |

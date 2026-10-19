@@ -241,14 +241,13 @@ class LotDetail(LoginRequiredMixin, ScreenPermissionMixin, View):
         can_edit = request.user.has_screen_perm("production.lot", "edit")
         live = [b for b in bundles if b.is_live]
         pack_ready = [b for b in live if guide.pack_ready(b, [s for s in steps if s.status != "skipped"])]
-        expected_charges = sum((c.amount_per_piece for c in lot.bom_version.charges.all()), Decimal("0")) * sum(b.original_qty for b in bundles if not b.split_from_id) if lot.bom_version else None
         return render(request, "production/lot_detail.html", {
             "lot": lot, "guide": guide.lot_guide(lot, request.user),
             "steps": steps, "bundles": bundles, "cuttings": cuts, "planned": planned,
             "cut_pieces": sum(b.original_qty for b in bundles if not b.split_from_id), "live_pieces": sum(b.qty for b in live),
             "expected_from_fabric": cutting.estimated_pieces(lot),
             "cutting_loss": sum(cs.loss for c in cuts for cs in c.sizes.all()),
-            "expected_charges": expected_charges, "can_cost": can_cost,
+            "can_cost": can_cost,
             "sv": step_view.build(lot, request.user),     # pieces and cost at each step; money shown only with can_cost
             "changes": lot.route_changes.select_related("user")[:20],
             "processes": Process.objects.filter(is_active=True), "factories": _factories(request.user),

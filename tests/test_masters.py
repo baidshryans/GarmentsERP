@@ -223,14 +223,14 @@ def test_route_steps_keep_order_optional_flag_and_default_assignment(db, factory
     fab = parties.create_party(company=factory.company, name="Sharma Stitching", mobile="9811111111", is_fabricator=True)
     route = routes.save_route(name="Jogger route", steps=[
         routes.StepSpec(p["CUT"], default_factory=factory),
-        routes.StepSpec(p["STITCH"], assignment="subcontract", default_party=fab, rate=D("25")),
+        routes.StepSpec(p["STITCH"], assignment="subcontract", default_party=fab),
         routes.StepSpec(p["EMB"], is_mandatory=False, assignment="subcontract"),
         routes.StepSpec(p["IRON"]),
     ])
     steps = list(route.steps.all())
     assert [s.process.code for s in steps] == ["CUT", "STITCH", "EMB", "IRON"]
     assert [s.sequence for s in steps] == [1, 2, 3, 4]
-    assert steps[1].rate == D("25.00") and steps[1].default_party == fab and not steps[2].is_mandatory
+    assert steps[1].default_party == fab and not steps[2].is_mandatory
 
 
 def test_route_validation(db, factory):

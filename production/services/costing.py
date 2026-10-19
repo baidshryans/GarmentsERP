@@ -55,6 +55,16 @@ def add_cost(*, lot, factory, kind, amount, date, note="", source=None, voucher=
     )
 
 
+def inhouse_amount(step, pieces: int, date, *, rework: bool):
+    """(amount, rate) of in-house work on `pieces` at `step`, at the In-house rate on Rates for that date.
+    A reworked piece is never paid again (owner, 19 Oct 2026), so rework earns nothing. Refused (MissingRate)
+    when Rates has no In-house rate for the process, even for rework, so a missing rate is never silent."""
+    from jobwork.services import rates
+
+    rate = rates.rate_for(None, step.process, date)
+    return (ZERO if rework else r2(rate.rate * pieces)), rate
+
+
 @transaction.atomic
 def accrue_labour(*, lot, factory, amount, date, user, note="", source=None, step=None):
     """In-house piece-rate labour on accepted output: Dr WIP, Cr Labour Absorbed. Actual wages are booked separately."""

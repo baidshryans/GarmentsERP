@@ -25,6 +25,7 @@ from tax.models import TaxTemplate
 from tests.conftest import make_user
 from tests.prod_helpers import D, DAY, build, cut, fabricator, gl, step
 from production.services import cutting, costing
+from tests.prod_helpers import set_inhouse_rate
 
 
 def test_A1_order_fabric_issue_by_roll_cutting_and_variance_against_the_bom(company, factory, owner):
@@ -128,7 +129,8 @@ def test_the_print_first_flow_from_fabric_to_boxes(company, factory, owner):
     ns = build(company, factory, owner, route="Print first, stitch outside route")
     assert [s.process.code for s in ns.lot.steps.order_by("sequence")] == ["CUT", "PRINTEMB", "STITCH", "IRON", "PACK"]
     for code, rate in (("CUT", "2"), ("PRINTEMB", "3"), ("IRON", "1.5"), ("PACK", "1")):
-        routes.reassign_step(step(ns, code), user=owner, reason="Piece rate", assignment="in_house", rate=D(rate))
+        routes.reassign_step(step(ns, code), user=owner, reason="Piece rate", assignment="in_house")
+        set_inhouse_rate(code, D(rate))
     stitcher = fabricator(company)
     rates.save_rate(who=stitcher, process=step(ns, "STITCH").process, rate=D("25"), effective_from=date(2026, 4, 1), pay_basis="received")
 

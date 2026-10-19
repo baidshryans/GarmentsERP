@@ -14,6 +14,7 @@ from production.models import Bundle, Lot, ProductionOrder
 from production.services import routes
 from tests.conftest import make_user
 from tests.prod_helpers import D, DAY, build, cut, fabricator, step
+from tests.prod_helpers import set_inhouse_rate
 
 
 def login(user):
@@ -103,7 +104,8 @@ def test_variance_beyond_tolerance_is_shown_to_the_cutting_master(company, facto
 
 def test_move_screen_lists_bundles_and_moves_them_with_counts(company, factory, owner):
     ns = build(company, factory, owner)
-    routes.reassign_step(step(ns, "STITCH"), user=owner, reason="in-house", assignment="in_house", rate=D("10"))
+    routes.reassign_step(step(ns, "STITCH"), user=owner, reason="in-house", assignment="in_house")
+    set_inhouse_rate(step(ns, "STITCH").process.code, D("10"))
     for code in ("EMB", "PRINT", "WASH"):
         routes.skip_step(step(ns, code), user=owner, reason="n/a")
     bundles = cut(ns)
@@ -348,7 +350,8 @@ def test_fabric_and_cutting_screens_show_expected_pieces_and_ask_for_no_loss(com
 
 def test_the_move_screen_takes_no_loss_at_a_no_loss_stage(company, factory, owner):
     ns = build(company, factory, owner)
-    routes.reassign_step(step(ns, "STITCH"), user=owner, reason="in-house", assignment="in_house", rate=D("10"))
+    routes.reassign_step(step(ns, "STITCH"), user=owner, reason="in-house", assignment="in_house")
+    set_inhouse_rate(step(ns, "STITCH").process.code, D("10"))
     for code in ("EMB", "PRINT", "WASH"):
         routes.skip_step(step(ns, code), user=owner, reason="n/a")
     bundles = cut(ns)
@@ -376,7 +379,7 @@ def test_pay_on_pieces_received_through_the_rate_bill_and_waive_screens(company,
     c = login(owner)
     r = c.post(reverse("rate_new"), {"who": fab.pk, "process": step(ns, "STITCH").process.pk,
                                      "effective_from": "2026-05-01", "rate": "25", "pay_basis": "received"})
-    assert r.status_code == 302 and LabourRate.objects.get().pay_basis == "received"
+    assert r.status_code == 302 and LabourRate.objects.get(party=fab).pay_basis == "received"
     assert b"Pieces received back" in c.get(reverse("rate_list")).content
 
     ch = challans.create_and_issue(company=company, factory=factory, party=fab, lot=ns.lot, step=step(ns, "STITCH"),
@@ -448,7 +451,8 @@ def test_packing_into_boxes_and_box_labels_through_the_screens(company, factory,
     from production.services import bundles as bundle_service
 
     ns = build(company, factory, owner)
-    routes.reassign_step(step(ns, "STITCH"), user=owner, reason="in-house", assignment="in_house", rate=D("10"))
+    routes.reassign_step(step(ns, "STITCH"), user=owner, reason="in-house", assignment="in_house")
+    set_inhouse_rate(step(ns, "STITCH").process.code, D("10"))
     for code in ("EMB", "PRINT", "WASH"):
         routes.skip_step(step(ns, code), user=owner, reason="n/a")
     bundles = cut(ns)
@@ -503,7 +507,8 @@ def test_stock_is_shown_and_filtered_as_raw_semi_finished_and_finished(company, 
     from production.services import bundles as bundle_service
 
     ns = build(company, factory, owner)
-    routes.reassign_step(step(ns, "STITCH"), user=owner, reason="In-house", assignment="in_house", rate=D("10"))
+    routes.reassign_step(step(ns, "STITCH"), user=owner, reason="In-house", assignment="in_house")
+    set_inhouse_rate(step(ns, "STITCH").process.code, D("10"))
     for code in ("EMB", "PRINT", "WASH"):
         routes.skip_step(step(ns, code), user=owner, reason="Not needed")
     bundles = cut(ns)                                   # S 17, M 25 + 8, L 25 + 8, XL 17

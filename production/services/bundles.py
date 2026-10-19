@@ -287,10 +287,10 @@ def accrue_leaving_labour(lot, items, date, user, note):
     labour = {}                                   # (factory, stage left) -> amount
     for b, in_step, passing in items:
         if in_step is not None and in_step.assignment == LotStep.Assignment.IN_HOUSE and passing > 0:
-            rate = in_step.rework_rate if b.is_rework else in_step.rate
-            if rate > 0:
+            amount, _ = costing.inhouse_amount(in_step, passing, date, rework=b.is_rework)
+            if amount > 0:
                 key = (b.location.factory, in_step)
-                labour[key] = labour.get(key, ZERO) + costing.r2(rate * passing)
+                labour[key] = labour.get(key, ZERO) + amount
     for (f, step), amount in labour.items():
         costing.accrue_labour(lot=lot, factory=f, amount=amount, date=date, user=user, note=note, source=lot, step=step)
 
@@ -457,8 +457,8 @@ def pack_bundles(*, bundles, user, date=None, location=None, materials=None) -> 
         if b.rework_qty:
             raise BusinessRuleError(f"Bundle {b.bundle_no} has pieces waiting for rework.")
         if at_pack and pack_step.assignment == LotStep.Assignment.IN_HOUSE:
-            rate = pack_step.rework_rate if b.is_rework else pack_step.rate
-            labour += costing.r2(rate * b.qty)
+            amount, _ = costing.inhouse_amount(pack_step, b.qty, date, rework=b.is_rework)
+            labour += amount
     if labour > 0:
         costing.accrue_labour(lot=lot, factory=factory, amount=labour, date=date, user=user,
                               note=f"Packing, {sum(b.qty for b in bundles)} pieces", source=lot, step=pack_step)

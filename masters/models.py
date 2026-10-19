@@ -163,7 +163,8 @@ class RouteTemplate(models.Model):
 
 
 class RouteStep(models.Model):
-    """One process on a route (E2.3). Assignment is a default; each lot can change it later (E7.2)."""
+    """One process on a route (E2.3). Assignment is a default; each lot can change it later (E7.2). Its cost is
+    set on Rates, never here (owner, 19 Oct 2026)."""
 
     class Assignment(models.TextChoices):
         IN_HOUSE = "in_house", "In-house"
@@ -176,7 +177,6 @@ class RouteStep(models.Model):
     assignment = models.CharField(max_length=12, choices=Assignment.choices, default=Assignment.IN_HOUSE)
     default_factory = models.ForeignKey("core.Factory", on_delete=models.PROTECT, null=True, blank=True, related_name="+")
     default_party = models.ForeignKey("masters.Party", on_delete=models.PROTECT, null=True, blank=True, related_name="+")
-    rate = models.DecimalField("Default rate per piece", max_digits=10, decimal_places=2, default=ZERO)
 
     history = HistoricalRecords()
 
@@ -184,7 +184,6 @@ class RouteStep(models.Model):
         ordering = ["template", "sequence"]
         constraints = [
             models.UniqueConstraint(fields=["template", "sequence"], name="uniq_route_sequence"),
-            models.CheckConstraint(condition=Q(rate__gte=0), name="route_rate_non_negative"),
         ]
 
     def __str__(self):

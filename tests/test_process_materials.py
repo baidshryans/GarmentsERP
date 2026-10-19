@@ -24,6 +24,7 @@ from production.services import bundles as bundle_service
 from production.services import costing, materials, orders, routes
 from tests.conftest import make_user
 from tests.prod_helpers import D, DAY, build, cut, fabricator, gl, go, step
+from tests.prod_helpers import set_inhouse_rate
 
 
 @pytest.fixture
@@ -48,7 +49,8 @@ def ns(company, factory, owner):
 
 def in_house(ns):
     """Stitch in-house at no rate and skip the optional value-add steps."""
-    routes.reassign_step(step(ns, "STITCH"), user=ns.owner, reason="Stitch in-house", assignment="in_house", rate=D("0"))
+    routes.reassign_step(step(ns, "STITCH"), user=ns.owner, reason="Stitch in-house", assignment="in_house")
+    set_inhouse_rate(step(ns, "STITCH").process.code, D("0"))
     for code in ("EMB", "PRINT", "WASH"):
         routes.skip_step(step(ns, code), user=ns.owner, reason="Not needed")
 
@@ -171,7 +173,8 @@ def test_a_challan_for_any_process_carries_that_process_materials(ns, company, f
     in_house(ns)
     finish = step(ns, "FINISH")
     fab = fabricator(company, "Verma Finishing", "9833333344")
-    routes.reassign_step(finish, user=ns.owner, reason="Finish outside", assignment="subcontract", party=fab, rate=D("2"))
+    routes.reassign_step(finish, user=ns.owner, reason="Finish outside", assignment="subcontract", party=fab)
+    rates.save_rate(who=fab, process=finish.process, rate=D("2"), effective_from=date(2026, 4, 1))
     rates.save_rate(who=fab, process=finish.process, rate=D("2"), effective_from=DAY)
     bundles = cut(ns)
     go(ns, bundles, "STITCH")

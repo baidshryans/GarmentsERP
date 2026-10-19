@@ -36,13 +36,12 @@
   </div>
   {% if unused_lines %}<div class="island"><p><span class="pill warning">Not on this route</span> {% for l in unused_lines %}{{ l.material.name }} ({{ l.process.name|default:"by kind" }}){% if not forloop.last %}, {% endif %}{% endfor %}: the style's list uses {{ unused_lines|length|pluralize:"this material,these materials" }} in a process this lot's route does not have, so nothing is filled in for {{ unused_lines|length|pluralize:"it,them" }}. Add {{ unused_lines|length|pluralize:"it,them" }} by hand where needed.</p></div>{% endif %}
   <div class="island"><details class="fold"{% if route_open %} open{% endif %}><summary>Change the route</summary>
-    <p class="muted">Where each step is done and at what rate. While a step has not started you can reassign, skip or remove it, add a step or move one.</p>
+    <p class="muted">Where each step is done. What each step costs is set on <a href="{% url 'rate_list' %}">Rates</a>. While a step has not started you can reassign, skip or remove it, add a step or move one.</p>
     <div class="table-wrap"><table>
-      <thead><tr><th scope="col" class="num">#</th><th scope="col">Process</th><th scope="col">Where</th><th scope="col" class="num">Rate</th><th scope="col">Status</th>{% if can_edit %}<th scope="col">Change</th>{% endif %}</tr></thead>
+      <thead><tr><th scope="col" class="num">#</th><th scope="col">Process</th><th scope="col">Where</th><th scope="col">Status</th>{% if can_edit %}<th scope="col">Change</th>{% endif %}</tr></thead>
       <tbody>{% for s in steps %}<tr {% if s.status == "skipped" %}class="muted"{% endif %}>
         <td class="num">{{ s.sequence }}</td><td>{{ s.process.name }}{% if not s.is_mandatory %} <span class="pill">Optional</span>{% endif %}</td>
         <td>{% if s.assignment == "in_house" %}In-house · {{ s.factory.code|default:lot.factory.code }}{% else %}Fabricator · {{ s.party.name|default:"to be chosen" }}{% endif %}</td>
-        <td class="num">{{ s.rate }}</td>
         <td><span class="pill {% if s.status == 'done' %}success{% elif s.status == 'in_progress' %}warning{% endif %}">{{ s.get_status_display }}</span></td>
         {% if can_edit %}<td>{% if s.status == "pending" or s.status == "skipped" %}
           <details><summary>Change…</summary>
@@ -51,8 +50,6 @@
               <div class="field"><label>Where</label><select name="assignment"><option value="in_house" {% if s.assignment == "in_house" %}selected{% endif %}>In-house</option><option value="subcontract" {% if s.assignment == "subcontract" %}selected{% endif %}>Fabricator</option></select></div>
               <div class="field" {% show_when "assignment" s.assignment "in_house" "off" %}><label>Factory</label><select name="factory"><option value="">—</option>{% for f in factories %}<option value="{{ f.pk }}" {% if s.factory_id == f.pk %}selected{% endif %}>{{ f.code }}</option>{% endfor %}</select></div>
               <div class="field" {% show_when "assignment" s.assignment "subcontract" "off" %}><label>Fabricator</label><select name="party"><option value="">—</option>{% for p in fabricators %}<option value="{{ p.pk }}" {% if s.party_id == p.pk %}selected{% endif %}>{{ p.name }}</option>{% endfor %}</select></div>
-              <div class="field"><label>Rate</label><input type="text" name="rate" value="{{ s.rate }}"></div>
-              <div class="field"><label>Rework rate</label><input type="text" name="rework_rate" value="{{ s.rework_rate }}"></div>
               <div style="align-self:end"><button class="btn" name="action" value="reassign">Reassign</button>
                 {% if not s.is_mandatory %}<button class="btn" name="action" value="skip">Skip</button>{% endif %}
                 <button class="btn danger" name="action" value="remove">Remove</button></div>
@@ -64,7 +61,6 @@
         <div class="field"><label>After step no.</label><input type="text" name="after_sequence" value="1"></div>
         <div class="field"><label>Where</label><select name="assignment"><option value="in_house">In-house</option><option value="subcontract">Fabricator</option></select></div>
         <div class="field" {% show_when "assignment" "in_house" "subcontract" "off" %}><label>Fabricator</label><select name="party"><option value="">—</option>{% for p in fabricators %}<option value="{{ p.pk }}">{{ p.name }}</option>{% endfor %}</select></div>
-        <div class="field"><label>Rate</label><input type="text" name="rate" value="0"></div>
         <div class="field"><label>Reason</label><input type="text" name="reason" required></div>
         <div class="check" style="align-self:end"><input id="mand" type="checkbox" name="is_mandatory" checked><label for="mand">Mandatory</label></div>
         <div style="align-self:end"><button class="btn primary">Add step</button></div></form></details>

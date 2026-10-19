@@ -27,7 +27,6 @@
     copy.querySelector("select[name=process]").selectedIndex = 0;
     copy.querySelector("select[name=assignment]").value = "in_house";
     copy.querySelector("select[name=party]").selectedIndex = 0;
-    copy.querySelector("input[name=rate]").value = "";
     copy.querySelector("input[type=checkbox]").checked = true;
     var factory = copy.querySelector("select[name=factory]");   // keep the only factory chosen; otherwise start blank
     factory.selectedIndex = factory.options.length === 2 ? 1 : 0;

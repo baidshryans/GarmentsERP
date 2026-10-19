@@ -50,7 +50,7 @@ def _validate_assignment(assignment, factory, party):
 
 @transaction.atomic
 def add_step(lot, *, process, after_sequence, user, reason, assignment="in_house", factory=None, party=None,
-             rate=Decimal("0.00"), is_mandatory=True) -> LotStep:
+             is_mandatory=True) -> LotStep:
     lot = Lot.objects.get(pk=lot.pk)
     _check(lot, user, reason)
     _validate_assignment(assignment, factory, party)
@@ -59,7 +59,7 @@ def add_step(lot, *, process, after_sequence, user, reason, assignment="in_house
         raise BusinessRuleError("A step cannot be inserted before one that has already started.")
     new = LotStep.objects.create(
         lot=lot, sequence=999, process=process, assignment=assignment, factory=factory or (lot.factory if assignment == "in_house" else None),
-        party=party, rate=rate, is_mandatory=is_mandatory)
+        party=party, is_mandatory=is_mandatory)
     ordered = [s for s in steps if s.sequence <= after_sequence] + [new] + [s for s in steps if s.sequence > after_sequence]
     _renumber(lot, ordered)
     _log(lot, "added", f"Added {process.name} after step {after_sequence}", reason, user)
@@ -110,7 +110,7 @@ def reorder_step(step, *, new_sequence, user, reason):
 
 
 @transaction.atomic
-def reassign_step(step, *, user, reason, assignment, factory=None, party=None, rate=None, rework_rate=None):
+def reassign_step(step, *, user, reason, assignment, factory=None, party=None):
     step = LotStep.objects.select_related("lot", "process").get(pk=step.pk)
     _check(step.lot, user, reason)
     _movable(step)
@@ -118,11 +118,7 @@ def reassign_step(step, *, user, reason, assignment, factory=None, party=None, r
     step.assignment = assignment
     step.factory = (factory or step.lot.factory) if assignment == "in_house" else None
     step.party = party if assignment == "subcontract" else None
-    if rate is not None:
-        step.rate = rate
-    if rework_rate is not None:
-        step.rework_rate = rework_rate
     step.save()
     where = step.factory.code if step.factory else (step.party.name if step.party else "subcontractor to be chosen")
-    _log(step.lot, "reassigned", f"{step.process.name}: {step.get_assignment_display()} ({where}), rate {step.rate}", reason, user)
+    _log(step.lot, "reassigned", f"{step.process.name}: {step.get_assignment_display()} ({where})", reason, user)
     return step

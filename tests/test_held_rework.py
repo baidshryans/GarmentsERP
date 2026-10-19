@@ -21,6 +21,7 @@ from production.services import costing, routes
 from tests.conftest import make_user
 from tests.prod_helpers import D, DAY, build, cut, fabricator, go, step
 from tests.test_step_undo import state
+from tests.prod_helpers import set_inhouse_rate
 
 K = ProductionAction.Kind
 
@@ -150,7 +151,8 @@ def test_the_receipt_of_held_pieces_must_be_undone_before_the_one_that_held_them
 # ---------------- in-house moves ----------------
 
 def in_house(ns):
-    routes.reassign_step(step(ns, "STITCH"), user=ns.owner, reason="Stitch in-house", assignment="in_house", rate=D("10"), rework_rate=D("4"))
+    routes.reassign_step(step(ns, "STITCH"), user=ns.owner, reason="Stitch in-house", assignment="in_house")
+    set_inhouse_rate(step(ns, "STITCH").process.code, D("10"))
     for code in ("EMB", "PRINT", "WASH"):
         routes.skip_step(step(ns, code), user=ns.owner, reason="Not needed")
 

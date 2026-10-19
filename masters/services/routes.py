@@ -16,7 +16,6 @@ class StepSpec:
     assignment: str = RouteStep.Assignment.IN_HOUSE
     default_factory: object | None = None
     default_party: object | None = None
-    rate: Decimal = Decimal("0.00")
 
 
 @transaction.atomic
@@ -25,8 +24,6 @@ def save_route(*, name, steps, template=None, is_active=True) -> RouteTemplate:
     if not steps:
         raise BusinessRuleError("A route needs at least one step.")
     for i, s in enumerate(steps, start=1):
-        if s.rate < 0:
-            raise BusinessRuleError(f"Step {i}: the rate cannot be negative.")
         if s.assignment == RouteStep.Assignment.IN_HOUSE and s.default_party:
             raise BusinessRuleError(f"Step {i}: an in-house step cannot have a default subcontractor.")
         if s.assignment == RouteStep.Assignment.SUBCONTRACT and s.default_factory:
@@ -43,6 +40,6 @@ def save_route(*, name, steps, template=None, is_active=True) -> RouteTemplate:
     for i, s in enumerate(steps, start=1):
         RouteStep.objects.create(
             template=template, sequence=i, process=s.process, is_mandatory=s.is_mandatory,
-            assignment=s.assignment, default_factory=s.default_factory, default_party=s.default_party, rate=s.rate,
+            assignment=s.assignment, default_factory=s.default_factory, default_party=s.default_party,
         )
     return template

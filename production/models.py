@@ -138,8 +138,6 @@ class LotStep(models.Model):
     assignment = models.CharField(max_length=12, choices=Assignment.choices, default=Assignment.IN_HOUSE)
     factory = models.ForeignKey("core.Factory", on_delete=models.PROTECT, null=True, blank=True, related_name="+")
     party = models.ForeignKey("masters.Party", on_delete=models.PROTECT, null=True, blank=True, related_name="+")
-    rate = models.DecimalField("Rate per piece", max_digits=10, decimal_places=2, default=ZERO)
-    rework_rate = models.DecimalField(max_digits=10, decimal_places=2, default=ZERO)
     started_at = models.DateTimeField(null=True, blank=True)
 
     history = HistoricalRecords()

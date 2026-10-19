@@ -19,6 +19,7 @@ from production.services import costing, routes
 from tax.models import TaxTemplate
 from tests.conftest import make_user
 from tests.prod_helpers import D, DAY, build, cut, fabricator, gl, step
+from tests.prod_helpers import set_inhouse_rate
 
 TDS2 = "TDS 194C - others (2%)"
 
@@ -447,7 +448,8 @@ def test_one_lot_cut_in_house_stitched_by_a_subcontractor_ironed_at_factory_2_an
     routes.skip_step(step(ns, "EMB"), user=ns.owner, reason="n/a")
     routes.skip_step(step(ns, "PRINT"), user=ns.owner, reason="n/a")
     routes.skip_step(step(ns, "WASH"), user=ns.owner, reason="n/a")
-    routes.reassign_step(step(ns, "IRON"), user=ns.owner, reason="Iron at unit 2", assignment="in_house", factory=factory2, rate=D("2"))
+    routes.reassign_step(step(ns, "IRON"), user=ns.owner, reason="Iron at unit 2", assignment="in_house", factory=factory2)
+    set_inhouse_rate(step(ns, "IRON").process.code, D("2"))
     for code in ("FINISH", "QC", "PACK"):
         routes.reassign_step(step(ns, code), user=ns.owner, reason="Finish at unit 2", assignment="in_house", factory=factory2)
     ch = issue(ns, ns.fab, ns.bundles)  # all 100 pieces

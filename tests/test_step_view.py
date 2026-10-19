@@ -17,6 +17,7 @@ from production.services import actions, costing, routes, step_view
 from production.services import bundles as bundle_service
 from tests.conftest import make_user
 from tests.prod_helpers import D, DAY, build, cut, fabricator, go, step
+from tests.prod_helpers import set_inhouse_rate
 
 K = ProductionAction.Kind
 
@@ -76,7 +77,8 @@ def test_job_work_step_shows_pieces_cost_and_what_is_still_to_be_billed(ns, comp
 
 
 def in_house(ns):
-    routes.reassign_step(step(ns, "STITCH"), user=ns.owner, reason="Stitch in-house", assignment="in_house", rate=D("10"), rework_rate=D("4"))
+    routes.reassign_step(step(ns, "STITCH"), user=ns.owner, reason="Stitch in-house", assignment="in_house")
+    set_inhouse_rate(step(ns, "STITCH").process.code, D("10"))
     for code in ("EMB", "PRINT", "WASH"):
         routes.skip_step(step(ns, code), user=ns.owner, reason="Not needed")
 

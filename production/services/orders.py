@@ -139,7 +139,7 @@ def release_order(order, *, user) -> ProductionOrder:
             subcontract = step.assignment == "subcontract"
             LotStep.objects.create(
                 lot=lot, sequence=step.sequence, process=step.process, is_mandatory=step.is_mandatory,
-                assignment=step.assignment, rate=step.rate,
+                assignment=step.assignment,
                 factory=None if subcontract else (step.default_factory or order.factory),
                 party=step.default_party if subcontract else None,
             )

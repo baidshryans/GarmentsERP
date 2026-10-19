@@ -14,6 +14,9 @@ from production.services import bundles as bundle_service
 from production.services import costing, cutting, orders, routes
 from tests.conftest import make_user
 from tests.prod_helpers import D, DAY, build, cut, fabricator, gl, go, step
+from tests.prod_helpers import set_inhouse_rate
+from jobwork.services import rates
+from datetime import date
 
 
 # ---------------- orders (E7.1) ----------------
@@ -101,12 +104,13 @@ def test_route_changes_are_logged_and_obey_the_rules(company, factory, owner):
     with pytest.raises(BusinessRuleError, match="reason"):
         routes.skip_step(step(ns, "WASH"), user=owner, reason=" ")
     fab = fabricator(company)
-    routes.reassign_step(step(ns, "STITCH"), user=owner, reason="Sharma is free", assignment="subcontract", party=fab, rate=D("25"))
+    routes.reassign_step(step(ns, "STITCH"), user=owner, reason="Sharma is free", assignment="subcontract", party=fab)
+    rates.save_rate(who=fab, process=step(ns, "STITCH").process, rate=D("25"), effective_from=date(2026, 4, 1))
     st = step(ns, "STITCH")
-    assert st.party == fab and st.rate == D("25.00")
+    assert st.party == fab
     routes.reassign_step(step(ns, "IRON"), user=owner, reason="Unit 1 is busy", assignment="subcontract", party=fab)
     new = routes.add_step(lot, process=Process.objects.get(code="DYE"), after_sequence=1, user=owner, reason="Needs dyeing",
-                          assignment="subcontract", party=fab, rate=D("8"))
+                          assignment="subcontract", party=fab)
     assert [s.process.code for s in lot.steps.all()][:3] == ["CUT", "DYE", "STITCH"] and new.sequence == 2
     assert [s.sequence for s in lot.steps.all()] == list(range(1, 11))
     routes.reorder_step(step(ns, "WASH"), new_sequence=2, user=owner, reason="Wash before stitching")
@@ -295,8 +299,8 @@ def test_bundles_take_the_pieces_counted_in_each_as_they_come_from_cutting(compa
 
 def all_in_house(ns, stitch_rate="10"):
     """Make the whole route in-house (stitching included) and skip the optional value-add steps."""
-    routes.reassign_step(step(ns, "STITCH"), user=ns.owner, reason="Stitch in-house", assignment="in_house",
-                         rate=D(stitch_rate), rework_rate=D("4"))
+    routes.reassign_step(step(ns, "STITCH"), user=ns.owner, reason="Stitch in-house", assignment="in_house")
+    set_inhouse_rate(step(ns, "STITCH").process.code, D(stitch_rate))
     for code in ("EMB", "PRINT", "WASH"):
         routes.skip_step(step(ns, code), user=ns.owner, reason="Not needed")
 
@@ -387,7 +391,7 @@ def test_in_house_labour_is_added_to_lot_cost_when_pieces_leave_a_stage(company,
     assert not costing.check_wip_reconciles(company)
 
 
-def test_rework_uses_the_rework_rate(company, factory, owner):
+def test_a_redone_stage_is_not_paid_again(company, factory, owner):
     ns = build(company, factory, owner)
     all_in_house(ns, stitch_rate="10")
     bundles = cut(ns)
@@ -396,7 +400,7 @@ def test_rework_uses_the_rework_rate(company, factory, owner):
     go(ns, bundles[:1], "STITCH", reason="Redo")
     before = costing.cost_breakdown(ns.lot)["labour"]
     go(ns, bundles[:1], "IRON")
-    assert costing.cost_breakdown(ns.lot)["labour"] - before == D("68.00")  # 17 pieces x rework rate 4
+    assert costing.cost_breakdown(ns.lot)["labour"] == before            # a reworked piece is never paid again
 
 
 def test_subcontracted_stages_refuse_a_plain_move(company, factory, owner):
@@ -429,7 +433,8 @@ def test_moving_a_lot_to_a_stage_at_another_factory_moves_its_cost_and_keeps_bot
 
     ns = build(company, factory, owner)
     all_in_house(ns)
-    routes.reassign_step(step(ns, "IRON"), user=owner, reason="Iron at unit 2", assignment="in_house", factory=factory2, rate=D("2"))
+    routes.reassign_step(step(ns, "IRON"), user=owner, reason="Iron at unit 2", assignment="in_house", factory=factory2)
+    set_inhouse_rate(step(ns, "IRON").process.code, D("2"))
     bundles = cut(ns)
     go(ns, bundles, "STITCH")
     go(ns, bundles, "IRON")  # all 100 pieces cross to factory 2
@@ -572,7 +577,8 @@ def test_a_no_loss_stage_refuses_loss_rejection_and_shortage_when_pieces_leave_i
 
 def test_in_house_cutting_labour_is_added_to_lot_cost_on_the_pieces_cut(company, factory, owner):
     ns = build(company, factory, owner)
-    routes.reassign_step(step(ns, "CUT"), user=owner, reason="Cutting rate", assignment="in_house", rate=D("2"))
+    routes.reassign_step(step(ns, "CUT"), user=owner, reason="Cutting rate", assignment="in_house")
+    set_inhouse_rate(step(ns, "CUT").process.code, D("2"))
     cut(ns)
     assert costing.cost_breakdown(ns.lot)["labour"] == D("200.00")     # 100 pieces cut x 2
     assert gl(company, "labour_absorbed", factory) == D("-200.00") and gl(company, "stock_wip", factory) == D("9230.00")
@@ -588,12 +594,13 @@ def test_cutting_with_no_rate_adds_no_labour(company, factory, owner):
 def test_a_reworked_bundle_goes_back_to_the_normal_rate_once_it_moves_on(company, factory, owner):
     ns = build(company, factory, owner)
     all_in_house(ns, stitch_rate="10")
-    routes.reassign_step(step(ns, "IRON"), user=owner, reason="Ironing rate", assignment="in_house", rate=D("3"), rework_rate=D("1"))
+    routes.reassign_step(step(ns, "IRON"), user=owner, reason="Ironing rate", assignment="in_house")
+    set_inhouse_rate(step(ns, "IRON").process.code, D("3"))
     bundles = cut(ns)
     go(ns, bundles, "STITCH")
     go(ns, bundles, "IRON")
     go(ns, bundles[:1], "STITCH", reason="Redo")
-    go(ns, bundles[:1], "IRON")                         # the redone stitching: rework rate
+    go(ns, bundles[:1], "IRON")                         # the redone stitching: not paid again
     assert not Bundle.objects.get(pk=bundles[0].pk).is_rework
     before = costing.cost_breakdown(ns.lot)["labour"]
     go(ns, bundles[:1], "FINISH")                       # ironing after it: the normal rate again
@@ -634,7 +641,8 @@ def test_fabric_issued_with_no_estimate_is_cut_with_no_comparison(company, facto
 
 def test_pieces_lost_in_cutting_are_left_out_of_the_bundles(company, factory, owner):
     ns = build(company, factory, owner)
-    routes.reassign_step(step(ns, "CUT"), user=owner, reason="Cutting rate", assignment="in_house", rate=D("2"))
+    routes.reassign_step(step(ns, "CUT"), user=owner, reason="Cutting rate", assignment="in_house")
+    set_inhouse_rate(step(ns, "CUT").process.code, D("2"))
     bundles = cut(ns, loss={ns.sizes["M"]: 2})
     assert sum(b.qty for b in bundles) == 98 and wip_qty(ns, "Cutting Floor") == 98
     assert sorted(b.qty for b in bundles if b.sku.size == ns.sizes["M"]) == [6, 25]      # 33 cut, 2 lost

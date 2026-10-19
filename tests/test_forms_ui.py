@@ -485,7 +485,7 @@ def test_a_rate_needs_who_and_process_chosen(job, owner_c):
     r = owner_c.post(reverse("rate_new"), {**typed, "who": job.fab.pk})
     assert r.status_code == 302 and LabourRate.objects.get(party=job.fab, effective_from="2026-06-01").rate == D("22")
     r = owner_c.post(reverse("rate_new"), {**typed, "who": "inhouse"})
-    assert r.status_code == 302 and LabourRate.objects.get(party__isnull=True, process=stitch).rate == D("22")
+    assert r.status_code == 302 and LabourRate.objects.get(party__isnull=True, process=stitch, effective_from="2026-06-01").rate == D("22")
 
 
 def test_the_rate_form_opens_on_the_fabricator_a_link_names(job, owner_c):

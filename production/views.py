@@ -284,15 +284,14 @@ class LotDetail(LoginRequiredMixin, ScreenPermissionMixin, View):
                 routes.reassign_step(
                     step, user=user, reason=reason, assignment=p.get("assignment"),
                     factory=Factory.objects.filter(pk=p["factory"]).first() if p.get("factory") else None,
-                    party=Party.objects.filter(pk=p["party"]).first() if p.get("party") else None,
-                    rate=vu.dec(p.get("rate"), "Rate", Decimal("0")), rework_rate=vu.dec(p.get("rework_rate"), "Rework rate", Decimal("0")))
+                    party=Party.objects.filter(pk=p["party"]).first() if p.get("party") else None)
             elif action == "add":
                 routes.add_step(
                     lot, process=get_object_or_404(Process, pk=p.get("process")), after_sequence=int(p.get("after_sequence") or 0),
                     user=user, reason=reason, assignment=p.get("assignment", "in_house"),
                     factory=Factory.objects.filter(pk=p["factory"]).first() if p.get("factory") else None,
                     party=Party.objects.filter(pk=p["party"]).first() if p.get("party") else None,
-                    rate=vu.dec(p.get("rate"), "Rate", Decimal("0")), is_mandatory=p.get("is_mandatory") == "on")
+                    is_mandatory=p.get("is_mandatory") == "on")
             else:
                 raise BusinessRuleError("Unknown action.")
             messages.success(request, "Route updated and logged.")

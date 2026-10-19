@@ -45,8 +45,10 @@ def receive(ns, challan, counts=None):
 
 
 def stitch_goes_to(ns, fab):
+    if not rates.find_rate(fab, step(ns, "STITCH").process, date(2026, 4, 1)):
+        rates.save_rate(who=fab, process=step(ns, "STITCH").process, rate=D("25"), effective_from=date(2026, 4, 1))
     return routes.reassign_step(step(ns, "STITCH"), user=ns.owner, reason="test", assignment="subcontract", party=fab,
-                                factory=None, rate=D("25"), rework_rate=D("5"))
+                                factory=None)
 
 
 def stitch_in_house(ns):

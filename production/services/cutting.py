@@ -169,7 +169,8 @@ def record_cutting(*, lot, pieces, rolls, user, date, notes="", loss=None) -> Cu
     cut_total = sum(pieces.values())
     for cut_step in bundles_module.cutting_steps(lot):   # in-house cutting is paid on the pieces cut
         if cut_step.status != LotStep.Status.SKIPPED and cut_step.assignment == LotStep.Assignment.IN_HOUSE:
-            costing.accrue_labour(lot=lot, factory=factory, amount=cut_step.rate * cut_total, date=date, user=user,
+            amount, _ = costing.inhouse_amount(cut_step, cut_total, date, rework=False)
+            costing.accrue_labour(lot=lot, factory=factory, amount=amount, date=date, user=user,
                                   note=f"Cutting {lay_no}: {cut_total} pieces", source=entry, step=cut_step)
 
     consumed = []

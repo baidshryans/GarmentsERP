@@ -34,6 +34,7 @@ def build(company, factory, owner, qty=100, ratios=None, with_stock=True, route=
     boms.save_bom(style, lines=[boms.BomLineSpec(zipper, D("1"))], user=owner)
     ns = SimpleNamespace(company=company, factory=factory, owner=owner, style=style, black=black, sizes=sizes,
                          fabric=fabric, zipper=zipper)
+    inhouse_rates_of_zero()
     if with_stock:
         godown = Location.objects.get(factory=factory, name="Main Godown")
         post_opening_stock(company=company, factory=factory, location=godown, user=owner, entries=[
@@ -73,3 +74,20 @@ def go(ns, bundles, code, **kw):
 
 def fabricator(company, name="Sharma Stitching", mobile="9811111111"):
     return parties.create_party(company=company, name=name, mobile=mobile, is_fabricator=True)
+
+
+def inhouse_rates_of_zero(since=date(2026, 4, 1)):
+    """Every process gets an In-house rate of 0 from `since`, as the move to the rate list gave existing books:
+    in-house work is never blocked by a missing rate in tests that are not about rates."""
+    from jobwork.models import LabourRate
+    from masters.models import Process
+
+    for process in Process.objects.all():
+        LabourRate.objects.get_or_create(party=None, process=process, effective_from=since)
+
+
+def set_inhouse_rate(code, rate):
+    """Set the In-house rate of a process (build() gives every process a rate of 0)."""
+    from jobwork.models import LabourRate
+
+    LabourRate.objects.filter(party__isnull=True, process__code=code).update(rate=Decimal(rate))

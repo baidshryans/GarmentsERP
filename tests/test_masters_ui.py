@@ -126,13 +126,13 @@ def test_route_screen_orders_steps_and_marks_optional(company, factory, merch, c
         "name": "Jogger route", "process": [p["CUT"], p["STITCH"], p["EMB"], ""],
         "mandatory_0": "on", "mandatory_1": "on",
         "assignment": ["in_house", "subcontract", "subcontract", "in_house"],
-        "factory": [factory.pk, "", "", ""], "party": ["", "", "", ""], "rate": ["", "25", "6", ""],
+        "factory": [factory.pk, "", "", ""], "party": ["", "", "", ""],
     })
     assert r.status_code == 302
     steps = list(RouteTemplate.objects.get(name="Jogger route").steps.all())
     assert [s.process.code for s in steps] == ["CUT", "STITCH", "EMB"]
     assert [s.is_mandatory for s in steps] == [True, True, False]
-    assert steps[1].assignment == "subcontract" and steps[1].rate == D("25.00")
+    assert steps[1].assignment == "subcontract"
 
 
 def test_party_screen_rejects_duplicate_customer_mobile_naming_the_customer(company, accountant, client_for):

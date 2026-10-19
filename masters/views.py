@@ -304,7 +304,7 @@ class RouteSave(LoginRequiredMixin, ScreenPermissionMixin, View):
     def _context(self, route, rows=None, name=None):
         if rows is None:
             rows = [{"process": str(s.process_id), "mandatory": s.is_mandatory, "assignment": s.assignment,
-                     "factory": str(s.default_factory_id or ""), "party": str(s.default_party_id or ""), "rate": s.rate}
+                     "factory": str(s.default_factory_id or ""), "party": str(s.default_party_id or "")}
                     for s in route.steps.all()] if route else []
         factories = list(Factory.objects.filter(is_active=True))
         blank = {"mandatory": True, "factory": str(factories[0].pk) if len(factories) == 1 else ""}    # one factory: no choice to make
@@ -326,7 +326,7 @@ class RouteSave(LoginRequiredMixin, ScreenPermissionMixin, View):
         try:
             for i, pid in enumerate(post.getlist("process")):
                 row = {"process": pid, "mandatory": f"mandatory_{i}" in post, "assignment": post.getlist("assignment")[i],
-                       "factory": post.getlist("factory")[i], "party": post.getlist("party")[i], "rate": post.getlist("rate")[i]}
+                       "factory": post.getlist("factory")[i], "party": post.getlist("party")[i]}
                 rows.append(row)
                 if not pid:
                     continue
@@ -334,7 +334,6 @@ class RouteSave(LoginRequiredMixin, ScreenPermissionMixin, View):
                     process=get_object_or_404(Process, pk=pid), is_mandatory=row["mandatory"], assignment=row["assignment"],
                     default_factory=Factory.objects.filter(pk=row["factory"]).first() if row["factory"] else None,
                     default_party=Party.objects.filter(pk=row["party"]).first() if row["party"] else None,
-                    rate=_decimal(row["rate"], "Rate", Decimal("0")),
                 ))
             saved = routes.save_route(name=post.get("name", "").strip(), steps=specs, template=route)
         except (ValueError, BusinessRuleError, ValidationError) as exc:

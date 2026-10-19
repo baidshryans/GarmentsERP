@@ -1,76 +1,101 @@
-"""Labour rates (JOB-06). A rate is looked up by date, so a change applies only to challans issued after it (BR-12)."""
+"""The one rate list (owner, 19 Oct 2026; JOB-06). A rate is who (a fabricator, or In-house) + process + rate per
+piece + from date. It is the only place a process cost is set; work looks its rate up on the day it is recorded,
+so a change applies only to later work (BR-12)."""
 from dataclasses import dataclass
 from decimal import Decimal
 
 from django.db import transaction
 
 from core.exceptions import BusinessRuleError
-from jobwork.models import LabourRate, LabourRateAddon, LabourRateSize, PayBasis
+from jobwork.models import LabourRate, PayBasis
 
 ZERO = Decimal("0.00")
+IN_HOUSE = "In-house"
+
+
+class MissingRate(BusinessRuleError):
+    """No rate on the Rates screen for this who + process on this date. The work is not saved."""
+
+
+def _who_name(who) -> str:
+    return who.name if who is not None else IN_HOUSE
+
+
+def _day(d) -> str:
+    return f"{d.day} {d:%b}"
+
+
+def find_rate(who, process, on_date) -> LabourRate | None:
+    """The rate in force on `on_date`. `who` is the fabricator, or None for In-house."""
+    qs = LabourRate.objects.filter(process=process, is_active=True, effective_from__lte=on_date)
+    qs = qs.filter(party=who) if who is not None else qs.filter(party__isnull=True)
+    return qs.order_by("-effective_from").first()
+
+
+def rate_for(who, process, on_date) -> LabourRate:
+    rate = find_rate(who, process, on_date)
+    if rate is None:
+        raise MissingRate(f"No rate for {_who_name(who)} — {process.name} on {_day(on_date)}. Add one on Rates.")
+    return rate
+
+
+def source_text(rate: LabourRate) -> str:
+    d = rate.effective_from
+    return f"rate from {d.day} {d:%b %Y}"
 
 
 @dataclass
 class RateSpec:
-    """What a challan needs from a rate: the type, a per-size (or flat) amount, and the rework charge."""
+    """What a challan freezes from a rate: the price per piece and the pay basis."""
 
-    rate_type: str
-    per_piece: dict  # {size_id: rate}; key None = every size
-    flat: Decimal
-    rework: Decimal
-    source: object | None = None
-    pay_basis: str = PayBasis.ACCEPTED
-
-    def for_size(self, size):
-        return self.per_piece.get(size.pk, self.per_piece.get(None, ZERO))
+    price: Decimal
+    pay_basis: str
+    source: LabourRate | None = None
 
 
-def find_rate(party, process, on_date):
-    return (LabourRate.objects.filter(party=party, process=process, is_active=True, effective_from__lte=on_date)
-            .order_by("-effective_from").first())
-
-
-def resolve(party, step, on_date) -> RateSpec:
-    """The rate for a fabricator on a lot's step: their labour rate if they have one, else the step's own rate
-    (paid on accepted pieces)."""
-    rate = find_rate(party, step.process, on_date)
-    if rate is None:
-        return RateSpec("A", {None: step.rate}, ZERO, step.rework_rate)
-    basis = rate.pay_basis
-    if rate.rate_type == LabourRate.Type.PER_PIECE:
-        return RateSpec("A", {None: rate.base_rate}, ZERO, rate.rework_rate, rate, basis)
-    if rate.rate_type == LabourRate.Type.ADDONS:
-        total = rate.base_rate + sum((a.amount for a in rate.addons.all()), ZERO)
-        return RateSpec("B", {None: total}, ZERO, rate.rework_rate, rate, basis)
-    if rate.rate_type == LabourRate.Type.SIZE_WISE:
-        return RateSpec("C", {s.size_id: s.amount for s in rate.sizes.all()}, ZERO, rate.rework_rate, rate, basis)
-    return RateSpec("D", {None: ZERO}, rate.flat_amount, rate.rework_rate, rate, basis)
+def _check(who, process, effective_from, rate, pay_basis, exclude=None):
+    if pay_basis not in PayBasis.values:
+        raise BusinessRuleError("Choose whether to pay on pieces accepted or pieces received.")
+    if who is not None and not who.is_fabricator and not who.is_vendor:
+        raise BusinessRuleError(f"{who.name} is not a fabricator or supplier.")
+    if rate is None or isinstance(rate, float):
+        raise BusinessRuleError("Enter the rate per piece.")
+    if rate < 0:
+        raise BusinessRuleError("A rate cannot be negative.")
+    if effective_from is None:
+        raise BusinessRuleError("Enter the date the rate applies from.")
+    clash = LabourRate.objects.filter(process=process, effective_from=effective_from)
+    clash = clash.filter(party=who) if who is not None else clash.filter(party__isnull=True)
+    if exclude is not None:
+        clash = clash.exclude(pk=exclude.pk)
+    if clash.exists():
+        raise BusinessRuleError(f"There is already a rate for {_who_name(who)} on {process.name} from that date.")
 
 
 @transaction.atomic
-def save_rate(*, party, process, rate_type, effective_from, base_rate=ZERO, flat_amount=ZERO, rework_rate=ZERO,
-              addons=(), size_rates=None, pay_basis=PayBasis.ACCEPTED) -> LabourRate:
-    """Add a dated rate. addons = [(name, amount)] for type B; size_rates = {Size: amount} for type C.
-    pay_basis says which pieces are paid: those accepted at QC, or every piece received back."""
-    if pay_basis not in PayBasis.values:
-        raise BusinessRuleError("Choose whether to pay on pieces accepted or pieces received.")
-    if not party.is_fabricator and not party.is_vendor:
-        raise BusinessRuleError(f"{party.name} is not a fabricator or supplier.")
-    if rate_type == LabourRate.Type.PER_PIECE and base_rate <= 0:
-        raise BusinessRuleError("Enter the rate per piece.")
-    if rate_type == LabourRate.Type.ADDONS and (base_rate <= 0 or not addons):
-        raise BusinessRuleError("Enter the rate per piece and at least one extra.")
-    if rate_type == LabourRate.Type.SIZE_WISE and not size_rates:
-        raise BusinessRuleError("Enter the rate for each size.")
-    if rate_type == LabourRate.Type.FLAT and flat_amount <= 0:
-        raise BusinessRuleError("Enter the fixed amount per lot.")
-    if LabourRate.objects.filter(party=party, process=process, effective_from=effective_from).exists():
-        raise BusinessRuleError("There is already a rate for this fabricator and process from that date.")
-    rate = LabourRate.objects.create(party=party, process=process, rate_type=rate_type, base_rate=base_rate,
-                                     flat_amount=flat_amount, rework_rate=rework_rate, effective_from=effective_from,
+def save_rate(*, who, process, effective_from, rate, pay_basis=PayBasis.ACCEPTED) -> LabourRate:
+    """Add a dated rate. `who` is the fabricator, or None for In-house (in-house work has no pay basis)."""
+    rate = Decimal(rate) if isinstance(rate, (int, str)) else rate
+    _check(who, process, effective_from, rate, pay_basis)
+    return LabourRate.objects.create(party=who, process=process, rate=rate, effective_from=effective_from,
                                      pay_basis=pay_basis)
-    for name, amount in addons:
-        LabourRateAddon.objects.create(rate=rate, name=name, amount=amount)
-    for size, amount in (size_rates or {}).items():
-        LabourRateSize.objects.create(rate=rate, size=size, amount=amount)
+
+
+@transaction.atomic
+def update_rate(rate, *, rate_value, effective_from, pay_basis) -> LabourRate:
+    rate = LabourRate.objects.get(pk=rate.pk)
+    _check(rate.party, rate.process, effective_from, rate_value, pay_basis, exclude=rate)
+    rate.rate, rate.effective_from, rate.pay_basis = rate_value, effective_from, pay_basis
+    rate.save()
     return rate
+
+
+@transaction.atomic
+def delete_rate(rate) -> None:
+    LabourRate.objects.filter(pk=rate.pk).delete()
+
+
+def resolve(party, step, on_date) -> RateSpec:
+    """The price a challan freezes for a fabricator on a lot's step. Refused when there is no rate."""
+    rate = rate_for(party, step.process, on_date)
+    return RateSpec(rate.rate, rate.pay_basis, rate)

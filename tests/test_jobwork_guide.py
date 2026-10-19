@@ -28,8 +28,7 @@ def ns(company, factory, owner):
     ns = build(company, factory, owner)
     ns.bundles = cut(ns)  # B001 S17, B002 M25, B003 M8, B004 L25, B005 L8, B006 XL17
     ns.fab = fabricator(company)
-    rates.save_rate(party=ns.fab, process=step(ns, "STITCH").process, rate_type="A", base_rate=D("25"), rework_rate=D("5"),
-                    effective_from=date(2026, 4, 1))
+    rates.save_rate(who=ns.fab, process=step(ns, "STITCH").process, rate=D("25"), effective_from=date(2026, 4, 1))
     return ns
 
 
@@ -664,7 +663,7 @@ def test_a_validation_error_shows_for_both_buttons_and_saves_nothing(ns):
 
 def test_the_second_fabricator_warning_still_asks_before_save_and_issue(ns):
     other = fabricator(ns.company, "Gupta Stitching", "9822222233")
-    rates.save_rate(party=other, process=step(ns, "STITCH").process, rate_type="A", base_rate=D("24"), effective_from=date(2026, 4, 1))
+    rates.save_rate(who=other, process=step(ns, "STITCH").process, rate=D("24"), effective_from=date(2026, 4, 1))
     first = issue(ns, ns.bundles[:1])
     c = login(ns.owner)
     data = form(ns, ns.bundles[1:2], then="issue", party=other.pk)
@@ -682,7 +681,7 @@ def test_the_second_fabricator_warning_still_asks_before_save_and_issue(ns):
     # and the draft button goes through the same question
     data = form(ns, ns.bundles[2:3], then="draft", party=other.pk)
     third = fabricator(ns.company, "Verma Stitching", "9822222244")
-    rates.save_rate(party=third, process=step(ns, "STITCH").process, rate_type="A", base_rate=D("24"), effective_from=date(2026, 4, 1))
+    rates.save_rate(who=third, process=step(ns, "STITCH").process, rate=D("24"), effective_from=date(2026, 4, 1))
     data["party"] = third.pk
     r = c.post(reverse("challan_new"), data)
     assert r.status_code == 200 and 'name="confirm_second"' in r.content.decode() and ns.lot.challans.count() == 2

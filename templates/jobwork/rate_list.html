@@ -1,16 +1,14 @@
 {% extends "base.html" %}
-{% load forms_ui %}
-{% block title %}Labour rates{% endblock %}
+{% block title %}Rates{% endblock %}
 {% block content %}
-  <div class="page-head"><h1 class="page-title">Labour rates</h1>
+  <div class="page-head"><h1 class="page-title">Rates</h1>
     <div class="actions">{% if can_create %}<a class="btn primary" href="{% url 'rate_new' %}"><svg width="16" height="16"><use href="#i-plus"/></svg> New rate</a>{% endif %}</div></div>
-  <p class="muted" style="max-width:720px">A rate applies to challans issued from its date. Changing it later never changes a challan already issued.</p>
+  <p class="muted" style="max-width:720px">The one place a process cost is set: who does it (a fabricator, or In-house for your own people), the rate per piece, and the date it applies from. Work uses the rate in force on its date; a later rate never changes work already recorded.</p>
   <div class="island">
     {% if rates %}<div class="table-wrap"><table>
-      <thead><tr><th scope="col">Fabricator</th><th scope="col">Process</th><th scope="col">Type</th><th scope="col">Rate</th><th scope="col">Pay on</th><th scope="col" class="num">Rework</th><th scope="col">From</th></tr></thead>
-      <tbody>{% for r in rates %}<tr><td>{{ r.party.name }}</td><td>{{ r.process.name }}</td><td>{% rate_words type_words r.rate_type %}</td>
-        <td>{% if r.rate_type == "A" %}{{ r.base_rate }} / pc{% elif r.rate_type == "B" %}{{ r.base_rate }} + {% for a in r.addons.all %}{{ a.name }} {{ a.amount }}{% if not forloop.last %}, {% endif %}{% endfor %}{% elif r.rate_type == "C" %}{% for s in r.sizes.all %}{{ s.size.code }} {{ s.amount }}{% if not forloop.last %}, {% endif %}{% endfor %}{% else %}{{ r.flat_amount }} per lot{% endif %}</td>
-        <td>{{ r.get_pay_basis_display }}</td><td class="num">{{ r.rework_rate }}</td><td>{{ r.effective_from|date:"d M Y" }}</td></tr>{% endfor %}</tbody>
-    </table></div>{% else %}<div class="empty"><div class="hand">No labour rates yet</div></div>{% endif %}
+      <thead><tr><th scope="col">Process</th><th scope="col">Who</th><th scope="col" class="num">Rate per piece</th><th scope="col">Pay on</th><th scope="col">From</th></tr></thead>
+      <tbody>{% for r in rates %}<tr{% if not r.is_active %} class="muted"{% endif %}><td>{{ r.process.name }}</td><td>{{ r.who }}</td><td class="num">{{ r.rate }}</td>
+        <td>{% if r.party_id %}{{ r.get_pay_basis_display }}{% else %}<span class="muted">—</span>{% endif %}</td><td>{{ r.effective_from|date:"d M Y" }}</td></tr>{% endfor %}</tbody>
+    </table></div>{% else %}<div class="empty"><div class="hand">No rates yet</div></div>{% endif %}
   </div>
 {% endblock %}

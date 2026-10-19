@@ -18,8 +18,8 @@ class BillLineInline(admin.TabularInline):
 
 @admin.register(models.LabourRate)
 class LabourRateAdmin(SimpleHistoryAdmin):
-    list_display = ("party", "process", "rate_type", "base_rate", "rework_rate", "pay_basis", "effective_from", "is_active")
-    list_filter = ("rate_type", "pay_basis", "process", "is_active")
+    list_display = ("party", "process", "rate", "pay_basis", "effective_from", "is_active")
+    list_filter = ("pay_basis", "process", "is_active")
 
 
 @admin.register(models.JobWorkChallan)

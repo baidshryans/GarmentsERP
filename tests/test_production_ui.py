@@ -135,7 +135,7 @@ def test_challan_receipt_qc_and_bill_through_the_screens(company, factory, owner
     ns = build(company, factory, owner)
     bundles = cut(ns)
     fab = fabricator(company)
-    rates.save_rate(party=fab, process=step(ns, "STITCH").process, rate_type="A", base_rate=D("25"), effective_from=date(2026, 4, 1))
+    rates.save_rate(who=fab, process=step(ns, "STITCH").process, rate=D("25"), effective_from=date(2026, 4, 1))
     sup = user_with("sup", "Production Supervisor", factory)
     c = login(sup)
     form = c.get(reverse("challan_new"), {"lot": ns.lot.pk, "step": step(ns, "STITCH").pk}).content.decode()
@@ -192,7 +192,7 @@ def test_a_second_fabricator_warning_needs_confirmation_on_the_screen(company, f
     bundles = cut(ns)
     f1, f2 = fabricator(company), fabricator(company, "Gupta", "9822222233")
     for f in (f1, f2):
-        rates.save_rate(party=f, process=step(ns, "STITCH").process, rate_type="A", base_rate=D("25"), effective_from=date(2026, 4, 1))
+        rates.save_rate(who=f, process=step(ns, "STITCH").process, rate=D("25"), effective_from=date(2026, 4, 1))
     c = login(owner)
     base = {"lot": ns.lot.pk, "step": step(ns, "STITCH").pk, "kind": "issue", "factory": factory.pk, "date": "2026-06-16"}
     r = c.post(reverse("challan_new"), {**base, "party": f1.pk, "bundle": [bundles[0].pk]})
@@ -207,12 +207,12 @@ def test_rate_screens(company, factory, owner):
     ns = build(company, factory, owner)
     fab = fabricator(company)
     c = login(owner)
-    r = c.post(reverse("rate_new"), {"party": fab.pk, "process": step(ns, "STITCH").process.pk, "rate_type": "B", "effective_from": "2026-05-01",
-                                     "base_rate": "20", "rework_rate": "4", "addon_name": ["Bar tack", "", ""], "addon_amount": ["2.5", "", ""]})
+    r = c.post(reverse("rate_new"), {"who": fab.pk, "process": step(ns, "STITCH").process.pk, "effective_from": "2026-05-01",
+                                     "rate": "22.50"})
     assert r.status_code == 302
-    assert b"Bar tack 2.50" in c.get(reverse("rate_list")).content
-    bad = c.post(reverse("rate_new"), {"party": fab.pk, "process": step(ns, "STITCH").process.pk, "rate_type": "B", "effective_from": "2026-06-01", "base_rate": "20"})
-    assert bad.status_code == 200 and b"at least one extra" in bad.content
+    assert b"22.50" in c.get(reverse("rate_list")).content
+    bad = c.post(reverse("rate_new"), {"who": fab.pk, "process": step(ns, "STITCH").process.pk, "effective_from": "2026-05-01", "rate": "20"})
+    assert bad.status_code == 200 and b"already a rate" in bad.content
 
 
 # ---------------- dashboard, tracking, permissions ----------------
@@ -374,8 +374,8 @@ def test_pay_on_pieces_received_through_the_rate_bill_and_waive_screens(company,
     bundles = cut(ns)
     fab = fabricator(company)
     c = login(owner)
-    r = c.post(reverse("rate_new"), {"party": fab.pk, "process": step(ns, "STITCH").process.pk, "rate_type": "A",
-                                     "effective_from": "2026-05-01", "base_rate": "25", "rework_rate": "5", "pay_basis": "received"})
+    r = c.post(reverse("rate_new"), {"who": fab.pk, "process": step(ns, "STITCH").process.pk,
+                                     "effective_from": "2026-05-01", "rate": "25", "pay_basis": "received"})
     assert r.status_code == 302 and LabourRate.objects.get().pay_basis == "received"
     assert b"Pieces received back" in c.get(reverse("rate_list")).content
 
@@ -421,8 +421,7 @@ def test_qc_screen_splits_rework_pieces_and_offers_their_tag(company, factory, o
     ns = build(company, factory, owner)
     bundles = cut(ns)
     fab = fabricator(company)
-    rates.save_rate(party=fab, process=step(ns, "STITCH").process, rate_type="A", base_rate=D("25"), rework_rate=D("5"),
-                    effective_from=date(2026, 4, 1))
+    rates.save_rate(who=fab, process=step(ns, "STITCH").process, rate=D("25"), effective_from=date(2026, 4, 1))
     ch = challans.create_and_issue(company=company, factory=factory, party=fab, lot=ns.lot, step=step(ns, "STITCH"),
                                    bundles=bundles[1:3], date=DAY, user=owner)
     cb1, cb2 = list(ch.bundles.order_by("id"))

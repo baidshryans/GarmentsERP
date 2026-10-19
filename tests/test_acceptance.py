@@ -50,7 +50,7 @@ def test_A2_issue_to_a_fabricator_partial_receipt_ledger_and_second_fabricator_w
     bundles = cut(ns)
     fab, other = fabricator(company), fabricator(company, "Gupta Stitching", "9822222233")
     for f in (fab, other):
-        rates.save_rate(party=f, process=step(ns, "STITCH").process, rate_type="A", base_rate=D("25"), effective_from=date(2026, 4, 1))
+        rates.save_rate(who=f, process=step(ns, "STITCH").process, rate=D("25"), effective_from=date(2026, 4, 1))
     ch = challans.create_challan(company=company, factory=factory, party=fab, lot=ns.lot, step=step(ns, "STITCH"),
                                  bundles=bundles[:3], date=DAY, user=owner)
     ch = challans.issue_challan(ch, user=owner)
@@ -72,8 +72,7 @@ def test_A3_qc_rejects_are_deducted_the_bill_has_tds_and_rework_goes_out_on_a_ch
     ns = build(company, factory, owner)
     bundles = cut(ns)
     fab = fabricator(company)
-    rates.save_rate(party=fab, process=step(ns, "STITCH").process, rate_type="A", base_rate=D("25"), rework_rate=D("5"),
-                    effective_from=date(2026, 4, 1))
+    rates.save_rate(who=fab, process=step(ns, "STITCH").process, rate=D("25"), effective_from=date(2026, 4, 1))
     ch = challans.issue_challan(challans.create_challan(
         company=company, factory=factory, party=fab, lot=ns.lot, step=step(ns, "STITCH"), bundles=bundles[:3], date=DAY, user=owner), user=owner)
     lines = list(receipts.create_receipt(challan=ch, user=owner, date=DAY, counts=[Counted(cb, cb.qty_issued) for cb in ch.bundles.all()]).lines.order_by("id"))
@@ -131,8 +130,7 @@ def test_the_print_first_flow_from_fabric_to_boxes(company, factory, owner):
     for code, rate in (("CUT", "2"), ("PRINTEMB", "3"), ("IRON", "1.5"), ("PACK", "1")):
         routes.reassign_step(step(ns, code), user=owner, reason="Piece rate", assignment="in_house", rate=D(rate))
     stitcher = fabricator(company)
-    rates.save_rate(party=stitcher, process=step(ns, "STITCH").process, rate_type="A", base_rate=D("25"), rework_rate=D("0"),
-                    effective_from=date(2026, 4, 1), pay_basis="received")
+    rates.save_rate(who=stitcher, process=step(ns, "STITCH").process, rate=D("25"), effective_from=date(2026, 4, 1), pay_basis="received")
 
     # fabric says how many pieces to expect; two pieces are lost in cutting; cutters are paid on the 100 cut
     assert cutting.issue_fabric(lot=ns.lot, lines=[(ns.roll_a, D("60"))], user=owner, date=DAY, estimated_pieces=150).expected_pieces == 150

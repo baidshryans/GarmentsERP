@@ -760,7 +760,7 @@ def test_loss_cannot_be_taken_out_of_a_bundle_that_is_with_a_fabricator(company,
     ns = build(company, factory, owner)
     bundles = cut(ns)
     fab = fabricator(company)
-    rates.save_rate(party=fab, process=step(ns, "STITCH").process, rate_type="A", base_rate=D("25"), effective_from=DAY)
+    rates.save_rate(who=fab, process=step(ns, "STITCH").process, rate=D("25"), effective_from=DAY)
     challans.create_and_issue(company=company, factory=factory, party=fab, lot=ns.lot, step=step(ns, "STITCH"),
                               bundles=bundles[:1], date=DAY, user=owner)
     with pytest.raises(BusinessRuleError, match="with a fabricator"):

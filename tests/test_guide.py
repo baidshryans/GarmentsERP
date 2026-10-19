@@ -26,8 +26,7 @@ def ns(company, factory, owner):
     ns = build(company, factory, owner)
     ns.bundles = cut(ns)  # B001 S17, B002 M25, B003 M8, B004 L25, B005 L8, B006 XL17
     ns.fab = fabricator(company)
-    rates.save_rate(party=ns.fab, process=step(ns, "STITCH").process, rate_type="A", base_rate=D("25"), rework_rate=D("5"),
-                    effective_from=date(2026, 4, 1))
+    rates.save_rate(who=ns.fab, process=step(ns, "STITCH").process, rate=D("25"), effective_from=date(2026, 4, 1))
     return ns
 
 
@@ -637,7 +636,7 @@ def test_every_step_screen_has_a_way_back_to_the_lot_for_those_who_may_open_it(n
 
 def test_rework_goes_back_on_the_step_it_came_from_not_the_first_open_one(ns):
     emb = step(ns, "EMB")
-    rates.save_rate(party=ns.fab, process=emb.process, rate_type="A", base_rate=D("8"), rework_rate=D("2"), effective_from=date(2026, 4, 1))
+    rates.save_rate(who=ns.fab, process=emb.process, rate=D("8"), effective_from=date(2026, 4, 1))
     one = ns.bundles[:1]  # B001, 17 pieces: stitched and accepted, then embroidered and sent back
     for line in receive(ns, issue(ns, one)).lines.all():
         receipts.record_qc(receipt_line=line, accepted=line.qty_received, user=ns.owner)
@@ -902,8 +901,7 @@ def test_optional_steps_nobody_used_leave_the_strip_once_every_bundle_is_past_th
 def test_an_optional_step_some_bundles_used_shows_those_pieces_then_done(ns):
     stitched(ns)
     emb = step(ns, "EMB")
-    rates.save_rate(party=ns.fab, process=emb.process, rate_type="A", base_rate=D("10"), rework_rate=D("2"),
-                    effective_from=date(2026, 4, 1))
+    rates.save_rate(who=ns.fab, process=emb.process, rate=D("10"), effective_from=date(2026, 4, 1))
     ch = challans.issue_challan(challans.create_challan(
         company=ns.company, factory=ns.factory, party=ns.fab, lot=ns.lot, step=emb, bundles=ns.bundles[HALF], date=DAY,
         user=ns.owner), user=ns.owner)

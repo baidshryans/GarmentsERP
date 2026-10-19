@@ -29,9 +29,8 @@ def ns(company, factory, owner):
     ns.bundles = cut(ns)  # B001 S17, B002 M25, B003 M8, B004 L25, B005 L8, B006 XL17
     ns.fab = fabricator(company)
     ns.fab2 = fabricator(company, "Gupta Stitching", "9822222233")
-    rates.save_rate(party=ns.fab, process=step(ns, "STITCH").process, rate_type="A", base_rate=D("25"), rework_rate=D("5"),
-                    effective_from=date(2026, 4, 1))
-    rates.save_rate(party=ns.fab2, process=step(ns, "STITCH").process, rate_type="A", base_rate=D("24"),
+    rates.save_rate(who=ns.fab, process=step(ns, "STITCH").process, rate=D("25"), effective_from=date(2026, 4, 1))
+    rates.save_rate(who=ns.fab2, process=step(ns, "STITCH").process, rate=D("24"),
                     effective_from=date(2026, 4, 1))
     return ns
 
@@ -54,31 +53,19 @@ def qc(ns, receipt_line, **kw):
 
 # ---------------- labour rates (JOB-06) ----------------
 
-def test_rate_types_a_b_c_d_resolve_as_the_agreement_says(ns, company):
+def test_a_rate_is_per_piece_and_an_older_date_keeps_the_older_rate(ns, company):
     proc = step(ns, "STITCH").process
-    f = ns.fab
-    b = rates.save_rate(party=f, process=proc, rate_type="B", base_rate=D("20"), addons=[("Bar tack", D("2")), ("Thread trim", D("1.5"))],
-                        effective_from=date(2026, 5, 1))
-    spec = rates.resolve(f, step(ns, "STITCH"), date(2026, 5, 2))
-    assert spec.rate_type == "B" and spec.for_size(ns.sizes["M"]) == D("23.50")
-    c = rates.save_rate(party=f, process=proc, rate_type="C", effective_from=date(2026, 6, 1),
-                        size_rates={ns.sizes["S"]: D("22"), ns.sizes["M"]: D("24"), ns.sizes["L"]: D("26"), ns.sizes["XL"]: D("28")})
-    spec = rates.resolve(f, step(ns, "STITCH"), date(2026, 6, 2))
-    assert spec.rate_type == "C" and [spec.for_size(ns.sizes[x]) for x in "S M L XL".split()] == [D("22"), D("24"), D("26"), D("28")]
-    rates.save_rate(party=f, process=proc, rate_type="D", flat_amount=D("5000"), effective_from=date(2026, 7, 1))
-    spec = rates.resolve(f, step(ns, "STITCH"), date(2026, 7, 2))
-    assert spec.rate_type == "D" and spec.flat == D("5000.00")
-    assert rates.resolve(f, step(ns, "STITCH"), date(2026, 4, 15)).for_size(ns.sizes["M"]) == D("25.00")  # an older date keeps the older rate
+    rates.save_rate(who=ns.fab, process=proc, rate=D("23.50"), effective_from=date(2026, 5, 1))
+    assert rates.resolve(ns.fab, step(ns, "STITCH"), date(2026, 5, 2)).price == D("23.50")
+    assert rates.resolve(ns.fab, step(ns, "STITCH"), date(2026, 4, 15)).price == D("25.00")
 
 
 def test_rate_validation(ns):
     proc = step(ns, "STITCH").process
-    with pytest.raises(BusinessRuleError):
-        rates.save_rate(party=ns.fab, process=proc, rate_type="A", base_rate=D("0"), effective_from=date(2026, 8, 1))
     with pytest.raises(BusinessRuleError, match="already"):
-        rates.save_rate(party=ns.fab, process=proc, rate_type="A", base_rate=D("30"), effective_from=date(2026, 4, 1))
-    with pytest.raises(BusinessRuleError, match="at least one extra"):
-        rates.save_rate(party=ns.fab, process=proc, rate_type="B", base_rate=D("30"), effective_from=date(2026, 8, 1))
+        rates.save_rate(who=ns.fab, process=proc, rate=D("30"), effective_from=date(2026, 4, 1))
+    with pytest.raises(BusinessRuleError, match="negative"):
+        rates.save_rate(who=ns.fab, process=proc, rate=D("-1"), effective_from=date(2026, 8, 1))
 
 
 # ---------------- issuing (E8.1, BR-04, BR-05) ----------------
@@ -123,14 +110,14 @@ def test_issuing_the_same_lot_to_a_second_fabricator_warns_until_confirmed(ns, c
 
 def test_a_challan_needs_a_labour_rate(ns, company, factory, owner):
     nobody = fabricator(company, "No Rate Stitching", "9844444455")
-    with pytest.raises(BusinessRuleError, match="no labour rate"):
+    with pytest.raises(BusinessRuleError, match="No rate for No Rate Stitching"):
         challans.create_challan(company=company, factory=factory, party=nobody, lot=ns.lot, step=step(ns, "STITCH"),
                                 bundles=ns.bundles[:1], date=DAY, user=owner)
 
 
 def test_a_rate_change_after_issue_does_not_touch_the_challan(ns, company):
     ch = issue(ns, ns.fab, ns.bundles[:1])
-    rates.save_rate(party=ns.fab, process=step(ns, "STITCH").process, rate_type="A", base_rate=D("40"), effective_from=date(2026, 6, 1))
+    rates.save_rate(who=ns.fab, process=step(ns, "STITCH").process, rate=D("40"), effective_from=date(2026, 6, 1))
     assert ChallanBundle.objects.get(challan=ch).rate == D("25.00")  # BR-12: price changes apply to later documents only
 
 
@@ -287,7 +274,7 @@ def test_rework_goes_out_on_its_own_challan_at_the_rework_rate_and_comes_back_ac
                                  bundles=[b], date=DAY, user=ns.owner, kind="rework")
     rw = challans.issue_challan(rw, user=ns.owner)
     cb = rw.bundles.get()
-    assert rw.kind == "rework" and cb.rate == D("30.00") and cb.qty_issued == 8  # 25 + 5 rework charge
+    assert rw.kind == "rework" and cb.rate == D("25.00") and cb.qty_issued == 8  # paid once, at the stitching rate
     assert Bundle.objects.get(pk=b.pk).status == "at_stage" and Bundle.objects.get(pk=b.pk).rework_qty == 0
     assert not rw.trims.exists()  # no trims go out again
     res = qc(ns, receive(ns, rw).lines.get(), accepted=8)
@@ -297,7 +284,7 @@ def test_rework_goes_out_on_its_own_challan_at_the_rework_rate_and_comes_back_ac
 def embroidery_sent_back(ns):
     """B001 stitched and accepted, then sent out for embroidery and sent back by QC: it waits for rework at embroidery."""
     emb = step(ns, "EMB")
-    rates.save_rate(party=ns.fab, process=emb.process, rate_type="A", base_rate=D("8"), rework_rate=D("2"), effective_from=date(2026, 4, 1))
+    rates.save_rate(who=ns.fab, process=emb.process, rate=D("8"), effective_from=date(2026, 4, 1))
     qc(ns, receive(ns, issue(ns, ns.fab, ns.bundles[:1])).lines.get(), accepted=17)
     out = challans.issue_challan(challans.create_challan(company=ns.company, factory=ns.factory, party=ns.fab, lot=ns.lot, step=emb,
                                                          bundles=ns.bundles[:1], date=DAY, user=ns.owner), user=ns.owner)
@@ -316,7 +303,7 @@ def test_a_rework_challan_takes_only_bundles_waiting_at_its_own_step(ns):
     assert JobWorkChallan.objects.count() == before  # nothing was saved
     rw = challans.create_challan(company=ns.company, factory=ns.factory, party=ns.fab, lot=ns.lot, step=emb,
                                  bundles=[b], date=DAY, user=ns.owner, kind="rework")
-    assert rw.kind == "rework" and rw.step_id == emb.pk and rw.bundles.get().rate == D("10.00")  # 8 + 2 rework charge
+    assert rw.kind == "rework" and rw.step_id == emb.pk and rw.bundles.get().rate == D("8.00")  # paid once, at the embroidery rate
 
 
 def test_the_rework_form_lists_only_the_rework_bundles_of_the_chosen_step(ns):
@@ -431,30 +418,6 @@ def test_no_tds_without_a_template(ns, company, factory):
     assert bill.tds == 0 and gl(company, "tds_payable", factory) == 0
 
 
-def test_flat_per_lot_rate_is_paid_pro_rata_on_accepted_pieces(ns, company, factory):
-    rates.save_rate(party=ns.fab2, process=step(ns, "STITCH").process, rate_type="D", flat_amount=D("1000"), effective_from=date(2026, 5, 1))
-    ch = issue(ns, ns.fab2, ns.bundles[:2])  # 42 pieces issued for a flat 1,000
-    assert ch.rate_type == "D" and ch.flat_amount == D("1000.00")
-    r = receive(ns, ch)
-    l1, l2 = list(r.lines.order_by("id"))
-    qc(ns, l1, accepted=17)
-    qc(ns, l2, accepted=20, rejected=5, reject_reason="Stains")
-    bill = bills.create_bill(company=company, factory=factory, party=ns.fab2, date=DAY, user=ns.owner)
-    assert bill.gross == costing.r2(D("1000") * 17 / 42) + costing.r2(D("1000") * 20 / 42)
-
-
-def test_size_wise_rates_are_fixed_per_bundle_when_issued(ns, company, factory):
-    rates.save_rate(party=ns.fab2, process=step(ns, "STITCH").process, rate_type="C", effective_from=date(2026, 5, 1),
-                    size_rates={ns.sizes["S"]: D("20"), ns.sizes["M"]: D("30"), ns.sizes["L"]: D("40"), ns.sizes["XL"]: D("50")})
-    ch = issue(ns, ns.fab2, [ns.bundles[0], ns.bundles[1]])  # S17 and M25
-    assert sorted(cb.rate for cb in ch.bundles.all()) == [D("20.00"), D("30.00")]
-    r = receive(ns, ch)
-    for line in r.lines.order_by("id"):
-        qc(ns, line, accepted=line.qty_received)
-    bill = bills.create_bill(company=company, factory=factory, party=ns.fab2, date=DAY, user=ns.owner)
-    assert bill.gross == D("17") * 20 + D("25") * 30 and bill.lines.count() == 2
-
-
 def test_cancelling_a_posted_bill_reverses_books_and_cost_and_frees_the_pieces(ns, company, factory):
     accepted_challan(ns)
     bill = bills.post_bill(bills.create_bill(company=company, factory=factory, party=ns.fab, date=DAY, user=ns.owner), user=ns.owner)
@@ -529,10 +492,10 @@ def test_fabricator_ledger_shortage_report_and_ageing(ns, company, factory, owne
 # ---------------- pay basis: pieces received or pieces accepted (JOB-07) ----------------
 
 def on_received(ns, party=None, **kw):
-    """From May the fabricator is paid on every piece received back: 25 a piece, 5 for rework."""
-    details = dict(rate_type="A", base_rate=D("25"), rework_rate=D("5"))
+    """From May the fabricator is paid on every piece received back: 25 a piece."""
+    details = dict(rate=D("25"))
     details.update(kw)
-    return rates.save_rate(party=party or ns.fab, process=step(ns, "STITCH").process, effective_from=date(2026, 5, 1),
+    return rates.save_rate(who=party or ns.fab, process=step(ns, "STITCH").process, effective_from=date(2026, 5, 1),
                            pay_basis="received", **details)
 
 
@@ -545,7 +508,7 @@ def test_the_pay_basis_comes_from_the_rate_and_is_fixed_on_the_challan(ns):
     rate.save()
     assert JobWorkChallan.objects.get(pk=ch.pk).pay_basis == "received"     # a later change leaves the challan alone
     with pytest.raises(BusinessRuleError, match="accepted or pieces received"):
-        rates.save_rate(party=ns.fab, process=step(ns, "STITCH").process, rate_type="A", base_rate=D("25"),
+        rates.save_rate(who=ns.fab, process=step(ns, "STITCH").process, rate=D("25"),
                         effective_from=date(2026, 6, 1), pay_basis="done")
 
 
@@ -566,7 +529,7 @@ def test_on_pieces_received_rejected_pieces_are_paid_too(ns, company, factory):
     assert not costing.check_wip_reconciles(company)
 
 
-def test_on_pieces_received_rework_earns_the_rework_charge_alone(ns, company, factory):
+def test_on_pieces_received_a_reworked_piece_is_not_paid_again(ns, company, factory):
     on_received(ns)
     ch = issue(ns, ns.fab, ns.bundles[2:3])                                 # B003, 8 pieces
     first = qc(ns, receive(ns, ch).lines.get(), accepted=0, rework=8)
@@ -575,15 +538,15 @@ def test_on_pieces_received_rework_earns_the_rework_charge_alone(ns, company, fa
     rw = challans.issue_challan(challans.create_challan(
         company=ns.company, factory=ns.factory, party=ns.fab, lot=ns.lot, step=step(ns, "STITCH"), bundles=[b], date=DAY,
         user=ns.owner, kind="rework"), user=ns.owner)
-    assert rw.pay_basis == "received" and rw.bundles.get().rate == D("5.00")       # not 25 + 5: the 25 is already earned
+    assert rw.pay_basis == "received" and rw.bundles.get().rate == D("0.00")       # the 25 is already earned
     second = qc(ns, receive(ns, rw).lines.get(), accepted=8)
-    assert second.pay_qty == 8
+    assert second.pay_qty == 0
     bill = bills.create_bill(company=company, factory=factory, party=ns.fab, date=DAY, user=ns.owner)
-    assert bill.gross == D("240.00")                                        # 8 x 25 + 8 x 5
+    assert bill.gross == D("200.00")                                        # 8 x 25, once
 
 
 def test_on_pieces_received_rework_with_no_rework_charge_pays_nothing_more(ns, company, factory):
-    on_received(ns, rework_rate=D("0"))
+    on_received(ns)
     ch = issue(ns, ns.fab, ns.bundles[2:3])
     qc(ns, receive(ns, ch).lines.get(), accepted=0, rework=8)
     rw = challans.issue_challan(challans.create_challan(
@@ -601,19 +564,7 @@ def test_a_rework_challan_follows_the_terms_the_bundle_first_went_out_on(ns):
     on_received(ns)                                                         # the terms change afterwards
     rw = challans.create_challan(company=ns.company, factory=ns.factory, party=ns.fab, lot=ns.lot, step=step(ns, "STITCH"),
                                  bundles=[Bundle.objects.get(pk=ns.bundles[2].pk)], date=DAY, user=ns.owner, kind="rework")
-    assert rw.pay_basis == "accepted" and rw.bundles.get().rate == D("30.00")      # the first pass paid nothing
-
-
-def test_a_flat_rate_on_pieces_received_is_paid_pro_rata_on_what_came_back(ns, company, factory):
-    on_received(ns, party=ns.fab2, rate_type="D", base_rate=D("0"), flat_amount=D("1000"), rework_rate=D("0"))
-    ch = issue(ns, ns.fab2, ns.bundles[:2])                                 # 42 pieces for a flat 1,000
-    cb1, cb2 = list(ch.bundles.order_by("id"))
-    l1, l2 = list(receive(ns, ch, {cb1: 17, cb2: 23}).lines.order_by("id"))        # two short
-    qc(ns, l1, accepted=17)
-    qc(ns, l2, accepted=18, rejected=5, reject_reason="Stains")
-    bill = bills.create_bill(company=company, factory=factory, party=ns.fab2, date=DAY, user=ns.owner)
-    assert bill.gross == costing.r2(D("1000") * 17 / 42) + costing.r2(D("1000") * 23 / 42)
-    assert bill.deductions == D("0.00")                                     # the shortage is not taken off by default
+    assert rw.pay_basis == "accepted" and rw.bundles.get().rate == D("25.00")      # the first pass paid nothing: paid once, now
 
 
 def short_receipt(ns):
@@ -725,26 +676,26 @@ def test_qc_splits_the_rework_pieces_into_their_own_bundle_and_the_accepted_ones
 
     # the rework pieces go back to the stitcher, come back, and follow
     rw = rework_challan(ns, child)
-    assert rw.bundles.get().rate == D("30.00") and rw.bundles.get().qty_issued == 3   # 25 + 5: the first pass paid 20 only
+    assert rw.bundles.get().rate == D("25.00") and rw.bundles.get().qty_issued == 3   # the first pass paid 20 only
     assert qc(ns, receive(ns, rw).lines.get(), accepted=3).is_rework_pass
     child.refresh_from_db()
     assert child.status == "ready" and child.rework_qty == 0
     bundle_service.move_bundles(bundles=[child], to_step=step(ns, "IRON"), user=ns.owner, date=DAY)
     bill = bills.create_bill(company=company, factory=factory, party=ns.fab, date=DAY, user=ns.owner)
-    assert bill.gross == D("590.00")                                        # 20 x 25 + 3 x 30
+    assert bill.gross == D("575.00")                                        # 20 x 25 + 3 x 25: each piece paid once
     assert not costing.check_wip_reconciles(company)
 
 
-def test_on_pieces_received_split_rework_pieces_earn_the_rework_charge_alone(ns, company, factory):
+def test_on_pieces_received_split_rework_pieces_are_not_paid_again(ns, company, factory):
     on_received(ns)
     ch = issue(ns, ns.fab, ns.bundles[1:2])
     assert qc(ns, receive(ns, ch).lines.get(), accepted=20, rejected=2, rework=3, reject_reason="Holes").pay_qty == 25
     child = Bundle.objects.get(split_from=ns.bundles[1])
     rw = rework_challan(ns, child)
-    assert rw.pay_basis == "received" and rw.bundles.get().rate == D("5.00")
+    assert rw.pay_basis == "received" and rw.bundles.get().rate == D("0.00")
     qc(ns, receive(ns, rw).lines.get(), accepted=3)
     bill = bills.create_bill(company=company, factory=factory, party=ns.fab, date=DAY, user=ns.owner)
-    assert bill.gross == D("640.00")                                        # 25 stitched x 25 + 3 redone x 5
+    assert bill.gross == D("625.00")                                        # 25 stitched x 25, once
 
 
 def test_rework_with_nothing_accepted_keeps_the_whole_bundle_together(ns):

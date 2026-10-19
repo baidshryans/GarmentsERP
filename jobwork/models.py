@@ -18,64 +18,40 @@ class PayBasis(models.TextChoices):
 
 
 class LabourRate(models.Model):
-    """What a fabricator is paid for a process (JOB-06). Dated, so a change applies only to later challans (BR-12).
+    """The one rate list (owner, 19 Oct 2026): who does a process, at what rate per piece, from when.
 
-    A per piece | B per piece plus add-ons | C size-wise | D flat per lot.
-    """
+    `party` is the fabricator; empty means In-house (our own people, at any factory). Dated, so a change applies
+    only to work recorded on or after its date (BR-12)."""
 
-    class Type(models.TextChoices):
-        PER_PIECE = "A", "A - per piece"
-        ADDONS = "B", "B - per piece plus add-ons"
-        SIZE_WISE = "C", "C - size-wise"
-        FLAT = "D", "D - flat per lot"
-
-    party = models.ForeignKey("masters.Party", on_delete=models.PROTECT, related_name="labour_rates")
+    party = models.ForeignKey("masters.Party", on_delete=models.PROTECT, null=True, blank=True, related_name="labour_rates",
+                              help_text="The fabricator. Empty for In-house.")
     process = models.ForeignKey("masters.Process", on_delete=models.PROTECT, related_name="+")
-    rate_type = models.CharField(max_length=1, choices=Type.choices, default=Type.PER_PIECE)
-    base_rate = models.DecimalField("Rate per piece", max_digits=10, decimal_places=2, default=ZERO)
-    flat_amount = models.DecimalField("Flat amount per lot", max_digits=12, decimal_places=2, default=ZERO)
-    rework_rate = models.DecimalField("Rework rate per piece", max_digits=10, decimal_places=2, default=ZERO)
+    rate = models.DecimalField("Rate per piece", max_digits=10, decimal_places=2, default=ZERO)
     pay_basis = models.CharField(
         "Pay on", max_length=8, choices=PayBasis.choices, default=PayBasis.ACCEPTED,
         help_text="Accepted: only pieces that pass QC are paid. Received: every piece that comes back is paid, "
-                  "rejected or not, and rework is paid at the rework rate alone.")
+                  "rejected or not. A piece is never paid twice.")
     effective_from = models.DateField()
     is_active = models.BooleanField(default=True)
 
     history = HistoricalRecords()
 
     class Meta:
-        ordering = ["party", "process", "-effective_from"]
+        ordering = ["process", "party", "-effective_from"]
         constraints = [
-            models.UniqueConstraint(fields=["party", "process", "effective_from"], name="uniq_labour_rate_date"),
-            models.CheckConstraint(
-                condition=Q(base_rate__gte=0) & Q(flat_amount__gte=0) & Q(rework_rate__gte=0), name="labour_rate_non_negative"
-            ),
+            models.UniqueConstraint(fields=["party", "process", "effective_from"], condition=Q(party__isnull=False),
+                                    name="uniq_labour_rate_date"),
+            models.UniqueConstraint(fields=["process", "effective_from"], condition=Q(party__isnull=True),
+                                    name="uniq_inhouse_rate_date"),
+            models.CheckConstraint(condition=Q(rate__gte=0), name="labour_rate_non_negative"),
         ]
+
+    @property
+    def who(self):
+        return self.party.name if self.party_id else "In-house"
 
     def __str__(self):
-        return f"{self.party} / {self.process} ({self.rate_type}) from {self.effective_from}"
-
-
-class LabourRateAddon(models.Model):
-    rate = models.ForeignKey(LabourRate, on_delete=models.CASCADE, related_name="addons")
-    name = models.CharField(max_length=60)
-    amount = models.DecimalField("Per piece", max_digits=10, decimal_places=2)
-
-    class Meta:
-        constraints = [models.CheckConstraint(condition=Q(amount__gte=0), name="addon_non_negative")]
-
-
-class LabourRateSize(models.Model):
-    rate = models.ForeignKey(LabourRate, on_delete=models.CASCADE, related_name="sizes")
-    size = models.ForeignKey("masters.Size", on_delete=models.PROTECT, related_name="+")
-    amount = models.DecimalField("Per piece", max_digits=10, decimal_places=2)
-
-    class Meta:
-        constraints = [
-            models.UniqueConstraint(fields=["rate", "size"], name="uniq_rate_size"),
-            models.CheckConstraint(condition=Q(amount__gte=0), name="rate_size_non_negative"),
-        ]
+        return f"{self.who} / {self.process} {self.rate} from {self.effective_from}"
 
 
 class JobWorkChallan(FactoryScopedModel):
@@ -103,7 +79,7 @@ class JobWorkChallan(FactoryScopedModel):
     date = models.DateField()
     expected_date = models.DateField(null=True, blank=True)
     status = models.CharField(max_length=16, choices=Status.choices, default=Status.DRAFT)
-    rate_type = models.CharField(max_length=1, choices=LabourRate.Type.choices, default="A")
+    rate_type = models.CharField(max_length=1, default="A", help_text="A per piece; D flat per lot (only on challans issued before 19 Oct 2026)")
     flat_amount = models.DecimalField(max_digits=12, decimal_places=2, default=ZERO)
     pay_basis = models.CharField(max_length=8, choices=PayBasis.choices, default=PayBasis.ACCEPTED,
                                  help_text="Fixed from the labour rate when the challan is made")

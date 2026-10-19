@@ -139,7 +139,7 @@ def test_packing_materials_are_issued_at_packing_and_carried_by_the_finished_pie
 def test_a_challan_fills_in_its_own_process_and_the_draft_can_be_changed(ns, company, factory):
     fab = fabricator(company)
     stitch = step(ns, "STITCH")
-    rates.save_rate(party=fab, process=stitch.process, rate_type="A", base_rate=D("25"), effective_from=date(2026, 4, 1))
+    rates.save_rate(who=fab, process=stitch.process, rate=D("25"), effective_from=date(2026, 4, 1))
     bundles = cut(ns)
     ch = challans.create_challan(company=company, factory=factory, party=fab, lot=ns.lot, step=stitch, bundles=bundles[:3],
                                  date=DAY, user=ns.owner)
@@ -172,6 +172,7 @@ def test_a_challan_for_any_process_carries_that_process_materials(ns, company, f
     finish = step(ns, "FINISH")
     fab = fabricator(company, "Verma Finishing", "9833333344")
     routes.reassign_step(finish, user=ns.owner, reason="Finish outside", assignment="subcontract", party=fab, rate=D("2"))
+    rates.save_rate(who=fab, process=finish.process, rate=D("2"), effective_from=DAY)
     bundles = cut(ns)
     go(ns, bundles, "STITCH")
     go(ns, bundles, "IRON")
@@ -244,7 +245,7 @@ def test_the_move_screen_can_issue_materials_that_are_not_on_the_list(ns, factor
 def test_the_draft_challan_screen_changes_the_materials_and_issues_with_them(ns, company, factory, owner):
     fab = fabricator(company)
     stitch = step(ns, "STITCH")
-    rates.save_rate(party=fab, process=stitch.process, rate_type="A", base_rate=D("25"), effective_from=date(2026, 4, 1))
+    rates.save_rate(who=fab, process=stitch.process, rate=D("25"), effective_from=date(2026, 4, 1))
     bundles = cut(ns)
     ch = challans.create_challan(company=company, factory=factory, party=fab, lot=ns.lot, step=stitch, bundles=bundles[:1],
                                  date=DAY, user=owner)

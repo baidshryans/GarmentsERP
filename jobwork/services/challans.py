@@ -2,7 +2,7 @@
 
 A challan sends bundles to a fabricator for one step of a lot, with the accessories that step's process uses: filled
 in from the style's list and editable while the challan is a draft. Issuing it moves the bundles to the fabricator's
-location, takes the materials out of stock into the lot's cost, and opens the fabricator's material ledger. Rework goes out on its own challan with a rework rate.
+location, takes the materials out of stock into the lot's cost, and opens the fabricator's material ledger. Rework goes out on its own challan; a reworked piece is never paid twice.
 """
 from dataclasses import dataclass
 from decimal import Decimal
@@ -82,7 +82,8 @@ def create_challan(*, company, factory, party, lot, step, bundles, date, user, e
         raise SecondFabricatorWarning(
             f"Lot {lot.lot_no} is already open with {names}. Issue it to {party.name} as well? (BR-05)")
 
-    rate = rates.resolve(party, step, date)
+    rate = rates.resolve(party, step, date) if kind != JobWorkChallan.Kind.REWORK or not all(
+        first_pass_line(b, step) for b in bundles) else None
     lines = []
     bases = set() if kind == JobWorkChallan.Kind.REWORK else {rate.pay_basis}
     for b in bundles:
@@ -98,22 +99,21 @@ def create_challan(*, company, factory, party, lot, step, bundles, date, user, e
             base = first_pass_line(b, step)
             basis = base.challan.pay_basis if base else rate.pay_basis
             bases.add(basis)
-            # paid on pieces received, the first pass already paid for these pieces: rework earns the rework charge alone
-            price = rate.rework if basis == PayBasis.RECEIVED else (base.rate if base else ZERO) + rate.rework
+            # a reworked piece is never paid again (owner, 19 Oct 2026). Paid on pieces received, the first pass
+            # already paid for it; paid on accepted pieces, it was not accepted then and is paid once, now.
+            price = ZERO if basis == PayBasis.RECEIVED else (base.rate if base else rate.price)
             qty = b.qty
         else:
             bundle_service.check_entry(b, step, "")
-            price = rate.for_size(b.sku.size)
+            price = rate.price
             qty = b.qty
         lines.append((b, qty, price))
-    if kind == JobWorkChallan.Kind.ISSUE and rate.rate_type != "D" and all(p <= 0 for _, _, p in lines):
-        raise BusinessRuleError(f"There is no labour rate for {party.name} on {step.process.name}. Add one under Labour rates, or set a rate on the step.")
 
     if len(bases) > 1:
         raise BusinessRuleError("These bundles first went out on different pay terms. Make a separate rework challan for each.")
     challan = JobWorkChallan.objects.create(
         company=company, factory=factory, party=party, lot=lot, step=step, kind=kind, date=date, pay_basis=bases.pop(),
-        expected_date=expected_date, rate_type=rate.rate_type, flat_amount=rate.flat if kind == "issue" else ZERO,
+        expected_date=expected_date, rate_type="A", flat_amount=ZERO,
         remarks=remarks, second_fabricator_ack=bool(others.exists()), created_by=user)
     for b, qty, price in lines:
         ChallanBundle.objects.create(challan=challan, bundle=b, qty_issued=qty, rate=price)

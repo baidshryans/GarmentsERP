@@ -51,7 +51,6 @@ def _fabricators():
 
 
 # How a labour rate is worked out, in plain words. The stored values (A to D) are unchanged.
-RATE_TYPE_WORDS = [("A", "Per piece"), ("B", "Per piece plus extras"), ("C", "Different rate per size"), ("D", "Fixed amount per lot")]
 
 
 # ================================================================ challans (E8.1)
@@ -340,12 +339,12 @@ class ReceiptDetail(LoginRequiredMixin, ScreenPermissionMixin, View):
 # ================================================================ labour rates (JOB-06)
 
 class RateList(LoginRequiredMixin, ScreenPermissionMixin, View):
+    """Rates: the one place a process cost is set (owner, 19 Oct 2026)."""
     screen_code = "jobwork.rate"
 
     def get(self, request):
         return render(request, "jobwork/rate_list.html", {
-            "rates": LabourRate.objects.select_related("party", "process").prefetch_related("addons", "sizes__size"),
-            "type_words": dict(RATE_TYPE_WORDS),
+            "rates": LabourRate.objects.select_related("party", "process"),
             "can_create": request.user.has_screen_perm("jobwork.rate", "create"),
         })
 
@@ -356,37 +355,31 @@ class RateNew(LoginRequiredMixin, ScreenPermissionMixin, View):
 
     def _ctx(self, d=None):
         d = d or {}
-        names = d.getlist("addon_name") if hasattr(d, "getlist") else []
-        amounts = d.getlist("addon_amount") if hasattr(d, "getlist") else []
-        addons = [{"name": n, "amount": amounts[i] if i < len(amounts) else ""} for i, n in enumerate(names)]
-        sizes = list(Size.objects.filter(is_active=True))
-        return {"fabricators": Party.objects.filter(is_active=True).filter(is_fabricator=True) | Party.objects.filter(is_vendor=True, is_active=True),
-                "processes": Process.objects.filter(is_active=True), "sizes": sizes,
-                # what was typed comes back with the form: the add-on rows and each size's rate
-                "addons": (addons + [{}, {}, {}])[:max(3, len(addons))],
-                "size_rows": [{"size": s, "value": d.get(f"size_{s.pk}", "")} for s in sizes],
-                "types": RATE_TYPE_WORDS, "rate_type": d.get("rate_type") or LabourRate.Type.PER_PIECE, "d": d,
+        fabricators = Party.objects.filter(is_active=True).filter(is_fabricator=True) | Party.objects.filter(is_vendor=True, is_active=True)
+        return {"fabricators": fabricators, "fab_ids": " ".join(str(pk) for pk in fabricators.values_list("pk", flat=True)),
+                "processes": Process.objects.filter(is_active=True), "d": d,
                 "pay_bases": PayBasis.choices, "pay_basis": d.get("pay_basis") or PayBasis.ACCEPTED}
 
     def get(self, request):
-        return render(request, "jobwork/rate_form.html", self._ctx(request.GET))
+        d = request.GET.copy()
+        if not d.get("who") and d.get("party"):      # links from a fabricator name them as party
+            d["who"] = d["party"]
+        return render(request, "jobwork/rate_form.html", self._ctx(d))
 
     def post(self, request):
         p = request.POST
         try:
-            addons = [(n.strip(), vu.dec(a, "Add-on amount")) for n, a in zip(p.getlist("addon_name"), p.getlist("addon_amount")) if n.strip()]
-            size_rates = {s: vu.dec(p.get(f"size_{s.pk}"), "Size rate") for s in Size.objects.all() if p.get(f"size_{s.pk}", "").strip()}
+            who = p.get("who") or ""
             rates.save_rate(
-                party=vu.chosen(Party.objects.all(), p.get("party"), "fabricator or supplier"),
+                who=None if who == "inhouse" else vu.chosen(Party.objects.all(), who, "who does it"),
                 process=vu.chosen(Process.objects.all(), p.get("process"), "process"),
-                rate_type=p.get("rate_type"), effective_from=vu.day(p.get("effective_from")),
-                base_rate=vu.dec(p.get("base_rate"), "Rate", Decimal("0")), flat_amount=vu.dec(p.get("flat_amount"), "Flat amount", Decimal("0")),
-                rework_rate=vu.dec(p.get("rework_rate"), "Rework rate", Decimal("0")), addons=addons, size_rates=size_rates,
+                effective_from=vu.day(p.get("effective_from")),
+                rate=vu.dec(p.get("rate"), "Rate per piece"),
                 pay_basis=p.get("pay_basis") or PayBasis.ACCEPTED)
         except (ValueError, BusinessRuleError) as exc:
             vu.report(request, exc)
             return render(request, "jobwork/rate_form.html", self._ctx(p))
-        messages.success(request, "Rate saved. It applies to challans issued from its date.")
+        messages.success(request, "Rate saved. It applies to work recorded from its date.")
         return redirect("rate_list")
 
 

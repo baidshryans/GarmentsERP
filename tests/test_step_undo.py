@@ -74,8 +74,7 @@ def ns(company, factory, owner):
 def jw(ns, company):
     ns.bundles = cut(ns)  # B001 S17, B002 M25, B003 M8, B004 L25, B005 L8, B006 XL17
     ns.fab = fabricator(company)
-    rates.save_rate(party=ns.fab, process=step(ns, "STITCH").process, rate_type="A", base_rate=D("25"), rework_rate=D("5"),
-                    effective_from=date(2026, 4, 1))
+    rates.save_rate(who=ns.fab, process=step(ns, "STITCH").process, rate=D("25"), effective_from=date(2026, 4, 1))
     return ns
 
 

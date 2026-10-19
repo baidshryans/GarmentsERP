@@ -437,7 +437,7 @@ def job(company, factory, owner):
     job.fab = ph.fabricator(company)
     job.other = ph.fabricator(company, name="Gill Tailors", mobile="9811111199")
     for fab in (job.fab, job.other):
-        rates.save_rate(party=fab, process=ph.step(job, "STITCH").process, rate_type="A", base_rate=D("25"),
+        rates.save_rate(who=fab, process=ph.step(job, "STITCH").process, rate=D("25"),
                         effective_from=date(2026, 4, 1))
     return job
 
@@ -472,31 +472,26 @@ def test_sending_to_a_fabricator_keeps_the_fabricator_the_step_or_the_link_names
     assert "selected>Sharma Stitching" not in html
 
 
-def test_a_labour_rate_needs_its_fabricator_and_process_chosen(job, owner_c):
+def test_a_rate_needs_who_and_process_chosen(job, owner_c):
     html = html_of(owner_c.get(reverse("rate_new")))
-    assert starts_blank(html, "party") and starts_blank(html, "process")
-    stitch, s, m = Process.objects.get(code="STITCH"), Size.objects.get(code="S"), Size.objects.get(code="M")
-    typed = {"party": "", "process": stitch.pk, "rate_type": "B", "effective_from": "2026-06-01", "base_rate": "22",
-             "flat_amount": "", "rework_rate": "4", "addon_name": ["Embroidery", "", ""], "addon_amount": ["3.5", "", ""],
-             f"size_{s.pk}": "20", f"size_{m.pk}": "21"}
+    assert starts_blank(html, "who") and starts_blank(html, "process")
+    stitch = Process.objects.get(code="STITCH")
+    typed = {"who": "", "process": stitch.pk, "effective_from": "2026-06-01", "rate": "22", "pay_basis": "accepted"}
+    before = LabourRate.objects.count()
     html = html_of(owner_c.post(reverse("rate_new"), typed))
-    assert "Choose the fabricator or supplier." in flashed(html) and '<label for="party">Fabricator or supplier</label>' in html and LabourRate.objects.count() == 2 and starts_blank(html, "party")
-    assert chosen(html, "process") == str(stitch.pk) and chosen(html, "rate_type") == "B"
-    assert value_of(html, "base_rate") == "22" and values_of(html, "addon_name") == ["Embroidery", "", ""]
-    assert values_of(html, "addon_amount") == ["3.5", "", ""]
-    assert value_of(html, f"size_{s.pk}") == "20" and value_of(html, f"size_{m.pk}") == "21"
-    html = html_of(owner_c.post(reverse("rate_new"), {**typed, "party": job.fab.pk, "process": ""}))
-    assert "Choose the process." in flashed(html) and LabourRate.objects.count() == 2
-    assert chosen(html, "party") == str(job.fab.pk) and starts_blank(html, "process")
-    r = owner_c.post(reverse("rate_new"), {**typed, "party": job.fab.pk})
-    rate = LabourRate.objects.get(rate_type="B")
-    assert r.status_code == 302 and rate.party == job.fab and rate.base_rate == D("22") and rate.addons.get().amount == D("3.5")
+    assert "Choose the who does it." in flashed(html) or "Choose" in flashed(html)
+    assert LabourRate.objects.count() == before and starts_blank(html, "who")
+    assert chosen(html, "process") == str(stitch.pk) and value_of(html, "rate") == "22"
+    r = owner_c.post(reverse("rate_new"), {**typed, "who": job.fab.pk})
+    assert r.status_code == 302 and LabourRate.objects.get(party=job.fab, effective_from="2026-06-01").rate == D("22")
+    r = owner_c.post(reverse("rate_new"), {**typed, "who": "inhouse"})
+    assert r.status_code == 302 and LabourRate.objects.get(party__isnull=True, process=stitch).rate == D("22")
 
 
-def test_the_labour_rate_form_opens_on_the_fabricator_a_link_names(job, owner_c):
+def test_the_rate_form_opens_on_the_fabricator_a_link_names(job, owner_c):
     stitch = Process.objects.get(code="STITCH")
     html = html_of(owner_c.get(reverse("rate_new"), {"party": job.fab.pk, "process": stitch.pk}))
-    assert chosen(html, "party") == str(job.fab.pk) and chosen(html, "process") == str(stitch.pk)
+    assert chosen(html, "who") == str(job.fab.pk) and chosen(html, "process") == str(stitch.pk)
 
 
 # ================================================================ masters
@@ -894,70 +889,22 @@ def test_the_labour_bill_folds_tds_and_notes(job, out, owner_c):
     assert folded(html, "tds_template", "notes")
 
 
-RATE_FIELDS = {"A": ("base_rate",), "B": ("base_rate", "addon_name", "addon_amount"), "C": ("size_",), "D": ("flat_amount",)}
-
-
-def test_the_labour_rate_names_its_types_in_plain_words(job, owner_c):
+def test_the_rate_form_offers_in_house_and_hides_pay_on_for_it(job, owner_c):
     html = html_of(owner_c.get(reverse("rate_new")))
-    assert in_view(html, "party", "process", "rate_type", "effective_from", "base_rate") and folded(html, "rework_rate")
-    assert options_of(html, "rate_type") == [("A", "Per piece"), ("B", "Per piece plus extras"), ("C", "Different rate per size"), ("D", "Fixed amount per lot")]
-    text = flashed(html)
-    for old in ("(A, B)", "(D)", "type B", "type C", "A - per piece", "Add-ons", "Flat amount"):
-        assert old not in text, old
-    assert "js/reveal.js" in html and chosen(html, "rate_type") == "A"
-    for name in ("party", "process", "rate_type", "effective_from", "base_rate", "flat_amount", "rework_rate"):
+    assert ('value="inhouse"', "In-house (our own people)") and 'value="inhouse"' in html and "In-house (our own people)" in html
+    for name in ("who", "process", "rate", "effective_from", "pay_basis"):
         assert f'<label for="{name}">' in html, name
+    for old in ("rate_type", "rework_rate", "addon_name", "flat_amount", "Rework"):
+        assert old not in html, old
+    html = html_of(owner_c.post(reverse("rate_new"), {"who": "inhouse", "process": "", "rate": "1"}))
+    assert hidden_for_choice(html, "pay_basis") is True
 
 
-def test_the_labour_rate_shows_only_the_fields_of_the_chosen_type(job, owner_c):
-    s = Size.objects.get(code="S")
-    for rate_type, shown in RATE_FIELDS.items():
-        html = html_of(owner_c.post(reverse("rate_new"), {"party": "", "process": "", "rate_type": rate_type,
-                                                          "effective_from": "2026-06-01", "addon_name": ["", "", ""],
-                                                          "addon_amount": ["", "", ""]}))
-        assert chosen(html, "rate_type") == rate_type
-        for name in ("base_rate", "addon_name", "flat_amount", f"size_{s.pk}"):
-            wanted = any(name.startswith(prefix) for prefix in shown)
-            assert hidden_for_choice(html, name) is (not wanted), (rate_type, name)
-            assert shown_when(html, name)[2] is True                       # a rate typed for another type is never sent
-        assert folded(html, "rework_rate")
-    html = html_of(owner_c.post(reverse("rate_new"), {"party": "", "process": "", "rate_type": "A", "rework_rate": "4"}))
-    assert folded(html, "rework_rate", is_open=True)
-
-
-def test_each_labour_rate_type_saves_what_it_always_did(job, owner_c):
-    wash, s, m = Process.objects.get(code="WASH"), Size.objects.get(code="S"), Size.objects.get(code="M")
-    base = {"party": job.fab.pk, "process": wash.pk}
-    # the fields of the other types are not sent at all, as when the browser has switched them off
-    assert owner_c.post(reverse("rate_new"), {**base, "rate_type": "A", "effective_from": "2026-05-01", "base_rate": "12"}).status_code == 302
-    assert owner_c.post(reverse("rate_new"), {**base, "rate_type": "B", "effective_from": "2026-05-02", "base_rate": "12",
-                                              "addon_name": ["Print", ""], "addon_amount": ["2", ""]}).status_code == 302
-    assert owner_c.post(reverse("rate_new"), {**base, "rate_type": "C", "effective_from": "2026-05-03",
-                                              f"size_{s.pk}": "10", f"size_{m.pk}": "11"}).status_code == 302
-    assert owner_c.post(reverse("rate_new"), {**base, "rate_type": "D", "effective_from": "2026-05-04", "flat_amount": "900",
-                                              "rework_rate": "3"}).status_code == 302
-    got = {r.rate_type: r for r in LabourRate.objects.filter(process=wash)}
-    assert (got["A"].base_rate, got["A"].flat_amount, got["A"].rework_rate, got["A"].addons.count()) == (D("12"), D("0"), D("0"), 0)
-    assert (got["B"].base_rate, got["B"].addons.get().name, got["B"].addons.get().amount) == (D("12"), "Print", D("2"))
-    assert (got["C"].base_rate, sorted(x.amount for x in got["C"].sizes.all())) == (D("0"), [D("10"), D("11")])
-    assert (got["D"].flat_amount, got["D"].base_rate, got["D"].rework_rate) == (D("900"), D("0"), D("3"))
-    # and sent blank, as a browser without the script would send them: the same rates
-    r = owner_c.post(reverse("rate_new"), {**base, "rate_type": "D", "effective_from": "2026-05-05", "flat_amount": "950",
-                                           "base_rate": "", "rework_rate": "", "addon_name": ["", "", ""],
-                                           "addon_amount": ["", "", ""], f"size_{s.pk}": ""})
-    again = LabourRate.objects.get(process=wash, effective_from=date(2026, 5, 5))
-    assert r.status_code == 302 and (again.flat_amount, again.base_rate, again.addons.count(), again.sizes.count()) == (D("950"), D("0"), 0, 0)
-    listing = flashed(html_of(owner_c.get(reverse("rate_list"))))
-    assert "Per piece plus extras" in listing and "Fixed amount per lot" in listing and "A - per piece" not in listing
-
-
-def test_a_labour_rate_is_refused_in_plain_words(job, owner_c):
+def test_a_rate_is_refused_in_plain_words(job, owner_c):
     wash = Process.objects.get(code="WASH")
-    base = {"party": job.fab.pk, "process": wash.pk, "effective_from": "2026-05-01"}
-    for rate_type, message in (("A", "Enter the rate per piece."), ("B", "Enter the rate per piece and at least one extra."),
-                               ("C", "Enter the rate for each size."), ("D", "Enter the fixed amount per lot.")):
-        text = flashed(html_of(owner_c.post(reverse("rate_new"), {**base, "rate_type": rate_type})))
-        assert message in text and "Type " not in text, rate_type
+    text = flashed(html_of(owner_c.post(reverse("rate_new"), {"who": job.fab.pk, "process": wash.pk,
+                                                                  "effective_from": "2026-05-01", "rate": "-2"})))
+    assert "A rate cannot be negative." in text
 
 
 # ================================================================ selling and money

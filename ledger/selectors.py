@@ -26,31 +26,44 @@ def posted_lines(user=None, factory=None, as_of=None, date_from=None):
     return qs
 
 
-def trial_balance(company, *, user=None, factory=None, as_of=None):
-    """Per-ledger totals and closing balance. Filter by factory, or all factories the user may see."""
-    rows = (
-        posted_lines(user, factory, as_of)
-        .filter(ledger__company=company)
-        .values("ledger_id", "ledger__name", "ledger__group__name", "ledger__group__nature")
-        .annotate(debit=Sum("debit"), credit=Sum("credit"))
-        .order_by("ledger__group__sort_order", "ledger__name")
-    )
+def trial_balance(company, *, user=None, factory=None, as_of=None, date_from=None):
+    """Per ledger: Opening | Debit | Credit | Closing for the period from `date_from` to `as_of` (owner, 19 Oct
+    2026). Opening is everything dated before `date_from` plus the opening entries (opening balances and opening
+    stock), wherever they fall; Debit and Credit are the period's own activity. Without `date_from`, opening is the
+    opening entries alone and everything else up to `as_of` is activity. Filter by factory, or all the user's."""
+    from django.db.models import Q
+
+    is_opening = Q(voucher__voucher_type="opening")
+    if date_from is not None:
+        is_opening |= Q(voucher__date__lt=date_from)
+    lines = posted_lines(user, factory, as_of).filter(ledger__company=company)
+    keys = ("ledger_id", "ledger__name", "ledger__group__name", "ledger__group__nature", "ledger__group__sort_order")
+    opening = {r["ledger_id"]: q2(r["d"]) - q2(r["c"]) for r in
+               lines.filter(is_opening).values("ledger_id").annotate(d=Sum("debit"), c=Sum("credit"))}
+    period = {r["ledger_id"]: r for r in
+              lines.exclude(is_opening).values(*keys).annotate(debit=Sum("debit"), credit=Sum("credit"))}
+    names = {r["ledger_id"]: r for r in lines.values(*keys).distinct()}
     result = []
-    total_dr = total_cr = ZERO
-    for r in rows:
-        dr, cr = q2(r["debit"]), q2(r["credit"])
-        closing = dr - cr
+    total_dr = total_cr = closing_dr = closing_cr = ZERO
+    for ledger_id, r in sorted(names.items(), key=lambda kv: (kv[1]["ledger__group__sort_order"], kv[1]["ledger__name"])):
+        p = period.get(ledger_id, {})
+        dr, cr, op = q2(p.get("debit")), q2(p.get("credit")), opening.get(ledger_id, ZERO)
+        closing = op + dr - cr
         result.append({
-            "ledger_id": r["ledger_id"], "ledger": r["ledger__name"], "group": r["ledger__group__name"],
-            "nature": r["ledger__group__nature"], "debit": dr, "credit": cr,
+            "ledger_id": ledger_id, "ledger": r["ledger__name"], "group": r["ledger__group__name"],
+            "nature": r["ledger__group__nature"], "opening": op, "debit": dr, "credit": cr, "closing": closing,
+            "opening_debit": op if op > 0 else ZERO, "opening_credit": -op if op < 0 else ZERO,
             "closing_debit": closing if closing > 0 else ZERO,
             "closing_credit": -closing if closing < 0 else ZERO,
         })
         total_dr += dr
         total_cr += cr
+        closing_dr += closing if closing > 0 else ZERO
+        closing_cr += -closing if closing < 0 else ZERO
     return {
         "rows": result, "total_debit": total_dr, "total_credit": total_cr,
-        "tallies": total_dr == total_cr,
+        "total_closing_debit": closing_dr, "total_closing_credit": closing_cr,
+        "tallies": total_dr == total_cr and closing_dr == closing_cr,
     }
 
 

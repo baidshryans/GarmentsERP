@@ -129,6 +129,14 @@ class DayBook(ReportView):
                              notes=[f"{ctx['date_from']} to {ctx['date_to']}"])
 
 
+def _drill(company, lines):
+    """Report lines ({"ledger_id", "ledger", "group", "amount"}) as drill-down rows: top groups, sub-groups, ledgers."""
+    from reports.services import tree
+
+    items = [{"ledger_id": r["ledger_id"], "ledger": r["ledger"], "group": r["group"], "values": [r["amount"]]} for r in lines]
+    return tree.with_cells(tree.rows(company, items, width=1), ["plain"])
+
+
 class ProfitLoss(ReportView):
     template_name = "reports/profit_loss.html"
 
@@ -137,7 +145,10 @@ class ProfitLoss(ReportView):
         compare = request.GET.get("compare") == "1"
         if compare:
             return {"cmp": books.compare_profit_and_loss(f["company"], **kw), "compare": True}
-        return {"pl": books.profit_and_loss(f["company"], **kw), "compare": False}
+        pl = books.profit_and_loss(f["company"], **kw)
+        return {"pl": pl, "compare": False, "sections": {key: _drill(f["company"], pl[key]) for key in
+                                                         ("income", "expense", "other_income", "other_expense")},
+                "link": f"?from={f['date_from'].isoformat()}&to={f['date_to'].isoformat()}"}
 
     def export(self, ctx):
         rows = []
@@ -166,7 +177,9 @@ class BalanceSheet(ReportView):
     template_name = "reports/balance_sheet.html"
 
     def build(self, request, f):
-        return {"bs": books.balance_sheet(f["company"], user=request.user, factory=f["factory"], as_of=f["as_of"])}
+        bs = books.balance_sheet(f["company"], user=request.user, factory=f["factory"], as_of=f["as_of"])
+        return {"bs": bs, "asset_rows": _drill(f["company"], bs["assets"]), "liability_rows": _drill(f["company"], bs["liabilities"]),
+                "link": f"?to={f['as_of'].isoformat()}"}
 
     def export(self, ctx):
         bs = ctx["bs"]

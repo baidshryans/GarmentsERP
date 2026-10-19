@@ -1,0 +1,7 @@
+{% comment %}Drill-down rows: top groups shown, deeper levels folded. Needs `rows` (reports.services.tree.with_cells)
+and `link` (the ledger statement's query string).{% endcomment %}
+{% load reports_extra %}
+{% for r in rows %}<tr data-drill-key="{{ r.key }}" data-drill-parent="{{ r.parent }}" data-depth="{{ r.depth }}" class="drill-{{ r.kind }}"{% if r.depth %} hidden{% endif %}>
+  <td style="padding-left:{{ r.depth|indent }}px">{% if r.has_children %}<button type="button" class="drill-toggle" aria-expanded="false" aria-label="Open {{ r.name }}">▸</button> <strong>{{ r.name }}</strong>{% else %}<a href="{% url 'ledger_statement' r.id %}{{ link }}">{{ r.name }}</a>{% endif %}</td>
+  {% for c in r.cells %}<td class="num">{% if r.kind == "group" %}<strong>{{ c }}</strong>{% else %}{{ c }}{% endif %}</td>{% endfor %}
+</tr>{% endfor %}

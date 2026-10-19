@@ -35,3 +35,7 @@
   details.more:not([open]) { display: none !important; }
   details.more > summary { color: black; }
 }
+
+/* drill-down reports print fully open */
+tr[data-drill-key][hidden] { display: table-row !important; }
+.drill-toggle, .drill-actions { display: none !important; }

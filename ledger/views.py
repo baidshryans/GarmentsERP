@@ -639,7 +639,22 @@ class TrialBalanceView(LoginRequiredMixin, ScreenPermissionMixin, View):
                 as_of = date.fromisoformat(request.GET["as_of"])
             except ValueError:
                 messages.error(request, "Enter the date as YYYY-MM-DD.")
-        tb = trial_balance(_company(), user=request.user, factory=factory, as_of=as_of)
+        company = _company()
+        year = company.financial_years.filter(start_date__lte=as_of, end_date__gte=as_of).first()
+        date_from = year.start_date if year else None        # the financial year of the "to" date, unless chosen
+        if request.GET.get("date_from"):
+            try:
+                date_from = date.fromisoformat(request.GET["date_from"])
+            except ValueError:
+                messages.error(request, "Enter the date as YYYY-MM-DD.")
+        tb = trial_balance(company, user=request.user, factory=factory, as_of=as_of, date_from=date_from)
+        from reports.services import tree
+
+        items = [{"ledger_id": r["ledger_id"], "ledger": r["ledger"], "group": r["group"],
+                  "values": [r["opening"], r["debit"], r["credit"], r["closing"]]} for r in tb["rows"]]
+        rows = tree.with_cells(tree.rows(company, items, width=4), ["drcr", "plain", "plain", "drcr"])
+        link = f"?from={date_from.isoformat()}&to={as_of.isoformat()}" if date_from else f"?to={as_of.isoformat()}"
         return render(request, "ledger/trial_balance.html", {
-            "tb": tb, "factory": factory, "as_of": request.GET.get("as_of", ""),
+            "tb": tb, "rows": rows, "link": link, "factory": factory, "as_of": as_of.isoformat(),
+            "date_from": date_from.isoformat() if date_from else "",
         })

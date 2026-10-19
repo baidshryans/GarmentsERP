@@ -660,3 +660,9 @@ fieldset.choices > legend { padding: 0; margin-bottom: var(--space-1); font-size
 .step-view tr.step-events[hidden] { display: none; }
 .step-event-table { width: 100%; }
 .step-event-table td { border: 0; padding: 4px 8px; vertical-align: top; }
+
+/* drill-down reports: a group opens into the level below it */
+.drill-toggle { border: 0; background: transparent; color: var(--color-primary); cursor: pointer; padding: 0 4px; font: inherit; min-width: 20px; }
+.drill-toggle:hover { background: var(--color-primary-soft); border-radius: 4px; }
+.drill-toggle:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 1px; }
+.drill-actions { display: flex; gap: 8px; margin-bottom: 8px; }

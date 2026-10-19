@@ -1622,8 +1622,10 @@ A supplier bill posts what you owe the supplier (reference = their bill number, 
 | Whom do I owe? | Reports → **Whom I owe** (payables ageing) |
 | All dealings with one party | Money → **Party accounts** (ledger statement): choose the ledger and date range; opening balance, each entry, running balance; Excel export |
 | What happened today? | More → Accountant → **Day book** (filter by factory, dates, voucher type) |
-| Is everything balanced? | More → Accountant → **Trial balance** (debits must equal credits) |
+| Is everything balanced? | More → Accountant → **Trial balance**: pick **From** and **To** (From starts at the beginning of the financial year). Each ledger shows **Opening** (your opening balances, and everything dated before From), the period's **Debit** and **Credit**, and the **Closing** balance. Debits must equal credits, both for the period and at the close |
 | Profit and position | Reports → **Profit and loss**, **Balance sheet** |
+
+**Drill down.** The trial balance, profit and loss and balance sheet open on the main groups (Current Assets, Current Liabilities, Indirect Expenses and so on), each with its total. Click **▸** beside a group to see the groups and ledgers inside it, and click a ledger to open its statement, where each entry opens the voucher. **Expand all** and **Collapse all** open or close every level; a printout always shows everything.
 | Find a voucher | Money → **All entries** (all vouchers) (filter by factory, type, status, number) |
 
 **Entries made by production read as sentences.** Every journal entry that cutting, moving bundles, packing, a challan or a labour bill posts says what happened, who did it, on which lot, and for labour the pieces × the rate = the amount with the date of the rate used. For example:

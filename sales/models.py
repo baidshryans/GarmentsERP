@@ -196,6 +196,22 @@ class CartonLine(models.Model):
 
 # ---------------------------------------------------------------- sale invoice (E4.2-E4.5)
 
+class DeletedInvoiceNumber(FactoryScopedModel):
+    """The number of a sale bill that was deleted (owner, 19 Oct 2026). Only the number, its date and factory are
+    kept, so the GST invoice series has no unexplained gap; the number is never given out again."""
+
+    company = models.ForeignKey("core.Company", on_delete=models.PROTECT, related_name="+")
+    number = models.CharField(max_length=50)
+    date = models.DateField(help_text="The date the deleted bill carried")
+
+    class Meta:
+        ordering = ["date", "number"]
+        constraints = [models.UniqueConstraint(fields=["company", "number"], name="uniq_deleted_invoice_number")]
+
+    def __str__(self):
+        return f"{self.number} (deleted)"
+
+
 class SaleInvoice(FactoryScopedModel):
     class Status(models.TextChoices):
         DRAFT = "draft", "Draft"

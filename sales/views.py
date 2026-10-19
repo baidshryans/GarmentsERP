@@ -583,7 +583,10 @@ class InvoiceList(LoginRequiredMixin, ScreenPermissionMixin, View):
         status = request.GET.get("status")
         if status:
             qs = qs.filter(status=status)
+        from sales.models import DeletedInvoiceNumber
+
         return render(request, "sales/invoice_list.html", {
+            "deleted": in_active(DeletedInvoiceNumber.objects.for_user(request.user), request),
             "invoices": _with_next(qs[:200], guide_service.invoice_next, request.user), "status": status, "statuses": SaleInvoice.Status.choices,
             "can_create": _can(request, "sales.invoice", "create")})
 

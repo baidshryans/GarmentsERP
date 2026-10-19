@@ -11,5 +11,6 @@
         <td><span class="pill {% if i.status == 'posted' %}success{% elif i.status == 'cancelled' %}danger{% else %}warning{% endif %}">{{ i.get_status_display }}</span></td>
         <td>{% if i.next %}<a class="btn" href="{{ i.next.url }}">{{ i.next.label }}</a>{% endif %}</td></tr>{% endfor %}</tbody>
     </table></div>{% else %}<div class="empty"><div class="hand">No bills yet</div></div>{% endif %}
+    {% if deleted %}<p class="muted" style="margin-top:12px">Deleted bill numbers: {% for d in deleted %}{{ d.number }} ({{ d.date|date:"d M Y" }}){% if not forloop.last %}, {% endif %}{% endfor %}. These numbers are not used again.</p>{% endif %}
   </div>
 {% endblock %}

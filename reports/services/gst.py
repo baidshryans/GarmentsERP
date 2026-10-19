@@ -73,8 +73,13 @@ def gstr1(company, *, user, factory=None, date_from, date_to):
                 row[t.component] -= t.amount
         if n.gst_total or n.invoice.tax_mode != "none":
             cdn.append({"note": n, "registered": bool(n.customer.gstin), "gstin": n.customer.gstin, **vals})
+    from sales.models import DeletedInvoiceNumber
+
+    deleted = list(_scope(DeletedInvoiceNumber.objects.filter(company=company), user, factory, date_from, date_to)
+                   .values_list("number", flat=True))
     docs = {"invoices": invoices.count(), "cancelled": _scope(SaleInvoice.objects.filter(company=company, status="cancelled"), user, factory,
-                                                                date_from, date_to).count()}
+                                                                date_from, date_to).count(),
+            "deleted": len(deleted), "deleted_numbers": deleted}
     b2c_rows = [{"place": place, "rate": rate, **vals} for (place, rate), vals in sorted(b2c.items())]
     hsn_rows = [{"hsn": h, "rate": r, **vals} for (h, r), vals in sorted(hsn.items())]
     totals = _blank()

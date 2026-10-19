@@ -110,3 +110,40 @@ def test_delete_a_stock_journal_leaves_no_trace(ns, company):
 
 def test_godown_location_is_where_sales_test_stock_sits(ns, factory):
     assert ns.godown == godown_location(factory)
+
+
+# ---------------- a deleted GST bill leaves its number (owner, 19 Oct 2026) ----------------
+
+def test_a_deleted_bill_leaves_a_record_of_its_number(ns, company):
+    from sales.models import DeletedInvoiceNumber
+
+    inv = quick_invoice(ns, qty="10", rate="500")
+    number, day = inv.number, inv.date
+    invoices.delete_invoice(inv, user=ns.owner)
+    stub = DeletedInvoiceNumber.objects.get()
+    assert (stub.number, stub.date, stub.factory_id) == (number, day, ns.factory.pk)
+    assert not SaleInvoice.objects.filter(number=number).exists()
+    nxt = quick_invoice(ns, qty="1", rate="500")
+    assert nxt.number != number                               # the number is never given out again
+
+
+def test_a_draft_bill_has_no_number_to_keep(ns):
+    from sales.models import DeletedInvoiceNumber
+
+    inv = quick_invoice(ns, qty="10", rate="500", post=False)
+    invoices.delete_invoice(inv, user=ns.owner)
+    assert not DeletedInvoiceNumber.objects.exists()
+
+
+def test_deleted_numbers_show_on_the_bills_list_and_in_gstr1(ns, company):
+    from django.test import Client
+    from django.urls import reverse
+
+    inv = quick_invoice(ns, qty="10", rate="500")
+    number = inv.number
+    invoices.delete_invoice(inv, user=ns.owner)
+    c = Client()
+    c.force_login(ns.owner)
+    assert f"Deleted bill numbers: {number}" in c.get(reverse("saleinvoice_list")).content.decode()
+    page = c.get(reverse("gstr1"), {"date_from": "2026-04-01", "date_to": "2027-03-31"}).content.decode()
+    assert "1 deleted" in page and number in page

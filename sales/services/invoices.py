@@ -364,6 +364,8 @@ def delete_invoice(invoice, *, user) -> None:
     from core.services import purge
     from ledger.services.settlement import settled_against
 
+    from sales.models import DeletedInvoiceNumber
+
     inv = SaleInvoice.objects.select_related("factory", "factory__company", "order").get(pk=invoice.pk)
     assert_factory_access(user, inv.factory)
     if inv.irn or inv.eway_bill_no:
@@ -376,6 +378,8 @@ def delete_invoice(invoice, *, user) -> None:
     if inv.credit_notes.filter(status="posted").exists():
         raise BusinessRuleError("A return from customer has been posted against this bill; delete it first.")
     purge.rows(inv.credit_notes.exclude(status="posted"))
+    if inv.number:          # the series keeps the number, so GST reports show no unexplained gap
+        DeletedInvoiceNumber.objects.create(company=inv.company, factory=inv.factory, number=inv.number, date=inv.date)
     order = inv.order
     purge.delete_document(inv, cancel=(lambda: cancel_invoice(inv, user=user, reason="Deleted"))
                           if inv.status == SaleInvoice.Status.POSTED else None)

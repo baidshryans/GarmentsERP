@@ -30,7 +30,7 @@ class SaleInvoiceAdmin(SimpleHistoryAdmin):
     inlines = [InvoiceLineInline]
 
 
-@admin.register(models.SaleSetting, models.PackingList, models.Carton, models.CartonLine, models.SaleCreditNote,
+@admin.register(models.SaleSetting, models.DeletedInvoiceNumber, models.PackingList, models.Carton, models.CartonLine, models.SaleCreditNote,
                 models.SaleCreditNoteLine)
 class SalesAdmin(SimpleHistoryAdmin):
     pass

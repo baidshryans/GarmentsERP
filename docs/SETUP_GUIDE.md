@@ -1530,7 +1530,7 @@ After posting, the bill's Next button is **Receive money from** and the customer
 
 **Discard draft** removes a draft. A posted bill is never edited.
 
-**Delete** (Accountant) removes the bill completely: its stock comes back, its journal entries go, the order rolls back and the packing list returns to Packed. It is refused while a return or a receipt of money is against the bill (delete those first), and once an e-invoice or e-way bill exists (cancel it on the government portal first).
+**Delete** (Accountant) removes the bill completely: its stock comes back, its journal entries go, the order rolls back and the packing list returns to Packed. It is refused while a return or a receipt of money is against the bill (delete those first), and once an e-invoice or e-way bill exists (cancel it on the government portal first). A deleted bill's **number** is kept, with its date, so your GST invoice series has no unexplained gap: *Sell → Bills* lists the deleted numbers under the table, the number is never given out again, and GSTR-1 counts them as deleted in its document summary.
 
 **E-invoice and e-way bill.** If switched on in Sales settings and the buyer has a GSTIN, a posted taxed bill shows **Send e-invoice and e-way bill**. This version uses a **stand-in that makes test numbers only**; it does not contact the government portal. Do not use those numbers for real consignments until a real provider is connected.
 

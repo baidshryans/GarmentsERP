@@ -42,7 +42,7 @@
     <div class="island"><h2>Actions</h2>
       {% if inv.status == "draft" and can_edit %}<form method="post" id="do-next">{% csrf_token %}{% if not guide.idle %}<button class="btn primary" name="action" value="post">Post bill</button>{% endif %} <button class="btn danger" name="action" value="discard">Discard draft</button></form>
         <p class="muted">Posting takes the goods out of stock and books the sale, the GST and the cost of goods sold together.</p>{% endif %}
-      {% if inv.status == "posted" and can_cancel %}<form method="post" style="max-width:420px">{% csrf_token %}<input type="hidden" name="action" value="cancel"><div class="field"><label for="why">Cancel with a reason</label><input id="why" name="reason" type="text" required></div><button class="btn danger">Cancel bill</button></form>{% endif %}
+      {% if inv.status == "posted" and can_cancel %}<form method="post" style="max-width:420px">{% csrf_token %}<input type="hidden" name="action" value="cancel"><button class="btn danger">Delete</button></form>{% endif %}
       {% if inv.status == "cancelled" %}<p class="muted">{{ inv.notes }}</p>{% endif %}
       {% if credit_notes %}<h3>Returns from customer</h3><ul>{% for n in credit_notes %}<li>{% if can_open_return %}<a href="{% url 'salecn_detail' n.pk %}">{{ n.number|default:"Draft" }}</a>{% else %}{{ n.number|default:"Draft" }}{% endif %} · {{ n.get_status_display }} · {{ n.total }}</li>{% endfor %}</ul>{% endif %}
     </div>
@@ -59,7 +59,7 @@
       <div class="field"><label for="distance_km">Distance (km)</label><input id="distance_km" name="distance_km" type="text" inputmode="numeric"></div>
       <div class="field"><button class="btn primary">{% if inv.irn %}Generate e-way bill{% else %}Send e-invoice and e-way bill{% endif %}</button></div></form>
     <p class="muted">The e-way bill is made when the bill value needs one, or when a vehicle number is given.</p>{% endif %}
-    {% if inv.irn and can_cancel %}<form method="post" style="max-width:420px;margin-top:12px">{% csrf_token %}<input type="hidden" name="action" value="einvoice_cancel"><div class="field"><label for="ewhy">Cancel the e-invoice with a reason</label><input id="ewhy" name="reason" type="text" required></div><button class="btn danger">Cancel e-invoice</button></form>{% endif %}
+    {% if inv.irn and can_cancel %}<form method="post" style="max-width:420px;margin-top:12px">{% csrf_token %}<input type="hidden" name="action" value="einvoice_cancel"><div class="field"><label for="ewhy">Cancel the e-invoice with a reason</label><input id="ewhy" name="reason" type="text" required></div><button class="btn danger">Delete</button></form>{% endif %}
   </div>{% endif %}
   <script src="{% static 'js/reveal.js' %}?v={{ asset_v }}" defer></script>
   <script src="{% static 'js/sales.js' %}?v={{ asset_v }}" defer></script>

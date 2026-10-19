@@ -118,6 +118,18 @@ def post_journal(*, company, factory, location, date, reason, lines, user, remar
 
 
 @transaction.atomic
+def delete_journal(journal, *, user) -> None:
+    """Delete a stock journal entirely (owner, 19 Oct 2026), with its stock, journal entry and history."""
+    from core.services import purge
+
+    journal = StockJournal.objects.select_related("factory", "factory__company").get(pk=journal.pk)
+    assert_factory_access(user, journal.factory)
+    purge.assert_dates_open(journal.factory, journal.date)
+    purge.delete_document(journal, cancel=(lambda: cancel_journal(journal, user=user, reason="Deleted"))
+                          if journal.status == StockJournal.Status.POSTED else None)
+
+
+@transaction.atomic
 def cancel_journal(journal, *, user, reason) -> StockJournal:
     journal = StockJournal.objects.select_related("factory").get(pk=journal.pk)
     assert_factory_access(user, journal.factory)

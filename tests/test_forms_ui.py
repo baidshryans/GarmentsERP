@@ -1279,11 +1279,11 @@ def test_the_purchase_pages_use_the_plain_words(company, factory, owner, owner_c
     assert '<span class="muted">GRN</span>' in html_of(owner_c.get(reverse("grn_list")))       # the trade term, once
 
 
-def test_cancelling_from_the_purchase_pages_speaks_plainly(company, factory, owner, owner_c, received):
-    r = owner_c.post(reverse("grn_detail", args=[received.pk]), {"action": "cancel", "reason": ""}, follow=True)
-    assert "Give a reason to cancel the goods received." in flashed(r.content.decode())
-    r = owner_c.post(reverse("grn_detail", args=[received.pk]), {"action": "cancel", "reason": "entered twice"}, follow=True)
-    assert "Goods received cancelled; stock and books reversed." in flashed(r.content.decode())
+def test_deleting_from_the_purchase_pages_speaks_plainly(company, factory, owner, owner_c, received):
+    page = owner_c.get(reverse("grn_detail", args=[received.pk])).content.decode()
+    assert "Delete these goods received" in page and 'name="reason"' not in page
+    r = owner_c.post(reverse("grn_detail", args=[received.pk]), {"action": "cancel"}, follow=True)
+    assert "Goods received deleted, with their stock and journal entry." in flashed(r.content.decode())
 
 
 def test_other_forms_say_notes_supplier_and_active(company, factory, ledgers, owner_c):

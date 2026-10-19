@@ -1420,8 +1420,8 @@ def test_goods_received_can_be_cancelled_with_cancel_or_edit_and_cancel_gives_no
     r = login(viewer).post(reverse("grn_detail", args=[g1.pk]), {"action": "cancel", "reason": "wrong supplier"})
     assert r.status_code == 403 and grn_of(g1).status == "posted"
     # cancel alone is enough: the form it is shown really works
-    r = login(canceller).post(reverse("grn_detail", args=[g1.pk]), {"action": "cancel", "reason": "wrong supplier"}, follow=True)
-    assert "Goods received cancelled; stock and books reversed." in r.content.decode() and grn_of(g1).status == "cancelled"
+    r = login(canceller).post(reverse("grn_detail", args=[g1.pk]), {"action": "cancel"}, follow=True)
+    assert "Goods received deleted" in r.content.decode() and not Grn.objects.filter(pk=g1.pk).exists()
     # and cancel gives none of the page's other actions
     g2 = draft_grn(ns)
     for action in ("save_qc", "finish_qc", "accept_all", "post"):
@@ -1429,8 +1429,8 @@ def test_goods_received_can_be_cancelled_with_cancel_or_edit_and_cancel_gives_no
     assert grn_of(g2).status == "draft"
     # a role with edit (the store keeper) can still cancel, as it always could
     g3 = received(ns)
-    r = login(editor).post(reverse("grn_detail", args=[g3.pk]), {"action": "cancel", "reason": "entered twice"}, follow=True)
-    assert "Goods received cancelled; stock and books reversed." in r.content.decode() and grn_of(g3).status == "cancelled"
+    r = login(editor).post(reverse("grn_detail", args=[g3.pk]), {"action": "cancel"}, follow=True)
+    assert "Goods received deleted" in r.content.decode() and not Grn.objects.filter(pk=g3.pk).exists()
 
 
 def test_the_bill_form_leaves_out_quantity_already_on_another_draft_bill_and_says_so(ns):

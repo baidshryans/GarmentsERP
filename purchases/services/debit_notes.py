@@ -240,6 +240,18 @@ def post_debit_note(note, *, user) -> DebitNote:
 
 
 @transaction.atomic
+def delete_debit_note(note, *, user) -> None:
+    """Delete a return to supplier entirely (owner, 19 Oct 2026), with its stock, journal entry and history."""
+    from core.services import purge
+
+    note = DebitNote.objects.select_related("factory", "factory__company").get(pk=note.pk)
+    assert_factory_access(user, note.factory)
+    purge.assert_dates_open(note.factory, note.date)
+    purge.delete_document(note, cancel=(lambda: cancel_debit_note(note, user=user, reason="Deleted"))
+                          if note.status == DebitNote.Status.POSTED else None)
+
+
+@transaction.atomic
 def cancel_debit_note(note, *, user, reason) -> DebitNote:
     note = DebitNote.objects.select_related("factory").get(pk=note.pk)
     assert_factory_access(user, note.factory)

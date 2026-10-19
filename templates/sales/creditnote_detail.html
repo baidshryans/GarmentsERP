@@ -22,6 +22,6 @@
   </table></div></div>
   <div class="island"><h2>Actions</h2>
     {% if note.status == "draft" %}<form method="post" id="do-next">{% csrf_token %}{% if can_post %}<button class="btn primary" name="action" value="post">Post return</button> {% endif %}{% if can_cancel %}<button class="btn danger" name="action" value="cancel">Discard draft</button>{% endif %}</form>{% endif %}
-    {% if note.status == "posted" and can_cancel %}<form method="post" style="max-width:420px">{% csrf_token %}<input type="hidden" name="action" value="cancel"><div class="field"><label for="why">Cancel with a reason</label><input id="why" name="reason" type="text" required></div><button class="btn danger">Cancel return</button></form>{% endif %}
+    {% if note.status == "posted" and can_cancel %}<form method="post" style="max-width:420px">{% csrf_token %}<input type="hidden" name="action" value="cancel"><button class="btn danger">Delete</button></form>{% endif %}
   </div>
 {% endblock %}

@@ -321,8 +321,9 @@ class JournalDetail(LoginRequiredMixin, ScreenPermissionMixin, View):
         if not request.user.has_screen_perm("inventory.journal", "cancel"):
             raise PermissionDenied
         try:
-            journal_service.cancel_journal(j, user=request.user, reason=request.POST.get("reason", ""))
-            messages.success(request, "Stock journal cancelled; the stock is back as it was.")
+            journal_service.delete_journal(j, user=request.user)
+            messages.success(request, "Stock journal deleted; the stock is back as it was.")
+            return redirect("journal_list")
         except BusinessRuleError as exc:
             _messages_for(request, exc)
         return redirect("journal_detail", pk=pk)

@@ -251,9 +251,8 @@ def test_credit_note_screens_return_goods_and_reduce_the_outstanding_A8(ns, owne
     r = owner_c.post(reverse("salecn_new", args=[inv.pk]), {"date": "2026-06-20", "location": ns.godown.pk, "reason": "Too many",
                                                             f"qty_{line.pk}": "8"})
     assert r.status_code == 200 and "only 7" in r.content.decode()
-    owner_c.post(reverse("salecn_detail", args=[note.pk]), {"action": "cancel", "reason": "mistake"})
-    note.refresh_from_db()
-    assert note.status == "cancelled"
+    owner_c.post(reverse("salecn_detail", args=[note.pk]), {"action": "cancel"})
+    assert not type(note).objects.filter(pk=note.pk).exists()                     # deleted, with its entries
 
 
 def test_roles_and_scoping_on_the_sales_screens(ns, company, factory, factory2, owner):

@@ -13,5 +13,5 @@
     <tbody>{% for l in lines %}<tr><td>{{ l.get_direction_display }}</td><td>{{ l.item }}</td><td>{{ l.roll.label_code|default:"" }}</td><td class="num">{{ l.qty|floatformat:"-3" }}</td><td class="num">{{ l.rate|default_if_none:"" }}</td><td class="num">{{ l.value }}</td></tr>{% endfor %}</tbody>
     <tfoot><tr><td colspan="5">Value taken out {{ j.value_out }} · brought in {{ j.value_in }}</td><td class="num"></td></tr></tfoot>
   </table></div></div>
-  {% if j.status == "posted" and can_cancel %}<div class="island"><form method="post" style="max-width:420px">{% csrf_token %}<div class="field"><label for="why">Cancel with a reason</label><input id="why" name="reason" type="text" required></div><button class="btn danger">Cancel journal</button></form></div>{% endif %}
+  {% if j.status == "posted" and can_cancel %}<div class="island"><form method="post" style="max-width:420px">{% csrf_token %}<button class="btn danger">Delete</button></form></div>{% endif %}
 {% endblock %}

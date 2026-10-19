@@ -1251,12 +1251,12 @@ def test_a_packing_list_with_a_bill_cannot_be_cancelled(ns):
     c = login(ns.owner)
     url = reverse("packing_detail", args=[p.pk])
     html = c.get(url).content.decode()
-    assert "Cancel packing list" not in html and "Discard or cancel its bill before cancelling this packing list." in html
-    r = c.post(url, {"action": "cancel", "reason": "wrong goods"}, follow=True)
+    assert ">Delete<" not in html and "Delete its bill before deleting this packing list." in html
+    r = c.post(url, {"action": "cancel"}, follow=True)
     assert "has a draft bill. Discard or cancel that bill first." in r.content.decode() and packing_of(p).status == "packed"
     # with the draft discarded the list can be cancelled as before
     invoices.discard_draft(inv, user=ns.owner)
-    assert "Cancel packing list" in c.get(url).content.decode()
+    assert ">Delete<" in c.get(url).content.decode()
     # a cancelled bill does not hold the list either
     inv = billed(ns, p)
     with pytest.raises(BusinessRuleError, match="has been billed"):

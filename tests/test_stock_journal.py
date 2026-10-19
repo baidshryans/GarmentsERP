@@ -158,8 +158,8 @@ def test_stock_journal_screens_roles_and_scoping(ns, company, factory, factory2,
     assert kc.post(reverse("journal_detail", args=[j.pk]), {"reason": "x"}).status_code == 403             # a keeper cannot cancel
     ac = Client()
     ac.force_login(accountant)
-    r = ac.post(reverse("journal_detail", args=[j.pk]), {"reason": "Entered twice"}, follow=True)
-    assert "cancelled" in r.content.decode() and StockJournal.objects.get().status == "cancelled"
+    r = ac.post(reverse("journal_detail", args=[j.pk]), {}, follow=True)
+    assert "deleted" in r.content.decode() and not StockJournal.objects.exists()
     clerk = make_user("clerk7")
     clerk.roles.add(Role.objects.get(name="Billing Clerk"))
     clerk.allowed_factories.add(factory)

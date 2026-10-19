@@ -308,6 +308,24 @@ def post_grn(grn, *, user) -> Grn:
 
 
 @transaction.atomic
+def delete_grn(grn, *, user) -> None:
+    """Delete goods received entirely (owner, 19 Oct 2026), with its stock, journal entry, the rolls it brought in
+    and their history. Refused while the goods are billed, returned or used, and in a locked period."""
+    from core.services import purge
+
+    grn = Grn.objects.select_related("factory", "factory__company", "po").get(pk=grn.pk)
+    assert_factory_access(user, grn.factory)
+    purge.assert_dates_open(grn.factory, grn.date)
+    roll_ids = list(GrnRoll.objects.filter(line__grn=grn, roll__isnull=False).values_list("roll_id", flat=True))
+    purge.rows(DebitNote.objects.filter(grn=grn, status="draft"))
+    po = grn.po
+    purge.delete_document(grn, cancel=(lambda: cancel_grn(grn, user=user, reason="Deleted")) if grn.status == Grn.Status.POSTED else None,
+                          after=lambda: purge.rolls(roll_ids))
+    if po is not None:
+        orders.refresh_status(po)
+
+
+@transaction.atomic
 def cancel_grn(grn, *, user, reason) -> Grn:
     """Reverse a posted GRN. Refused if it has been invoiced, debited, or its stock has been used."""
     grn = Grn.objects.select_related("factory", "po").get(pk=grn.pk)

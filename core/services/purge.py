@@ -76,6 +76,73 @@ def _release(vouchers) -> None:
 
 
 @transaction.atomic
+def rows(objs) -> None:
+    """Delete these rows with everything that cascades from them, and the history of all of it. A row that must
+    keep them (a protected link from elsewhere) stops the delete with a plain message."""
+    from django.db import router
+    from django.db.models.deletion import Collector, ProtectedError, RestrictedError
+
+    objs = list(objs)
+    if not objs:
+        return
+    collector = Collector(using=router.db_for_write(type(objs[0])))
+    try:
+        collector.collect(objs)
+    except (ProtectedError, RestrictedError) as exc:
+        used = sorted({o._meta.verbose_name for o in exc.protected_objects} if hasattr(exc, "protected_objects")
+                      else {o._meta.verbose_name for o in exc.restricted_objects})
+        raise PurgeError(f"Still used by: {', '.join(used)}. Delete that first.")
+    collected = {model: [o.pk for o in instances] for model, instances in collector.data.items()}
+    collector.delete()
+    for model, pks in collected.items():
+        history(model, pks)
+
+
+def assert_dates_open(factory, day) -> None:
+    """A delete touches the document's own date and today (the date its reversal is posted on, before both are
+    purged): neither may be in a locked period."""
+    from django.utils import timezone
+
+    from core.services.periods import assert_period_open
+
+    assert_period_open(factory.company, factory, day)
+    assert_period_open(factory.company, factory, max(timezone.localdate(), day))
+
+
+@transaction.atomic
+def rolls(roll_ids) -> None:
+    """Fabric rolls a deleted document brought in: their (empty) balances and the rolls themselves, so the vendor's
+    roll numbers can be received again."""
+    from inventory.models import FabricRoll, RollBalance
+
+    roll_ids = [r for r in roll_ids if r is not None]
+    if RollBalance.objects.filter(roll_id__in=roll_ids).exclude(qty=0).exists():
+        raise PurgeError("A roll from these goods is still in stock somewhere; it cannot be removed.")
+    RollBalance.objects.filter(roll_id__in=roll_ids).delete()
+    rows(FabricRoll.objects.filter(pk__in=roll_ids))
+
+
+@transaction.atomic
+def delete_document(doc, *, cancel=None, after=None) -> None:
+    """Delete a posted document entirely: `cancel()` undoes it the usual way (exact reversals of its stock movements
+    and its voucher), then the document's movements and vouchers and their reversals are purged, `after()` clears
+    anything else the document made, and the document's rows go with their history."""
+    from inventory.models import StockMovement
+    from ledger.models import Voucher
+
+    if cancel is not None:
+        cancel()
+    src = {"source_type": doc._meta.label_lower, "source_id": doc.pk}
+    movements(StockMovement.objects.filter(**src))
+    own = list(Voucher.objects.filter(**src).values_list("pk", flat=True))
+    reversed_ = list(Voucher.objects.filter(reverses_id__in=own).values_list("pk", flat=True))
+    vouchers(Voucher.objects.filter(pk__in=own + reversed_))
+    rows([type(doc)._base_manager.get(pk=doc.pk)])
+    if after is not None:
+        after()
+
+
+@transaction.atomic
 def vouchers(qs, *, lone=False) -> None:
     """Delete vouchers with their lines and bill allocations. Every posted voucher must go with its reversal (or be
     a reversal going with its original), unless `lone` says the caller deletes a hand-made entry on its own."""

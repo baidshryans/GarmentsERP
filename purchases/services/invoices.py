@@ -371,6 +371,24 @@ def post_invoice(invoice, *, user) -> PurchaseInvoice:
 
 
 @transaction.atomic
+def delete_invoice(invoice, *, user) -> None:
+    """Delete a supplier bill entirely (owner, 19 Oct 2026), with its stock, journal entry and history."""
+    from core.services import purge
+
+    inv = PurchaseInvoice.objects.select_related("factory", "factory__company").get(pk=invoice.pk)
+    assert_factory_access(user, inv.factory)
+    purge.assert_dates_open(inv.factory, inv.date)
+    if inv.voucher_id:
+        from ledger.services.settlement import settled_against
+
+        for paid in settled_against(inv.voucher):
+            raise BusinessRuleError(f"{paid.get_voucher_type_display()} {paid.number} is settled against this bill. "
+                                    f"Delete the {paid.get_voucher_type_display().lower()} first.")
+    purge.delete_document(inv, cancel=(lambda: cancel_invoice(inv, user=user, reason="Deleted"))
+                          if inv.status == PurchaseInvoice.Status.POSTED else None)
+
+
+@transaction.atomic
 def cancel_invoice(invoice, *, user, reason) -> PurchaseInvoice:
     inv = PurchaseInvoice.objects.select_related("factory").get(pk=invoice.pk)
     assert_factory_access(user, inv.factory)

@@ -45,6 +45,6 @@
   {% endif %}
   </form>
   {% if notes %}<div class="island"><h2>Returns to supplier from rejection</h2>{% for n in notes %}<p>{% if can_open_note %}<a href="{% url 'debitnote_detail' n.pk %}">{{ n.number|default:"Draft return to supplier" }}</a>{% else %}{{ n.number|default:"Draft return to supplier" }}{% endif %} · {{ n.get_status_display }} · rejected pieces will be recovered once the supplier bills them</p>{% endfor %}</div>{% endif %}
-  {% if grn.status == "posted" and can_cancel %}<div class="island no-print"><h3>Cancel these goods received</h3>
-    <form method="post" style="max-width:520px">{% csrf_token %}<input type="hidden" name="action" value="cancel"><div class="field"><label for="why">Reason</label><input id="why" name="reason" type="text" required></div><button class="btn danger">Cancel goods received</button></form></div>{% endif %}
+  {% if grn.status == "posted" and can_cancel %}<div class="island no-print"><h3>Delete these goods received</h3><p class="muted">They are removed completely, with their stock, rolls and journal entry.</p>
+    <form method="post" style="max-width:520px">{% csrf_token %}<input type="hidden" name="action" value="cancel"><button class="btn danger">Delete</button></form></div>{% endif %}
 {% endblock %}

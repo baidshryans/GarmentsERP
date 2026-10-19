@@ -175,6 +175,18 @@ def post_credit_note(note, *, user) -> SaleCreditNote:
 
 
 @transaction.atomic
+def delete_credit_note(note, *, user) -> None:
+    """Delete a return from customer entirely (owner, 19 Oct 2026), with its stock, journal entry and history."""
+    from core.services import purge
+
+    note = SaleCreditNote.objects.select_related("factory", "factory__company").get(pk=note.pk)
+    assert_factory_access(user, note.factory)
+    purge.assert_dates_open(note.factory, note.date)
+    purge.delete_document(note, cancel=(lambda: cancel_credit_note(note, user=user, reason="Deleted"))
+                          if note.status == S.POSTED else None)
+
+
+@transaction.atomic
 def cancel_credit_note(note, *, user, reason="") -> SaleCreditNote:
     note = SaleCreditNote.objects.select_related("factory").get(pk=note.pk)
     assert_factory_access(user, note.factory)

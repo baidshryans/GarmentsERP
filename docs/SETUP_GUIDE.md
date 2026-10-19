@@ -842,7 +842,7 @@ If any figure looks wrong, fix the master (rate, BOM, route) and repeat. **Delet
 - [ ] Opening stock entered and matches the physical count
 - [ ] Roll labels printed and stuck on rolls
 - [ ] Dry run completed; trial balance tallies; stock reconciles
-- [ ] Dry-run documents cancelled
+- [ ] Dry-run steps and documents deleted (newest first)
 - [ ] Backup taken (copy of the database file) before the first real transaction
 
 ---
@@ -858,7 +858,7 @@ If any figure looks wrong, fix the master (rate, BOM, route) and repeat. **Delet
 | Duplicate customer mobile | Rejected on save | Search for the existing party first |
 | Opening balances do not tally | Amount in `Opening Balance Difference` | Find the missing ledger |
 | Stock entered a few days after the books start date | First movements do not match the shelf | Count and enter on the same day |
-| Editing a posted document | Not allowed | Cancel it and make a correct one |
+| Editing a posted document | Not allowed | Delete it (newest first) and make a correct one |
 | One route for every style | Maintenance burden | Share 2–4 routes across styles |
 
 ---
@@ -920,7 +920,7 @@ Part A prepared the masters. This part follows one lot from the production order
 | Labour bills and payments | Accountant |
 | Over-receipt approval, closing an order | Owner |
 | Sale orders, packing, bills, returns from customers | Billing Clerk / Salesperson (orders only) |
-| Receipts, cancelling bills and returns | Accountant |
+| Receipts, deleting bills and returns | Accountant |
 
 Lot pages, fabric issue, cutting and tags are **not** menu items. Open the production order, then click the lot ("Lot … — status"). Releasing an order that has one lot opens that lot directly.
 
@@ -1475,7 +1475,7 @@ In the **Pieces in each carton** grid, rows are order lines with "Left to pack" 
 
 **Save draft** opens the packing list. There, **Finish packing and make bill** finishes the list and drafts the bill for the packed pieces in one step, then opens the bill (26.4). **Finish packing** only finishes the list; its Next button is then **Make bill**. Finishing checks stock at that location (less pieces on other packed lists that are not billed yet) and numbers the list. If the pieces are not in stock, or the bill cannot be drafted, nothing changes: the list stays a draft and the message says why. Status: Draft → Packed → Invoiced.
 
-Then **Print list** and **Carton labels**. Carton codes look like `C000123-01`; scanning one at billing adds the whole carton. A finished list cannot be reopened: cancel it (with a reason) and pack again. A list that has a bill, draft or posted, cannot be cancelled: the page says "Discard or cancel its bill before cancelling this packing list." Discard the draft bill (or cancel the posted one) first. **Discard** cancels a draft list.
+Then **Print list** and **Carton labels**. Carton codes look like `C000123-01`; scanning one at billing adds the whole carton. A finished list cannot be reopened: delete it (refused while it has a bill: delete the bill first) and pack again. A list that has a bill, draft or posted, cannot be cancelled: the page says "Discard or cancel its bill before cancelling this packing list." Discard the draft bill (or cancel the posted one) first. **Discard** cancels a draft list.
 
 A role that packs but does not bill sees only **Finish packing**; the page then says **Waiting for: Make bill**.
 
@@ -1530,7 +1530,7 @@ After posting, the bill's Next button is **Receive money from** and the customer
 
 **Discard draft** removes a draft. A posted bill is never edited.
 
-**Cancel bill** (Accountant; reason required) reverses the stock and the entries, rolls the order back and returns the packing list to Packed. It is blocked if a return has been posted against it or an e-invoice number was generated.
+**Delete** (Accountant) removes the bill completely: its stock comes back, its journal entries go, the order rolls back and the packing list returns to Packed. It is refused while a return or a receipt of money is against the bill (delete those first), and once an e-invoice or e-way bill exists (cancel it on the government portal first).
 
 **E-invoice and e-way bill.** If switched on in Sales settings and the buyer has a GSTIN, a posted taxed bill shows **Send e-invoice and e-way bill**. This version uses a **stand-in that makes test numbers only**; it does not contact the government portal. Do not use those numbers for real consignments until a real provider is connected.
 
@@ -1582,7 +1582,7 @@ One receipt can carry several rows, so one cheque can settle several invoices: *
 
 Rules: the account in a row cannot be the same as the cash or bank account (use a **Contra** voucher to move money between your own accounts); amounts are positive with at most two decimals; the date must be valid and not in a locked period.
 
-**Fixing a mistake.** A posted receipt cannot be edited. Open it → **Cancel** with a reason (it makes a reversing entry), then enter the right one.
+**Fixing a mistake.** A posted receipt cannot be edited. Open it → **Delete** (it is removed completely), then enter the right one.
 
 ### 27.1 When the customer deducts TDS or takes a discount
 
@@ -1682,7 +1682,7 @@ Open the entry and its **Made by** line takes you back to the lot and names the 
 | "is on a labour bill. Cancel the bill first." | The QC result you want to delete has been billed | Delete the labour bill (25.1), then the QC |
 | "is on draft challan" | A bundle of the step is on a challan not yet issued | Discard the draft challan, then delete |
 | A wrong production step (pieces cut, bundles, a move, a challan, a receipt, QC, a pack) | Recorded steps are not overwritten | Lot page → **Step by step** → click the step → **Change** or **Delete**, newest first (section 24, *Correct a mistake*) |
-| A wrong posted document | Posted documents are never edited | Cancel with a reason, then enter a correct one |
+| A wrong posted document | Posted documents are never edited | **Delete** it, newest first, then enter a correct one. Goods received, supplier bills, returns, sale bills, packing lists and stock journals each have Delete on their page |
 
 ---
 

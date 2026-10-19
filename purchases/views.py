@@ -416,8 +416,9 @@ class GrnDetail(LoginRequiredMixin, ScreenPermissionMixin, View):
                 grn = grn_service.post_grn(grn, user=user)
                 messages.success(request, f"{grn.number} posted. Stock and books are updated.")
             elif action == "cancel":
-                grn_service.cancel_grn(grn, user=user, reason=p.get("reason", ""))
-                messages.success(request, "Goods received cancelled; stock and books reversed.")
+                grn_service.delete_grn(grn, user=user)
+                messages.success(request, "Goods received deleted, with their stock and journal entry.")
+                return redirect("grn_list")
         except (ValueError, BusinessRuleError) as exc:
             _msgs(request, exc)
         return redirect("grn_detail", pk=pk)
@@ -634,8 +635,9 @@ class InvoiceDetail(LoginRequiredMixin, ScreenPermissionMixin, View):
             if action == "cancel":
                 if not user.has_screen_perm("purchases.invoice", "cancel"):
                     raise PermissionDenied
-                invoices.cancel_invoice(inv, user=user, reason=p.get("reason", ""))
-                messages.success(request, "Supplier bill cancelled; books and stock value reversed.")
+                invoices.delete_invoice(inv, user=user)
+                messages.success(request, "Supplier bill deleted, with its journal entry.")
+                return redirect("invoice_list")
             else:
                 if not user.has_screen_perm("purchases.invoice", "edit"):
                     raise PermissionDenied
@@ -798,8 +800,9 @@ class DebitNoteDetail(LoginRequiredMixin, ScreenPermissionMixin, View):
             elif action == "cancel":
                 if not user.has_screen_perm("purchases.debitnote", "cancel"):
                     raise PermissionDenied
-                debit_notes.cancel_debit_note(note, user=user, reason=request.POST.get("reason", ""))
-                messages.success(request, "Return to supplier cancelled.")
+                debit_notes.delete_debit_note(note, user=user)
+                messages.success(request, "Return to supplier deleted.")
+                return redirect("debitnote_list")
         except BusinessRuleError as exc:
             messages.error(request, str(exc))
         return redirect("debitnote_detail", pk=pk)

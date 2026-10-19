@@ -124,6 +124,24 @@ def finalize_packing(packing, *, user) -> PackingList:
 
 
 @transaction.atomic
+def delete_packing(packing, *, user) -> None:
+    """Delete a packing list (owner, 19 Oct 2026). Refused while it is billed: delete the bill first."""
+    from core.services import purge
+
+    packing = PackingList.objects.select_related("factory", "order").get(pk=packing.pk)
+    assert_factory_access(user, packing.factory)
+    if packing.status == P.INVOICED:
+        raise BusinessRuleError("This packing list has been billed; delete the bill first.")
+    order = packing.order
+    purge.delete_document(packing, cancel=(lambda: cancel_packing(packing, user=user, reason="Deleted"))
+                          if packing.status != P.CANCELLED else None)
+    if order is not None:
+        from sales.services import orders as order_service
+
+        order_service.refresh_status(order)
+
+
+@transaction.atomic
 def cancel_packing(packing, *, user, reason="") -> PackingList:
     packing = PackingList.objects.select_related("factory", "order").get(pk=packing.pk)
     assert_factory_access(user, packing.factory)

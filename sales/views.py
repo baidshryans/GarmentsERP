@@ -517,8 +517,9 @@ class PackingDetail(LoginRequiredMixin, ScreenPermissionMixin, View):
                 packing_service.finalize_packing(p, user=request.user)
                 messages.success(request, "Packing finished.")
             elif action == "cancel":
-                packing_service.cancel_packing(p, user=request.user, reason=request.POST.get("reason", ""))
-                messages.success(request, "Packing list cancelled.")
+                packing_service.delete_packing(p, user=request.user)
+                messages.success(request, "Packing list deleted.")
+                return redirect("packing_list")
         except ERRORS as exc:
             _msgs(request, exc)
         return redirect("packing_detail", pk=pk)
@@ -717,8 +718,9 @@ class InvoiceDetail(LoginRequiredMixin, ScreenPermissionMixin, View):
             elif action == "cancel":
                 if not _can(request, "sales.invoice", "cancel"):
                     raise PermissionDenied
-                invoices.cancel_invoice(inv, user=request.user, reason=p.get("reason", ""))
-                messages.success(request, "Bill cancelled; the goods are back in stock.")
+                invoices.delete_invoice(inv, user=request.user)
+                messages.success(request, "Bill deleted; the goods are back in stock.")
+                return redirect("saleinvoice_list")
             elif action == "einvoice":
                 if not _can(request, "sales.invoice", "edit"):
                     raise PermissionDenied
@@ -831,8 +833,9 @@ class CreditNoteDetail(LoginRequiredMixin, ScreenPermissionMixin, View):
             elif action == "cancel":
                 if not _can(request, "sales.creditnote", "cancel"):
                     raise PermissionDenied
-                credit_notes.cancel_credit_note(note, user=request.user, reason=request.POST.get("reason", ""))
-                messages.success(request, "Return cancelled.")
+                credit_notes.delete_credit_note(note, user=request.user)
+                messages.success(request, "Return deleted.")
+                return redirect("salecn_list")
         except ERRORS as exc:
             _msgs(request, exc)
         return redirect("salecn_detail", pk=pk)

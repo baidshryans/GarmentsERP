@@ -358,6 +358,32 @@ def discard_draft(invoice, *, user):
 
 
 @transaction.atomic
+def delete_invoice(invoice, *, user) -> None:
+    """Delete a sale bill entirely (owner, 19 Oct 2026), with its stock, journal entry and history. Refused while
+    a return or a receipt of money is against it, once an e-invoice or e-way bill exists, and in a locked period."""
+    from core.services import purge
+    from ledger.services.settlement import settled_against
+
+    inv = SaleInvoice.objects.select_related("factory", "factory__company", "order").get(pk=invoice.pk)
+    assert_factory_access(user, inv.factory)
+    if inv.irn or inv.eway_bill_no:
+        raise BusinessRuleError("This bill has an e-invoice / e-way bill. Cancel it on the portal first.")
+    purge.assert_dates_open(inv.factory, inv.date)
+    if inv.voucher_id:
+        for paid in settled_against(inv.voucher):
+            raise BusinessRuleError(f"{paid.get_voucher_type_display()} {paid.number} is settled against this bill. "
+                                    f"Delete the {paid.get_voucher_type_display().lower()} first.")
+    if inv.credit_notes.filter(status="posted").exists():
+        raise BusinessRuleError("A return from customer has been posted against this bill; delete it first.")
+    purge.rows(inv.credit_notes.exclude(status="posted"))
+    order = inv.order
+    purge.delete_document(inv, cancel=(lambda: cancel_invoice(inv, user=user, reason="Deleted"))
+                          if inv.status == SaleInvoice.Status.POSTED else None)
+    if order is not None:
+        order_service.refresh_status(order)
+
+
+@transaction.atomic
 def cancel_invoice(invoice, *, user, reason) -> SaleInvoice:
     inv = SaleInvoice.objects.select_related("factory", "order", "packing").get(pk=invoice.pk)
     assert_factory_access(user, inv.factory)

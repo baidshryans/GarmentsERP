@@ -21,6 +21,7 @@ from django.db.models import ProtectedError
 from django.db.models.signals import post_save, pre_save
 from django.utils import timezone
 
+from core import checks
 from core.exceptions import BusinessRuleError
 from core.scoping import assert_factory_access
 from core.services.periods import assert_period_open
@@ -126,6 +127,8 @@ def recorded(kind, describe):
                 finally:
                     _current.reset(token)
                 info = describe(result, args, kwargs)
+                if info:
+                    checks.not_future(info["date"], f"This step ({kind.label.lower()})")
                 if info and rec.items:
                     _store(info.get("kind", kind), rec, info, kwargs.get("user"))
                 return result

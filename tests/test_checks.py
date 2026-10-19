@@ -66,3 +66,71 @@ def test_receipt_refuses_a_fraction(company, factory, owner):
                                    bundles=bundles[:1], date=DAY, user=owner)
     with pytest.raises(BusinessRuleError, match="whole number of pieces"):
         receipts.create_receipt(challan=ch, user=owner, date=DAY, counts=[Counted(ch.bundles.get(), D("10.5"))])
+
+
+# ---------------- limits, dates and money (Task 9) ----------------
+
+from datetime import timedelta
+
+from django.utils import timezone
+
+from inventory.exceptions import InsufficientStock
+from jobwork.services import bills
+from production.services import cutting
+
+
+def _issued(company, factory, owner, day=DAY):
+    ns = build(company, factory, owner)
+    bundles = cut(ns)
+    fab = fabricator(company)
+    rates.save_rate(who=fab, process=step(ns, "STITCH").process, rate=D("25"), effective_from=DAY)
+    ch = challans.create_and_issue(company=company, factory=factory, party=fab, lot=ns.lot, step=step(ns, "STITCH"),
+                                   bundles=bundles[:1], date=day, user=owner)
+    return ns, fab, ch
+
+
+def test_not_future_and_not_before_say_what_is_wrong():
+    today = timezone.localdate()
+    with pytest.raises(BusinessRuleError, match="^The cutting cannot be in the future.$"):
+        checks.not_future(today + timedelta(days=1), "The cutting")
+    checks.not_future(today, "The cutting")
+    with pytest.raises(BusinessRuleError, match=r"^The receipt cannot be dated before the challan \(15 Jun 2026\).$"):
+        checks.not_before(DAY - timedelta(days=1), DAY, "The receipt", "the challan")
+    with pytest.raises(BusinessRuleError, match="^A rate cannot be negative.$"):
+        checks.not_negative(D("-1"), "A rate")
+
+
+def test_a_future_dated_step_is_refused(company, factory, owner):
+    ns = build(company, factory, owner)
+    tomorrow = timezone.localdate() + timedelta(days=1)
+    with pytest.raises(BusinessRuleError, match="cannot be in the future"):
+        cutting.issue_fabric(lot=ns.lot, lines=[(ns.roll_a, D("10"))], user=owner, date=tomorrow)
+    assert not ns.lot.fabric_issues.exists()
+
+
+def test_a_receipt_before_its_challan_is_refused(company, factory, owner):
+    ns, fab, ch = _issued(company, factory, owner)
+    with pytest.raises(BusinessRuleError, match=r"cannot be dated before the challan \(15 Jun 2026\)"):
+        receipts.create_receipt(challan=ch, user=owner, date=DAY - timedelta(days=1),
+                                counts=[Counted(ch.bundles.get(), ch.bundles.get().qty_issued)])
+
+
+def test_a_bill_before_its_pieces_were_checked_is_refused(company, factory, owner):
+    ns, fab, ch = _issued(company, factory, owner)
+    r = receipts.create_receipt(challan=ch, user=owner, date=DAY, counts=[Counted(ch.bundles.get(), ch.bundles.get().qty_issued)])
+    receipts.record_qc(receipt_line=r.lines.get(), accepted=r.lines.get().qty_received, user=owner)
+    with pytest.raises(BusinessRuleError, match="cannot be dated before the pieces on it were received"):
+        bills.create_bill(company=company, factory=factory, party=fab, date=DAY - timedelta(days=1), user=owner)
+
+
+def test_fabric_issued_beyond_the_roll_is_refused(company, factory, owner):
+    ns = build(company, factory, owner)
+    with pytest.raises(InsufficientStock, match="Roll .* has only 100"):
+        cutting.issue_fabric(lot=ns.lot, lines=[(ns.roll_a, D("150"))], user=owner, date=DAY)
+
+
+def test_a_negative_rate_is_refused(company):
+    from masters.models import Process
+
+    with pytest.raises(BusinessRuleError, match="A rate cannot be negative."):
+        rates.save_rate(who=None, process=Process.objects.get(code="CUT"), effective_from=DAY, rate=D("-1"))

@@ -85,6 +85,8 @@ def create_receipt(*, challan, counts, user, date, location=None, trims=None) ->
     counts = list(counts)
     if not counts:
         raise BusinessRuleError("Scan or choose at least one bundle that came back.")
+    checks.not_future(date, "The receipt")
+    checks.not_before(date, challan.date, "The receipt", "the challan")
     place = location or process_location(challan.factory)
     if place.factory_id != challan.factory_id:
         raise BusinessRuleError("Receive into a location of the factory that issued the challan.")

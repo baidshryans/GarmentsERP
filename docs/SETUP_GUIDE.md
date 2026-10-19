@@ -1667,6 +1667,10 @@ Open the entry and its **Made by** line takes you back to the lot and names the 
 | "pieces waiting for rework; finish that first" | QC sent the bundle back | Issue a Rework challan |
 | "is waiting for rework at …, not …" | The rework challan is for a different step than the one the bundle came back from | Make the rework challan for the step named first |
 | "No rate for X — PROCESS on DATE. Add one on Rates." | No rate on Rates for that fabricator (or In-house) and process on that date | Add it on Rates, dated on or before the work's date |
+| "… must be a whole number of pieces." | A garment quantity with a fraction (2.5 pieces) | Enter whole pieces. Fabric and trims can still have decimals |
+| "This step (…) cannot be in the future." / "The receipt cannot be in the future." | A production or job work date after today | Use today's date or an earlier one |
+| "The receipt cannot be dated before the challan (…)." | Goods cannot come back before they went out | Use a date on or after the challan date |
+| "The labour bill cannot be dated before the pieces on it were received (…)." | A bill dated before the receipt of the pieces it pays | Date the bill on or after the receipt |
 | Receipt shows "Over-receipt, needs approval" | Counted more than issued | Owner approves, or recount |
 | Nothing payable on a labour bill | No checked, unpaid pieces | Complete QC first |
 | "… allows no loss" | The bundle is at a step marked no loss allowed | Move it with no count. If pieces really are lost, untick **No loss allowed** on the process |

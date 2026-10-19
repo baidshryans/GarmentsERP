@@ -11,6 +11,7 @@ from decimal import Decimal
 from django.db import transaction
 from django.db.models import Exists, OuterRef, Q
 
+from core import checks
 from core.exceptions import BusinessRuleError
 from core.scoping import assert_factory_access
 from core.services.numbering import next_document_number
@@ -99,7 +100,11 @@ def create_bill(*, company, factory, party, date, user, qc_results=None, deducti
         raise BusinessRuleError(f"{party.name} is not a fabricator.")
     if party.payable_ledger_id is None:
         raise BusinessRuleError(f"{party.name} has no payable ledger.")
+    checks.not_future(date, "The labour bill")
     results = list(qc_results) if qc_results is not None else list(unbilled_qc(party, factory))
+    received = max((r.line.receipt.date for r in QcResult.objects.filter(pk__in=[r.pk for r in results])
+                    .select_related("line__receipt")), default=None)
+    checks.not_before(date, received, "The labour bill", "the pieces on it were received")
     if not results:
         raise BusinessRuleError("There are no checked pieces waiting to be paid for this fabricator (JOB-07).")
     for r in results:

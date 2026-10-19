@@ -14,6 +14,23 @@ def whole(value, what: str) -> int:
     return int(value)
 
 
+def not_future(day, what: str) -> None:
+    from django.utils import timezone
+
+    if day is not None and day > timezone.localdate():
+        raise BusinessRuleError(f"{what} cannot be in the future.")
+
+
+def not_before(day, earlier, what: str, earlier_what: str) -> None:
+    if day is not None and earlier is not None and day < earlier:
+        raise BusinessRuleError(f"{what} cannot be dated before {earlier_what} ({earlier.day:02d} {earlier:%b %Y}).")
+
+
+def not_negative(value, what: str) -> None:
+    if value is not None and value < 0:
+        raise BusinessRuleError(f"{what} cannot be negative.")
+
+
 def counts_whole(item) -> bool:
     """Garments (SKUs) are counted in whole pieces; materials are not."""
     from masters.models import SKU

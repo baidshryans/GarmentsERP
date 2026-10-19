@@ -7,3 +7,4 @@ dev-credentials.txt
 staticfiles/
 media/
 .pytest_cache/
+backups/

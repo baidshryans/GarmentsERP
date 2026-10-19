@@ -29,7 +29,14 @@
       <tfoot><tr><td colspan="3">Total</td><td class="num">{{ v.total }}</td><td class="num">{{ v.total }}</td></tr></tfoot>
     </table></div>
   </div>
-  {% if v.is_posted and not reversal and not v.reverses and can_cancel %}
+  {% if v.is_posted and hand_made and can_cancel %}
+  <div class="island no-print">
+    <h3>Delete this entry</h3>
+    {% if paid_by %}<p>{{ paid_by|join:", " }} is settled against this entry. Delete it first, then this entry can be deleted.</p>
+    {% else %}<p class="muted">The entry is removed completely, with its lines and any bill it settles, as if it had never been made.</p>
+    <form method="post">{% csrf_token %}<input type="hidden" name="action" value="delete"><button class="btn danger">Delete</button></form>{% endif %}
+  </div>
+  {% elif v.is_posted and not reversal and not v.reverses and can_cancel %}
   <div class="island no-print">
     <h3>Cancel this voucher</h3>
     <p class="muted">Posted vouchers are never edited or deleted. Cancelling posts an equal and opposite voucher.</p>

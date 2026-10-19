@@ -224,6 +224,12 @@ def _production_link(voucher):
     return None
 
 
+def _settled(voucher):
+    from ledger.services.settlement import settled_against
+
+    return settled_against(voucher) if voucher.is_posted else []
+
+
 def source_link(voucher):
     """(label, number, url) of the document that made this voucher, or None for a hand-entered one (E9.1)."""
     from django.apps import apps
@@ -255,6 +261,8 @@ class VoucherDetail(LoginRequiredMixin, ScreenPermissionMixin, View):
         lines = v.lines.select_related("ledger", "factory").prefetch_related("allocations")
         return render(request, "ledger/voucher_detail.html", {
             "v": v, "lines": lines, "reversal": v.reversals.first(), "source": source_link(v),
+            "hand_made": not v.source_type and not v.reverses_id and not v.reversals.exists(),
+            "paid_by": [f"{o.get_voucher_type_display()} {o.number}" for o in _settled(v)],
             "can_cancel": request.user.has_screen_perm("ledger.voucher", "cancel"),
         })
 
@@ -262,6 +270,17 @@ class VoucherDetail(LoginRequiredMixin, ScreenPermissionMixin, View):
         v = self._voucher(request, pk)
         if not request.user.has_screen_perm("ledger.voucher", "cancel"):
             raise PermissionDenied
+        if request.POST.get("action") == "delete":
+            from ledger.services import deletion
+
+            number = v.number
+            try:
+                deletion.delete_voucher(v, user=request.user)
+            except BusinessRuleError as exc:
+                messages.error(request, str(exc))
+                return redirect("voucher_detail", pk=pk)
+            messages.success(request, f"{number} deleted.")
+            return redirect("voucher_list")
         try:
             reversal = reverse_voucher(v, user=request.user, reason=request.POST.get("reason", ""))
         except BusinessRuleError as exc:

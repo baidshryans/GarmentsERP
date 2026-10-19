@@ -822,7 +822,7 @@ Run one small lot through the whole system. This is the same flow as BRD scenari
 9. **Labour bill** for the fabricator. Check the amount is rate × **accepted** pieces, with any deduction and TDS shown.
 10. **Reports.** Open the trial balance (it must tally) and the stock report (it must match the physical count).
 
-If any figure looks wrong, fix the master (rate, BOM, route) and repeat. **Cancel** the dry-run documents afterwards. Do not edit or delete posted ones; cancelling reverses them cleanly.
+If any figure looks wrong, fix the master (rate, BOM, route) and repeat. **Delete** the dry-run steps and documents afterwards, newest first; each goes completely, with its journal entries.
 
 ---
 
@@ -906,7 +906,7 @@ Part A prepared the masters. This part follows one lot from the production order
 - Moving a bundle **back** to an earlier step needs a reason.
 - A fabricator is paid by the terms of their rate on Rates: for pieces that **pass QC**, or for every piece **received back**. No piece is paid twice.
 - A step marked **no loss allowed** (ironing) lets no piece be lost in-house.
-- Posted documents are never edited or deleted. You cancel them (with a reason) and enter a correct one.
+- Posted documents are never edited. To correct one, **Delete** it (newest first; it goes completely, with its journal entries) and enter it again. A hand-made payment, receipt or journal has a **Delete** button on its page too; an entry made by a document is deleted with that document.
 - You only see and post in the factories assigned to you. Pick your factory in the top bar before posting.
 
 **Who does what** (default roles; the owner can change them in More → Settings → Roles)

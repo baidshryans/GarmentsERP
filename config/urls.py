@@ -135,6 +135,7 @@ urlpatterns = [
     # inventory
     path("settings/inventory/", inv.InventorySettings.as_view(), name="inventory_settings"),
     path("inventory/stock/", inv.StockEnquiry.as_view(), name="stock_enquiry"),
+    path("inventory/where/", inv.WhereIsStock.as_view(), name="where_stock"),
     path("inventory/rolls/", inv.RollList.as_view(), name="roll_list"),
     path("inventory/labels/roll/<int:pk>/", inv.RollLabels.as_view(), name="roll_label"),
     path("inventory/labels/grn/<int:grn_pk>/", inv.RollLabels.as_view(), name="grn_labels"),
@@ -205,7 +206,7 @@ urlpatterns = [
     path("production/lots/<int:pk>/pack/", prod.PackBundles.as_view(), name="pack_bundles"),
     path("production/packs/<int:pk>/labels/", prod.BoxLabels.as_view(), name="box_labels"),
     path("production/move/", prod.MoveView.as_view(), name="move_bundles"),
-    path("production/steps/<int:pk>/undo/", prod.StepUndo.as_view(), name="step_undo"),
+    path("production/steps/<int:pk>/delete/", prod.StepDelete.as_view(), name="step_delete"),
     path("production/dashboard/", prod.Dashboard.as_view(), name="production_dashboard"),
     path("production/track/", prod.Track.as_view(), name="production_track"),
     # job work

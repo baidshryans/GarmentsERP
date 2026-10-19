@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block title %}{% if edit %}Change{% else %}Delete{% endif %} a step{% endblock %}
+{% block content %}
+  <div class="page-head"><h1 class="page-title">{% if edit %}Change{% else %}Delete{% endif %}: {{ action.get_kind_display }}</h1><span class="muted">{{ lot.lot_no }} · {{ lot.style.style_no }} {{ lot.colour }}</span>
+    <div class="actions">{% if can_open_lot %}<a class="btn" href="{% url 'lot_detail' lot.pk %}">Back to lot</a>{% endif %}</div></div>
+  <div class="island">
+    <div class="field-row">
+      <div><div class="label muted">Step</div>{{ action.summary }}</div>
+      <div><div class="label muted">Dated</div>{{ action.date|date:"d M Y" }}</div>
+      <div><div class="label muted">Recorded by</div>{{ action.created_by.username }}</div></div>
+  </div>
+  {% if stops %}
+  <div class="island"><h2>This step cannot be deleted yet</h2>
+    <ul>{% for s in stops %}<li>{{ s }}</li>{% endfor %}</ul>
+    <p class="muted">Steps are deleted newest first, so that stock and the books always agree.{% if can_open_lot %} <a href="{% url 'lot_detail' lot.pk %}">See the lot's steps.</a>{% endif %}</p></div>
+  {% else %}
+  <form method="post" class="island" novalidate>{% csrf_token %}{% if edit %}<input type="hidden" name="edit" value="1">{% endif %}
+    <h2>Deleting this will</h2>
+    <ul>{% for line in consequences %}<li>{{ line|capfirst }}</li>{% endfor %}</ul>
+    <p class="muted">It is removed completely, as if it had never been entered.{% if edit %} The form then opens again with what you entered, ready to correct and save.{% endif %}</p>
+    <div class="form-actions"><button class="btn danger">{% if edit %}Delete and enter again{% else %}Delete{% endif %}</button>
+      {% if can_open_lot %}<a class="btn ghost" href="{% url 'lot_detail' lot.pk %}">Keep it</a>{% endif %}</div>
+  </form>{% endif %}
+{% endblock %}

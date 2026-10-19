@@ -1296,7 +1296,7 @@ The lot page has a **Step by step** table just under the guide: one row per step
 
 Pieces lost, rejected or short are counted at the step the pieces were **leaving**, the same step whose labour they would have earned. Pieces in = out + lost + held for rework + still here, unless pieces went back for rework.
 
-**Click a step** to open what was recorded there, oldest first: the fabric issue and cuttings, moves, challans, receipts, QC, packing and labour bills, each with its date, who recorded it, the materials it issued and its cost, with links to the challan, receipt or bill. A move appears under the step it brought the bundles to, and again under the step they left, marked "(cost of this step)", where its labour belongs. A step that was undone is shown greyed with the reason and no cost. **Edit** and **Undo** are here (see the next section).
+**Click a step** to open what was recorded there, oldest first: the fabric issue and cuttings, moves, challans, receipts, QC, packing and labour bills, each with its date, who recorded it, the materials it issued and its cost, with links to the challan, receipt or bill. A move appears under the step it brought the bundles to, and again under the step they left, marked "(cost of this step)", where its labour belongs. The newest step has **Change** and **Delete** here (see the next section).
 
 Under the table, for owner and accounts:
 
@@ -1309,41 +1309,38 @@ Production roles (supervisor, cutting master, QC) see the same table with pieces
 
 **For the whole lot** (below the table) lists anything recorded that is not about one step.
 
-### Correct a mistake: Edit or Undo a step
+### Correct a mistake: Change or Delete a step
 
-Every step you record for a lot is listed on the lot page under **Step by step**: click a route step to see what was recorded there, oldest first. That covers fabric issued, cutting recorded (with its bundles), bundles moved, pieces taken out, bundle split, sent to fabricator, received from fabricator, over-receipt approved, QC recorded and packed. Each one has two buttons.
+Every step you record for a lot is listed on the lot page under **Step by step**: click a route step to see what was recorded there, oldest first. That covers fabric issued, cutting recorded (with its bundles), bundles moved, pieces taken out, bundle split, sent to fabricator, received from fabricator, over-receipt approved, QC recorded and packed.
+
+The **newest** step of the lot has two buttons:
 
 | Button | What it does |
 | --- | --- |
-| **Edit** | Takes the step back and opens its form again. Fabric issue and cutting open with the figures you entered, so you change only what was wrong and save. The other forms open empty |
-| **Undo** | Takes the step back and leaves it at that |
+| **Change** | Deletes the step and opens its form again. Fabric issue and cutting open with the figures you entered, so you change only what was wrong and save. The other forms open empty |
+| **Delete** | Deletes the step completely |
 
-Both ask for a **Reason** and a **Date of the reversal** (today unless you choose another; never before the step itself, and never in a locked period).
+Before anything happens a page lists exactly what will go, for example *put back 240 Zipper to Godown; remove ₹2,880 of job work cost from lot L-12; delete journal entry JV-88*. Press **Delete** to go ahead or **Keep it** to leave everything as it is.
 
-What happens when a step is taken back:
+A deleted step is removed completely, as if it had never been entered: its stock movements, its journal entries and its cost on the lot all go, and nothing of it is kept anywhere. Stock and the books are exactly as they were before it.
 
-- Stock goes back to where it was, by opposite stock movements.
-- The books are corrected by reversing vouchers. Nothing already posted is changed or deleted.
-- The lot's cost goes back by the same amount.
-- The step stays in the list, marked **Undone**, with who did it, when and why.
-
-**Last step first.** A step can be taken back only while no later step depends on it. If one does, the page names it and offers no button: undo that one first. Examples:
+**Newest first.** Only the newest step of a lot can be deleted. To change an earlier step, delete the later ones first, newest first; the page names them, for example *"To delete this cutting recorded, first delete: Bundles moved (…), then Sent to fabricator (…)."* Examples:
 
 | You want to correct | Do this |
 | --- | --- |
-| The pieces cut or the bundles of a cutting | **Edit** the cutting. The form opens with the bundles and fabric you typed; correct them and save. The bundles are made again and numbered afresh, so print new tags |
-| A cutting whose bundles have moved on | Undo the move (and anything after it) for those bundles, then edit the cutting |
-| A fabric issue | Undo the cutting that used the fabric first |
-| A challan | Undo its receipts first. A challan that was saved as a draft and then issued goes back to a draft; one saved and issued in one go is cancelled |
-| A receipt | Undo its QC first |
-| A QC result | If the pieces are on a labour bill, cancel the bill first (25.1) |
+| The pieces cut or the bundles of the last cutting | **Change** the cutting. The form opens with the bundles and fabric you typed; correct them and save. The bundles are made again and numbered afresh |
+| A cutting whose bundles have moved on | Delete the moves (and anything after them), newest first, then change the cutting |
+| A fabric issue | Delete the cutting that used the fabric first |
+| A challan | Delete its receipts first |
+| A receipt | Delete its QC first |
+| A QC result | If the pieces are on a labour bill, delete the bill first (25.1) |
 | A pack into finished goods | Possible only while the packed pieces are still in stock |
 
-Bundles that went different ways are independent: undoing the move of one bundle does not need the others to come back.
+Delete is refused in a **locked period** (a month you have closed or filed GST for).
 
-The same list, for that document only, is at the bottom of the challan page and the receipt page. The cutting page has **Edit this cutting** and **Undo this cutting** on each cutting, and the fabric page has Edit and Undo beside each issue.
+The same list, for that document only, is at the bottom of the challan page and the receipt page. The cutting page has **Change this cutting** and **Delete this cutting**, and the fabric page has Change and Delete beside the newest issue.
 
-**Who can do it:** whoever may record a step may take it back, in their own factory. A cutting master can undo fabric issues and cuttings; a supervisor who records moves can undo moves.
+**Who can do it:** whoever may record a step may delete it, in their own factory. A cutting master can delete fabric issues and cuttings; a supervisor who records moves can delete moves.
 
 ---
 
@@ -1680,11 +1677,11 @@ Open the entry and its **Made by** line takes you back to the lot and names the 
 | "Pick a single factory in the top bar before entering a voucher" | Voucher entry needs one factory | Switch factory in the top bar |
 | "No rate found; enter one" | No customer rate, price list or last invoice rate | Add a price list rate (section 12) or type the rate |
 | "only X available at <location>" when finishing packing | Not enough stock at that location | Move or pack stock there first |
-| "… came after this step. Undo that first." | You tried to edit or undo a production step that a later step depends on | Undo the step named, then try again (section 24, *Correct a mistake*) |
-| "What this step put there has been used since" | The stock a step brought in (fabric on the cutting floor, packed pieces) has been used or sold | Undo the later step first; sold pieces cannot be unpacked |
-| "is on a labour bill. Cancel the bill first." | The QC result you want to undo has been billed | Cancel the labour bill (25.1), then undo the QC |
-| "is on draft challan" | A bundle of the step is on a challan not yet issued | Discard the draft challan, then undo |
-| A wrong production step (pieces cut, bundles, a move, a challan, a receipt, QC, a pack) | Recorded steps are not overwritten | Lot page → **Step by step** → click the step → **Edit** or **Undo** (section 24, *Correct a mistake*) |
+| "To delete this …, first delete: …" | Steps are deleted newest first | Delete the steps named, newest first, then try again (section 24, *Correct a mistake*) |
+| "What this step put there has been used since" | The stock a step brought in (fabric on the cutting floor, packed pieces) has been used or sold | Delete the later step first; sold pieces cannot be unpacked |
+| "is on a labour bill. Cancel the bill first." | The QC result you want to delete has been billed | Delete the labour bill (25.1), then the QC |
+| "is on draft challan" | A bundle of the step is on a challan not yet issued | Discard the draft challan, then delete |
+| A wrong production step (pieces cut, bundles, a move, a challan, a receipt, QC, a pack) | Recorded steps are not overwritten | Lot page → **Step by step** → click the step → **Change** or **Delete**, newest first (section 24, *Correct a mistake*) |
 | A wrong posted document | Posted documents are never edited | Cancel with a reason, then enter a correct one |
 
 ---

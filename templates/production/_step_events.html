@@ -5,5 +5,5 @@
     {% if ev.materials %}<div class="small">{% for l in ev.materials %}{{ l.material.name }} {{ l.qty|floatformat:"-3" }} {{ l.material.unit }}{% if not forloop.last %}, {% endif %}{% endfor %}</div>{% endif %}</td>
   {% if can_cost %}<td class="num">{% if ev.cost is not None %}{{ ev.cost }}{% endif %}</td>{% endif %}
   <td>{% if ev.action.undone %}<span class="pill">Undone</span> <span class="muted small">{{ ev.action.undone_at|date:"d M" }} by {{ ev.action.undone_by.username }}: {{ ev.action.undo_reason }}</span>
-    {% elif ev.action.can %}<span style="white-space:nowrap"><a class="btn" href="{% url 'step_undo' ev.action.pk %}?edit=1">Edit</a> <a class="btn ghost" href="{% url 'step_undo' ev.action.pk %}">Undo</a></span>{% endif %}</td>
+    {% elif ev.action.can %}<span style="white-space:nowrap"><a class="btn" href="{% url 'step_delete' ev.action.pk %}?edit=1">Change</a> <a class="btn ghost" href="{% url 'step_delete' ev.action.pk %}">Delete</a></span>{% endif %}</td>
 </tr>{% endfor %}</tbody></table>

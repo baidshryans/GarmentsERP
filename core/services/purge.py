@@ -61,7 +61,7 @@ def _release(vouchers) -> None:
     from ledger.models import Voucher
 
     ids = [v.pk for v in vouchers]
-    for rel in Voucher._meta.related_objects:
+    for rel in Voucher._meta.get_fields(include_hidden=True):
         if not isinstance(rel, models.ManyToOneRel) or rel.on_delete is models.CASCADE:
             continue
         field = rel.field

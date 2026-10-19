@@ -381,13 +381,11 @@ def test_a_wrong_cutting_is_edited_from_the_screens(ns, factory):
     recorded = last(K.CUTTING)                      # the cutting and its bundles are one step
     assert recorded.summary == "Cutting 1: 50 pieces in 4 bundle(s)" and last(K.BUNDLES) is None and lot.bundles.count() == 4
     page = c.get(url).content.decode()
-    assert f'{reverse("step_undo", args=[recorded.pk])}?edit=1' in page and "Edit this cutting" in page
+    assert f'{reverse("step_delete", args=[recorded.pk])}?edit=1' in page and "Change this cutting" in page
 
-    confirm = c.get(reverse("step_undo", args=[recorded.pk]) + "?edit=1").content.decode()
-    assert "Undo and enter again" in confirm and "stock movements reversed" in confirm and 'name="reason"' in confirm
-    r = c.post(reverse("step_undo", args=[recorded.pk]), {"edit": "1", "reason": "", "date": "2026-06-15"})
-    assert r.status_code == 200 and "Give the reason" in r.content.decode() and lot.bundles.count() == 4
-    r = c.post(reverse("step_undo", args=[recorded.pk]), {"edit": "1", "reason": "Pieces cut were wrong", "date": "2026-06-15"})
+    confirm = c.get(reverse("step_delete", args=[recorded.pk]) + "?edit=1").content.decode()
+    assert "Delete and enter again" in confirm and "Deleting this will" in confirm and 'name="reason"' not in confirm
+    r = c.post(reverse("step_delete", args=[recorded.pk]), {"edit": "1"})
     assert r.status_code == 302 and r.url == url and not lot.bundles.exists() and not lot.cuttings.exists()
     page = c.get(r.url).content.decode()
     for shown in ('value="9 8"', 'value="20 13"', f'name="used_{ns.roll_a.pk}" value="41.000"',
@@ -397,17 +395,18 @@ def test_a_wrong_cutting_is_edited_from_the_screens(ns, factory):
     c.post(url, {"date": "2026-06-15", f"bundles_{S.pk}": "9 8", f"bundles_{M.pk}": "20 11", **rolls})
     assert sum(cs.pieces for cs in lot.cuttings.get().sizes.all()) == 48 and [b.bundle_no for b in lot.bundles.all()] == ["B001", "B002", "B003", "B004"]
 
-    # once the bundles have moved on, the cutting waits for the move to be undone: the page says so and offers no form
+    # once the bundles have moved on, the cutting waits for the move to be deleted: the page says so and offers no form
     all_in_house(ns)
     go(ns, list(lot.bundles.all()[:1]), "STITCH")
-    blocked = c.get(reverse("step_undo", args=[last(K.CUTTING).pk]) + "?edit=1").content.decode()
-    assert "cannot be taken back yet" in blocked and "Bundles moved (1 bundle(s), 9 pieces to Stitching) came after this step" in blocked
-    assert 'name="reason"' not in blocked
+    blocked = c.get(reverse("step_delete", args=[last(K.CUTTING).pk]) + "?edit=1").content.decode()
+    assert "cannot be deleted yet" in blocked and "first delete: Bundles moved (1 bundle(s), 9 pieces to Stitching)" in blocked
+    assert "<form" not in blocked.split("cannot be deleted yet")[1].split("</main>")[0]
 
-    # the lot page lists every step, the undone ones with the reason
+    # the deleted cutting is gone; only the newest step carries Change and Delete
     owner_page = login(ns.owner).get(reverse("lot_detail", args=[lot.pk])).content.decode()
-    assert "Step by step" in owner_page and owner_page.count("Pieces cut were wrong") == 1 and "Undone" in owner_page
-    assert f'{reverse("step_undo", args=[last(K.FABRIC).pk])}?edit=1' in owner_page
+    assert "Step by step" in owner_page and "Undone" not in owner_page
+    assert reverse("step_delete", args=[last(K.MOVE).pk]) in owner_page
+    assert reverse("step_delete", args=[last(K.FABRIC).pk]) not in owner_page
 
 
 def test_fabric_issue_is_refilled_for_editing(ns):
@@ -415,13 +414,13 @@ def test_fabric_issue_is_refilled_for_editing(ns):
     c.post(reverse("lot_fabric", args=[ns.lot.pk]), {"date": "2026-06-15", f"qty_{ns.roll_a.pk}": "60", "estimated_pieces": "50"})
     page = c.get(reverse("lot_fabric", args=[ns.lot.pk])).content.decode()
     issued = last(K.FABRIC)
-    assert f'{reverse("step_undo", args=[issued.pk])}?edit=1' in page
-    r = c.post(reverse("step_undo", args=[issued.pk]), {"edit": "1", "reason": "Wrong quantity"})
+    assert f'{reverse("step_delete", args=[issued.pk])}?edit=1' in page
+    r = c.post(reverse("step_delete", args=[issued.pk]), {"edit": "1"})
     page = c.get(r.url).content.decode()
     assert f'name="qty_{ns.roll_a.pk}" value="60.000"' in page and 'name="estimated_pieces" type="text" inputmode="numeric" value="50"' in page
 
 
-def test_only_those_who_may_record_a_step_see_and_reach_its_undo(ns, factory, factory2):
+def test_only_those_who_may_record_a_step_see_and_reach_its_delete(ns, factory, factory2):
     cutting.issue_fabric(lot=ns.lot, lines=[(ns.roll_a, D("60"))], user=ns.owner, date=DAY)
     action = last(K.FABRIC)
     accounts, elsewhere = make_user("accounts"), make_user("elsewhere")
@@ -429,10 +428,10 @@ def test_only_those_who_may_record_a_step_see_and_reach_its_undo(ns, factory, fa
     accounts.allowed_factories.add(factory)
     elsewhere.roles.add(Role.objects.get(name="Owner"))
     elsewhere.allowed_factories.add(factory2)
-    assert login(accounts).get(reverse("step_undo", args=[action.pk])).status_code == 403
-    assert login(accounts).post(reverse("step_undo", args=[action.pk]), {"reason": "x"}).status_code == 403
-    assert login(elsewhere).get(reverse("step_undo", args=[action.pk])).status_code == 404        # another factory's lot
-    assert not ProductionAction.objects.get(pk=action.pk).undone
+    assert login(accounts).get(reverse("step_delete", args=[action.pk])).status_code == 403
+    assert login(accounts).post(reverse("step_delete", args=[action.pk])).status_code == 403
+    assert login(elsewhere).get(reverse("step_delete", args=[action.pk])).status_code == 404      # another factory's lot
+    assert ProductionAction.objects.filter(pk=action.pk).exists()
 
 
 def test_job_work_steps_are_listed_on_the_challan_and_the_receipt(jw):
@@ -442,12 +441,13 @@ def test_job_work_steps_are_listed_on_the_challan_and_the_receipt(jw):
     r = receive(ns, ch)
     receipts.record_qc(receipt_line=r.lines.get(), accepted=17, user=ns.owner)
     page = c.get(reverse("challan_detail", args=[ch.pk])).content.decode()
-    assert "Steps recorded" in page and reverse("step_undo", args=[last(K.CHALLAN).pk]) in page and reverse("step_undo", args=[last(K.RECEIPT).pk]) in page
+    assert "Steps recorded" in page and reverse("step_delete", args=[last(K.QC).pk]) in page
+    assert reverse("step_delete", args=[last(K.CHALLAN).pk]) not in page        # not the newest: later steps first
     page = c.get(reverse("receipt_detail", args=[r.pk])).content.decode()
-    assert reverse("step_undo", args=[last(K.QC).pk]) in page
-    done = c.post(reverse("step_undo", args=[last(K.QC).pk]), {"edit": "1", "reason": "Wrong count"})
+    assert reverse("step_delete", args=[last(K.QC).pk]) in page
+    done = c.post(reverse("step_delete", args=[last(K.QC).pk]), {"edit": "1"})
     assert done.status_code == 302 and done.url == reverse("receipt_detail", args=[r.pk]) and not QcResult.objects.exists()
-    done = c.post(reverse("step_undo", args=[last(K.RECEIPT).pk]), {"edit": "1", "reason": "Wrong count"})
+    done = c.post(reverse("step_delete", args=[last(K.RECEIPT).pk]), {"edit": "1"})
     assert done.url == reverse("receipt_new", args=[ch.pk]) and not Receipt.objects.exists()
 
 

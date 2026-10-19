@@ -17,7 +17,7 @@ import json
 from django.apps import apps
 from django.core.serializers.json import DjangoJSONEncoder
 from django.db import transaction
-from django.db.models import ProtectedError
+from django.db.models import Max, ProtectedError
 from django.db.models.signals import post_save, pre_save
 from django.utils import timezone
 
@@ -348,6 +348,120 @@ def undo(action, *, user, reason, date=None) -> ProductionAction:
     return action
 
 
+# ---------------------------------------------------------------- delete (owner, 19 Oct 2026)
+
+def later_steps(action):
+    """Steps recorded on the same lot after this one and still standing, newest first."""
+    return list(ProductionAction.objects.filter(lot_id=action.lot_id, undone=False, pk__gt=action.pk).order_by("-pk"))
+
+
+def delete_blockers(action) -> list:
+    """Reasons this step cannot be deleted now: steps are deleted newest first, then whatever undo would refuse."""
+    later = later_steps(action)
+    if later:
+        names = ", then ".join(f"{a.get_kind_display()} ({a.summary})" for a in later)
+        return [f"To delete this {action.get_kind_display().lower()}, first delete: {names}."]
+    return blockers(action)
+
+
+def consequences(action, user) -> list:
+    """What deleting this step does, in plain sentences. Money only for those who may see cost."""
+    from inventory.models import StockMovement
+    from ledger.models import Voucher
+
+    see_cost = user.can_view_field("cost")
+    out = []
+    moved = {}
+    for item in action.items.filter(role=Role.MOVEMENT):
+        m = StockMovement.objects.select_related("location", "material", "sku").filter(pk=item.object_id).first()
+        if m is None:
+            continue
+        place = m.location.name if m.location.loc_type in ("godown", "dispatch", "rejects", "showroom") else "work in progress"
+        key = (str(m.item), place)
+        moved[key] = moved.get(key, 0) - m.qty
+    for (item, place), qty in moved.items():
+        if qty:
+            out.append(f"{'put back' if qty > 0 else 'take out'} {abs(qty).normalize():f} {item} {'to' if qty > 0 else 'from'} {place}")
+    for item in action.items.filter(role=Role.COST):
+        entry = LotCostEntry.objects.filter(pk=item.object_id).first()
+        if entry is not None and see_cost:
+            out.append(f"remove ₹{entry.amount} of {entry.get_kind_display().lower()} cost from lot {action.lot.lot_no}")
+    if not see_cost and action.items.filter(role=Role.COST).exists():
+        out.append(f"remove this step's cost from lot {action.lot.lot_no}")
+    for item in action.items.filter(role=Role.VOUCHER):
+        v = Voucher.objects.filter(pk=item.object_id).first()
+        if v is not None:
+            out.append(f"delete journal entry {v.number}" + (f" (₹{v.total})" if see_cost else ""))
+    created = {}
+    for item in action.items.filter(role=Role.CREATED):
+        label = apps.get_model(item.model)._meta.verbose_name
+        created[label] = created.get(label, 0) + 1
+    for label, n in created.items():
+        out.append(f"remove {n} {label}{'s' if n > 1 and not label.endswith('s') else ''}")
+    return out
+
+
+@transaction.atomic
+def delete_step(action, *, user) -> None:
+    """Delete a recorded step entirely (owner, 19 Oct 2026). It is undone the usual way, which posts exact
+    reversals and puts every other row back; then the step's postings and their reversals are purged together,
+    with the rows it made and every history row, so nothing of it is left for anyone to find."""
+    from inventory.models import StockMovement
+    from jobwork.models import ChallanBundle, ChallanTrim, JobWorkChallan
+    from ledger.models import Voucher
+
+    from core.services import purge
+
+    action = ProductionAction.objects.select_related("lot", "company", "factory").get(pk=action.pk)
+    if action.undone:
+        raise BusinessRuleError("This step has already been taken back.")
+    if not user.has_screen_perm(SCREEN[action.kind], "create"):
+        raise BusinessRuleError("You are not allowed to delete this step.")
+    assert_factory_access(user, action.factory)
+    assert_period_open(action.company, action.factory, action.date)
+    stops = delete_blockers(action)
+    if stops:
+        raise BusinessRuleError(" ".join(stops))
+    started = action.created_at
+    undo(action, user=user, reason="Deleted", date=action.date)
+
+    items = list(action.items.all())
+    own = {role: [i.object_id for i in items if i.role == role] for role in (Role.MOVEMENT, Role.VOUCHER, Role.COST)}
+    source = {"source_type": ProductionAction._meta.label_lower, "source_id": action.pk}
+    vouchers = set(own[Role.VOUCHER]) | set(Voucher.objects.filter(reverses_id__in=own[Role.VOUCHER]).values_list("pk", flat=True))
+    LotCostEntry.objects.filter(pk__in=own[Role.COST]).delete()
+    LotCostEntry.objects.filter(**source).delete()
+    purge.movements(StockMovement.objects.filter(pk__in=own[Role.MOVEMENT]) | StockMovement.objects.filter(**source))
+    purge.vouchers(Voucher.objects.filter(pk__in=vouchers))
+
+    created = [i for i in items if i.role == Role.CREATED]
+    challan_ids = [i.object_id for i in created if i.model == "jobwork.jobworkchallan"]
+    bundle_ids = [i.object_id for i in created if i.model == "production.bundle"]
+    for model, ids in ((ChallanTrim, ChallanTrim.objects.filter(challan_id__in=challan_ids).values_list("pk", flat=True)),
+                       (ChallanBundle, ChallanBundle.objects.filter(challan_id__in=challan_ids).values_list("pk", flat=True))):
+        ids = list(ids)
+        model._base_manager.filter(pk__in=ids).delete()
+        purge.history(model, ids)
+    for item in created:                            # rows the step made that undo kept (cancelled challans, voided bundles)
+        if item.model in ("jobwork.challanbundle", "jobwork.challantrim"):
+            continue
+        model = apps.get_model(item.model)
+        if item.model not in ("jobwork.jobworkchallan", "production.bundle"):
+            model._base_manager.filter(pk=item.object_id).delete()
+        purge.history(model, [item.object_id])
+    JobWorkChallan._base_manager.filter(pk__in=challan_ids).delete()
+    from production.models import Bundle
+
+    Bundle._base_manager.filter(pk__in=bundle_ids).delete()
+    purge.history(JobWorkChallan, challan_ids)
+    purge.history(Bundle, bundle_ids)
+    for item in items:
+        if item.role == Role.CHANGED:
+            purge.history_since(apps.get_model(item.model), item.object_id, started)
+    ProductionActionItem.objects.filter(action=action).delete()
+    ProductionAction._base_manager.filter(pk=action.pk).delete()
+
+
 # ---------------------------------------------------------------- the form again, with the old figures
 
 def _after(action, label):
@@ -389,13 +503,16 @@ def form_values(action) -> dict:
 
 
 def listed(user, limit=60, **filters) -> list:
-    """Recorded steps the user may see, newest first, each marked `can` when the user may undo it."""
+    """Recorded steps the user may see, newest first, each marked `can` when the user may delete it now: only the
+    newest standing step of its lot can be deleted (owner, 19 Oct 2026)."""
     rows = list(ProductionAction.objects.for_user(user).filter(**filters).select_related("created_by", "undone_by")[:limit])
+    newest = dict(ProductionAction.objects.filter(lot_id__in={a.lot_id for a in rows}, undone=False)
+                  .values_list("lot_id").annotate(m=Max("pk")).values_list("lot_id", "m"))
     allowed = {}
     for a in rows:
         if a.kind not in allowed:
             allowed[a.kind] = user.has_screen_perm(SCREEN[a.kind], "create")
-        a.can = not a.undone and allowed[a.kind]
+        a.can = not a.undone and allowed[a.kind] and newest.get(a.lot_id) == a.pk
     return rows
 
 

@@ -506,8 +506,9 @@ def _edit_values(request, lot, *kinds):
     return None
 
 
-class StepUndo(LoginRequiredMixin, View):
-    """Undo a recorded step, or undo it and enter it again ("edit"). Whoever may record the step may undo it."""
+class StepDelete(LoginRequiredMixin, View):
+    """Delete a recorded step, or delete it and enter it again ("edit"). Newest first; whoever may record the step
+    may delete it (owner, 19 Oct 2026)."""
 
     def _action(self, request, pk):
         action = get_object_or_404(ProductionAction.objects.for_user(request.user).select_related("lot", "lot__style", "lot__colour", "factory"), pk=pk)
@@ -521,10 +522,9 @@ class StepUndo(LoginRequiredMixin, View):
         return redirect(step_actions.edit_url(action))
 
     def _page(self, request, action, vals=None):
-        return render(request, "production/step_undo.html", {
-            "action": action, "lot": action.lot, "edit": (vals or request.GET).get("edit") == "1", "vals": vals or {},
-            "stops": step_actions.blockers(action), "today": timezone.localdate().isoformat(),
-            "counts": {i["role"]: i["n"] for i in action.items.values("role").annotate(n=Count("id"))},
+        return render(request, "production/step_delete.html", {
+            "action": action, "lot": action.lot, "edit": (vals or request.GET).get("edit") == "1",
+            "stops": step_actions.delete_blockers(action), "consequences": step_actions.consequences(action, request.user),
             "can_open_lot": request.user.has_screen_perm("production.lot", "view")})
 
     def get(self, request, pk):
@@ -533,18 +533,21 @@ class StepUndo(LoginRequiredMixin, View):
     def post(self, request, pk):
         action = self._action(request, pk)
         p = request.POST
+        kind, summary, lot_id = action.get_kind_display(), action.summary, action.lot_id
+        vals, back = step_actions.form_values(action), step_actions.edit_url(action)
         try:
-            step_actions.undo(action, user=request.user, reason=p.get("reason", ""),
-                              date=vu.day(p.get("date"), default=timezone.localdate()))
-        except (ValueError, BusinessRuleError) as exc:
+            step_actions.delete_step(action, user=request.user)
+        except BusinessRuleError as exc:
             vu.report(request, exc)
             return self._page(request, action, p)
         if p.get("edit") == "1":
-            request.session["step_edit"] = {"lot": action.lot_id, "kind": action.kind, "vals": step_actions.form_values(action)}
-            messages.success(request, f"{action.get_kind_display()} undone. Enter it again with the right figures.")
-            return redirect(step_actions.edit_url(action))
-        messages.success(request, f"{action.get_kind_display()} undone: {action.summary}.")
-        return self._back(request, action)
+            request.session["step_edit"] = {"lot": lot_id, "kind": action.kind, "vals": vals}
+            messages.success(request, f"{kind} deleted. Enter it again with the right figures.")
+            return redirect(back)
+        messages.success(request, f"Deleted: {summary}. You can enter it again now.")
+        if request.user.has_screen_perm("production.lot", "view"):
+            return redirect("lot_detail", pk=lot_id)
+        return redirect(back)
 
 
 class LotTags(LoginRequiredMixin, ScreenPermissionMixin, View):

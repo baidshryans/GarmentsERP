@@ -16,7 +16,7 @@ The PRD wins where the two differ. Do not invent requirements; if something is u
 - Desktop UI: Django templates + HTMX; React only for the size-colour grid if HTMX is not enough
 - Mobile: installable PWA on the same REST API (fabricator, supervisor, owner)
 - Background jobs: start with Django management commands + cron; Celery/Redis later
-- Model history / audit trail on every transactional model
+- Model history / audit trail on every transactional model (a Delete removes the deleted rows' history too, owner's decision of 19 Oct 2026)
 - Tests: pytest + pytest-django
 
 ## Project layout (Django apps)
@@ -39,7 +39,7 @@ The PRD wins where the two differ. Do not invent requirements; if something is u
 
 1. **Accounting**
    - Every voucher balances (debits = credits) and carries a factory, or it is not saved.
-   - Posted vouchers are never edited or deleted — cancel or reverse only.
+   - Posted vouchers are never edited — cancel or reverse only. The one exception is **Delete** (owner's decision, 19 Oct 2026): deleting a recorded step or a document removes it, its stock movements, its journal entries and their history entirely, newest first, through `core/services/purge.py` only. Delete is refused in a locked period and while a payment is settled against the entry.
    - All money and quantities use `Decimal` (`DecimalField`), never float.
 2. **One transaction per posting.** A source document, its stock movements and its GL voucher are saved inside one `transaction.atomic()` block. If any part fails, all of it rolls back.
 3. **Tax is optional.** Nothing posts to GST or TDS ledgers unless the user selects a tax template or enters tax lines on that voucher. GST and TDS are independent of each other. Company switches have effective dates (PRD E1.9, E9.4).

@@ -81,12 +81,11 @@ Every voucher a production or job work step posts gets a narration that reads as
 - Materials: *"Trims used at Stitching, lot L-12: zips 240, thread 4 cones, ₹1,120"*
 - Job work bill: *"Stitching by Ramesh, lot L-12: 240 pieces × ₹12 = ₹2,880 (rate from 1 Oct 2026); TDS ₹29"*
 - Packing to finished goods: *"Lot L-12: 230 pieces packed into Ready Goods at ₹96.40 a piece"*
-- Scrap at QC: *"Lot L-12: 8 pieces scrapped at QC (stitching fault), cost ₹410 written off"*
 - Inter-factory: *"Lot L-12 moved from Factory 1 to Factory 2: 240 pieces, ₹18,200 of work in progress"*
 
 Each voucher also links back to the step that made it, and the step to its voucher(s), so the owner can click from a journal entry to the lot diary and back.
 
-**Late labour bills:** a labour bill posted after the lot is packed currently stays in WIP. It now goes to the cost of finished goods for that lot. The narration says so, e.g. *"…added to finished goods cost of lot L-12"*. *(Builder's call how: Dr Finished Goods Stock if pieces are still in stock, otherwise Dr COGS; confirm with owner if unsure.)*
+**Late labour bills** (posted after the lot is packed stay in WIP): **out of scope for this build** *(builder's call)*. Moving them into finished goods needs a stock revaluation and a sold / unsold split. It is a separate follow-up.
 
 ## 3. Locations
 
@@ -103,8 +102,9 @@ Each factory shows **three** locations:
 - **Internal locations** (cutting floor, process area, in transit, at fabricator) stay as bookkeeping but are **never shown or chosen**. Work in progress is described by lot and step: *"Lot L-12 · 240 pieces · at Stitching · with Ramesh"* or *"… on the way to Factory 2"*.
 - **Stop finding locations by name.** Locations are found by kind (godown / ready goods / rejects / internal kinds) per factory, so renaming one breaks nothing. A factory may add another location (for example a second store), but never has to.
 - **QC rejects** offer two choices each time: **Keep as rejects** (to Rejects stock) or **Scrap** (written off with the narration above).
-  - Rejects stock is valued at the lot's cost per piece when kept.
-  - Selling from Rejects is **out of scope now** *(builder's call)*. It is a later piece of work, because it needs a stock choice on the sales bill.
+  - Rejects stock stays quantity-only, as today: the pieces' cost stays in the lot and is carried by its good pieces.
+  - Scrap is recorded as a loss with no voucher of its own, as today.
+  - Selling from Rejects is **out of scope now** *(builder's call)*. It is a later piece of work, because it needs a stock choice on the sales bill and a value for rejected pieces.
 - A **"Where is my stock"** view per factory: Godown, Ready Goods and Rejects by item, and work in progress by lot → step → with whom.
 
 ## 4. Delete — newest first, truly removed

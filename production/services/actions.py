@@ -157,9 +157,23 @@ def _store(kind, rec, info, user):
 
 # ---------------------------------------------------------------- what stands in the way
 
+def _same(a, b) -> bool:
+    """Equal, counting a time kept to the millisecond ("...080Z", how steps logged before 7 Oct 2026 stored it) as
+    the same time as the microseconds in the database."""
+    if a == b:
+        return True
+    if isinstance(a, str) and isinstance(b, str) and a[10:11] == b[10:11] == "T":
+        from django.utils.dateparse import parse_datetime
+
+        x, y = parse_datetime(a), parse_datetime(b)
+        if x is not None and y is not None:
+            return x.replace(microsecond=x.microsecond // 1000 * 1000) == y.replace(microsecond=y.microsecond // 1000 * 1000)
+    return False
+
+
 def _differs(label, now, after) -> bool:
     skip = DERIVED.get(label, ())
-    return any(now.get(k) != v for k, v in after.items() if k not in skip)
+    return any(not _same(now.get(k), v) for k, v in after.items() if k not in skip)
 
 
 def _why_changed(action, item, now):
@@ -370,7 +384,7 @@ def consequences(action, user) -> list:
     from ledger.models import Voucher
 
     see_cost = user.can_view_field("cost")
-    out = []
+    out = [f"take back: {action.summary}"]
     moved = {}
     for item in action.items.filter(role=Role.MOVEMENT):
         m = StockMovement.objects.select_related("location", "material", "sku").filter(pk=item.object_id).first()
@@ -394,11 +408,21 @@ def consequences(action, user) -> list:
             out.append(f"delete journal entry {v.number}" + (f" (₹{v.total})" if see_cost else ""))
     created = {}
     for item in action.items.filter(role=Role.CREATED):
-        label = apps.get_model(item.model)._meta.verbose_name
-        created[label] = created.get(label, 0) + 1
-    for label, n in created.items():
-        out.append(f"remove {n} {label}{'s' if n > 1 and not label.endswith('s') else ''}")
+        label = PLAIN.get(item.model)
+        if label:
+            created[label] = created.get(label, 0) + 1
+    for (one, many), n in created.items():
+        out.append(f"remove {'the ' + one if n == 1 else f'{n} {many}'}")
     return out
+
+
+# what a step's own rows are called in the owner's words; rows that only mirror the step itself are not listed
+PLAIN = {
+    "production.bundle": ("bundle", "bundles"), "jobwork.jobworkchallan": ("challan", "challans"),
+    "jobwork.receipt": ("receipt", "receipts"), "jobwork.qcresult": ("QC result", "QC results"),
+    "production.cuttingentry": ("cutting", "cuttings"), "production.fabricissue": ("fabric issue", "fabric issues"),
+    "production.packentry": ("box list", "box lists"), "production.stepmaterialissue": ("materials issue", "materials issues"),
+}
 
 
 @transaction.atomic

@@ -135,3 +135,27 @@ def test_the_confirmation_lists_what_goes_and_hides_money_from_production(ns, fa
     assert "Keep it" in page and ">Delete<" in page and "Undo" not in page
     r = c.post(reverse("step_delete", args=[action.pk]))
     assert r.status_code == 302 and not ProductionAction.objects.filter(pk=action.pk).exists()
+
+
+def test_a_step_recorded_with_millisecond_times_can_still_be_deleted(ns):
+    """Steps logged before 7 Oct 2026 kept their times to the millisecond ("…080Z"); the row in the database holds
+    microseconds. That is not a change made since, so it must not block the delete."""
+    cutting.issue_fabric(lot=ns.lot, lines=[(ns.roll_a, D("60"))], user=ns.owner, date=DAY)
+    action = last(K.FABRIC)
+    for item in action.items.exclude(after=None):
+        for k, v in list(item.after.items()):
+            if isinstance(v, str) and len(v) > 23 and v[10:11] == "T":
+                item.after[k] = v[:23] + "Z"
+        item.save(update_fields=["after"])
+    assert actions.delete_blockers(action) == []
+    actions.delete_step(action, user=ns.owner)
+    assert not FabricIssue.objects.filter(lot=ns.lot).exists()
+
+
+def test_the_confirmation_speaks_plainly_about_a_move(ns):
+    all_in_house(ns)
+    bundles = cut(ns)
+    go(ns, bundles, "STITCH")
+    lines = actions.consequences(last(K.MOVE), ns.owner)
+    assert lines[0].startswith("take back: ") and "pieces to Stitching" in lines[0]
+    assert not any("stage movement" in s or "StageMovement" in s for s in lines)

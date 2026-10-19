@@ -28,7 +28,7 @@
         <td class="num"><input type="text" inputmode="decimal" name="used_{{ rb.roll_id }}" value="{{ rb.typed_used }}"></td><td class="num"><input type="text" inputmode="decimal" name="waste_{{ rb.roll_id }}" value="{{ rb.typed_waste }}"></td><td class="num"><input type="text" inputmode="decimal" name="remnant_{{ rb.roll_id }}" value="{{ rb.typed_remnant }}"></td></tr>{% endfor %}</tbody>
     </table></div><p class="muted">What you used, wasted and returned should add up to what was issued. Used and waste become the lot's fabric cost; the remnant goes back to the store.</p>
     <div class="field" style="margin-top:12px"><label for="notes">Notes</label><input id="notes" name="notes" type="text" value="{{ vals.notes }}"></div>
-    <div class="form-actions"><button class="btn primary">Record cutting and make QR tags</button></div>
+    <div class="form-actions"><button class="btn primary">Record cutting and make bundles</button></div>
     {% else %}<div class="empty"><div class="hand">No fabric on the cutting floor</div><p><a href="{% url 'lot_fabric' lot.pk %}">Issue fabric</a> first.</p></div>{% endif %}
   </form>{% endif %}
   {% for e in entries %}
@@ -47,7 +47,7 @@
           <td class="num" data-bundle-count></td><td class="num" data-bundle-tally></td></tr>{% endfor %}</tbody>
       </table></div>
       <p class="muted">Type the pieces of every bundle as it came from the cutting floor, with a space between them: 25 25 22 18 makes four bundles. The bundles of a size must add up to the pieces cut.</p>
-      <div class="form-actions"><button class="btn primary">Make bundles and QR tags</button></div></form>{% elif e.bundled %}{% if e.bundles_step %}<p class="muted">Bundles made. Wrong pieces or wrong bundles? <a href="{% url 'step_delete' e.bundles_step.pk %}?edit=1">change the bundles</a> or <a href="{% url 'step_delete' e.bundles_step.pk %}">delete them</a>; the cutting itself can be changed once its bundles are deleted.</p>{% endif %}{% endif %}
+      <div class="form-actions"><button class="btn primary">Make bundles</button></div></form>{% elif e.bundled %}{% if e.bundles_step %}<p class="muted">Bundles made. Wrong pieces or wrong bundles? <a href="{% url 'step_delete' e.bundles_step.pk %}?edit=1">change the bundles</a> or <a href="{% url 'step_delete' e.bundles_step.pk %}">delete them</a>; the cutting itself can be changed once its bundles are deleted.</p>{% endif %}{% endif %}
   </div>{% endfor %}
   <script src="{% static 'js/bundle_tally.js' %}?v={{ asset_v }}" defer></script>
 {% endblock %}

@@ -208,6 +208,8 @@ class TagPrint(LoginRequiredMixin, ScreenPermissionMixin, View):
     screen_code = "inventory.labels"
 
     def get(self, request):
+        if request.GET.get("lot"):
+            return self._lot(request, request.GET["lot"])
         skus = SKU.objects.filter(is_active=True).select_related("style", "colour", "size")
         g = request.GET
         if g.get("style"):
@@ -222,6 +224,26 @@ class TagPrint(LoginRequiredMixin, ScreenPermissionMixin, View):
             "skus": skus[:300], "styles": Style.objects.filter(is_archived=False), "colours": Colour.objects.all(),
             "sizes": Size.objects.all(), "f": g, "layouts": LAYOUTS,
             "filtered": any(g.get(k) for k in ("style", "colour", "size")),
+        })
+
+    def _lot(self, request, lot_id):
+        """One tag per packed piece of a lot (owner, 19 Oct 2026)."""
+        from production.models import Lot
+        from production.services import bundles as bundle_service
+
+        lot = get_object_or_404(Lot.objects.for_user(request.user), pk=lot_id)
+        counts = bundle_service.packed_counts(lot)
+        if not counts:
+            messages.info(request, "Tags are printed once the lot is packed.")
+            return redirect("lot_detail", pk=lot.pk)
+        labels = []
+        for sku, n in counts.items():
+            sku = SKU.objects.select_related("style", "colour", "size").get(pk=sku.pk)
+            svg = barcode.svg(sku.barcode)
+            labels += [{"sku": sku, "svg": svg} for _ in range(n)]
+        return render(request, "inventory/labels.html", {
+            "labels": labels, "kind": "sku", "layout": request.GET.get("layout", "thermal2"), "layouts": LAYOUTS,
+            "show_mrp": True,
         })
 
     def post(self, request):

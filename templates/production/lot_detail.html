@@ -4,7 +4,7 @@
 {% block content %}
   <div class="page-head"><h1 class="page-title">{{ lot.style.style_no }} · {{ lot.colour }}</h1><span class="muted">{{ lot.lot_no }}</span><span class="pill">{{ lot.get_status_display }}</span>
     <div class="actions">
-      {% if bundles and can_tags %}<a class="btn" href="{% url 'lot_tags' lot.pk %}">Print tags</a>{% endif %}
+      {% if packed_any and can_print_tags %}<a class="btn" href="{% url 'tag_print' %}?lot={{ lot.pk }}">Print tags</a>{% endif %}
       {% if can_open_order %}<a class="btn ghost" href="{% url 'order_detail' lot.order_line.order.pk %}">{{ lot.order_line.order.number }}</a>{% endif %}</div></div>
   {% include "production/_lot_guide.html" %}
   <div class="island"><div class="field-row">
@@ -15,7 +15,7 @@
   <div class="island"><h2>Bundles</h2>
     {% if bundles %}<div class="table-wrap"><table>
       <thead><tr><th scope="col">Bundle</th><th scope="col">Size</th><th scope="col" class="num">Pieces</th><th scope="col">Stage</th><th scope="col">Where</th><th scope="col">Status</th></tr></thead>
-      <tbody>{% for b in bundles %}<tr><td>{{ b.bundle_no }}{% if b.split_from_id %} <span class="muted">from {{ b.split_from.bundle_no }}</span>{% if can_tags %} <a href="{% url 'lot_tags' lot.pk %}?bundle={{ b.pk }}">tag</a>{% endif %}{% endif %}</td><td>{{ b.sku.size.code }}</td><td class="num">{{ b.qty }}</td>
+      <tbody>{% for b in bundles %}<tr><td>{{ b.bundle_no }}{% if b.split_from_id %} <span class="muted">from {{ b.split_from.bundle_no }}</span>{% endif %}</td><td>{{ b.sku.size.code }}</td><td class="num">{{ b.qty }}</td>
         <td>{{ b.current_step.process.name|default:"Cut" }}{% if b.is_rework %} <span class="pill warning">Rework</span>{% endif %}{% if b.held_for_rework %} <span class="pill warning">Held for rework</span>{% endif %}</td><td>{{ b.where }}</td>
         <td><span class="pill">{{ b.get_status_display }}</span></td></tr>{% endfor %}</tbody>
     </table></div>

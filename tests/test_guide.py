@@ -614,7 +614,7 @@ def test_every_step_screen_has_a_way_back_to_the_lot_for_those_who_may_open_it(n
     ch = issue(ns, ns.bundles[:1])
     rec = receive(ns, ch)
     back = f'<a class="btn" href="{reverse("lot_detail", args=[ns.lot.pk])}">Back to lot</a>'
-    pages = [reverse("lot_tags", args=[ns.lot.pk]), reverse("lot_cutting", args=[ns.lot.pk]), reverse("lot_fabric", args=[ns.lot.pk]),
+    pages = [reverse("lot_cutting", args=[ns.lot.pk]), reverse("lot_fabric", args=[ns.lot.pk]),
              reverse("challan_detail", args=[ch.pk]), reverse("receipt_detail", args=[rec.pk])]
     c = login(ns.owner)
     for url in pages:
@@ -626,7 +626,7 @@ def test_every_step_screen_has_a_way_back_to_the_lot_for_those_who_may_open_it(n
     assert html.status_code == 200 and "Back to lot" not in html.content.decode() and f'href="{lot_url}"' not in html.content.decode()
     cutter = user_with("cutter_back", "Cutting Master", ns.factory)
     k = login(cutter)
-    for url in pages[:3]:
+    for url in pages[:2]:                                    # cutting and fabric: a cutting master's screens
         page = k.get(url)
         assert page.status_code == 200 and "Back to lot" not in page.content.decode(), url
 

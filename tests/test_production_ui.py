@@ -65,15 +65,14 @@ def test_order_cutting_and_qr_tags_through_the_screens(company, factory, owner):
     r = c.post(url, {"date": "2026-06-16", **rolls})
     assert r.status_code == 200 and "Enter the pieces in each bundle received" in r.content.decode() and not lot.cuttings.exists()
     r = c.post(url, {"date": "2026-06-16", sz["S"]: "10", sz["M"]: "12 5 3", sz["L"]: "9, 11", sz["XL"]: "4 6", **rolls})
-    assert r.status_code == 302 and r.url == reverse("lot_tags", args=[lot.pk])                           # straight on to the tags
+    assert r.status_code == 302 and r.url == reverse("lot_detail", args=[lot.pk])                         # no tags while it is being made
     entry = lot.cuttings.get()
     assert entry.bundled and entry.expected_pieces == 62 and entry.variance_pct == D("-3.23") and not entry.over_tolerance   # 25 kg burnt, 60 cut
     assert {cs.size.code: (cs.pieces, cs.loss) for cs in entry.sizes.all()} == {"S": (10, 0), "M": (20, 0), "L": (20, 0), "XL": (10, 0)}
     assert [b.qty for b in lot.bundles.order_by("bundle_no")] == [10, 12, 5, 3, 9, 11, 4, 6]
-    tags = c.get(reverse("lot_tags", args=[lot.pk]))
-    html = tags.content.decode()
+    tags = c.get(reverse("lot_tags", args=[lot.pk]), follow=True)
+    assert "Tags are printed once the lot is packed." in tags.content.decode()                       # piece tags come after packing
     first = lot.bundles.first()
-    assert "<svg" in html and first.bundle_no in html and html.count('class="tag"') == lot.bundles.count()
     zpl = c.get(reverse("lot_zpl", args=[lot.pk]))
     assert zpl["Content-Type"].startswith("text/plain") and zpl.content.decode().count("^XA") == lot.bundles.count()
     assert f"GE1:{first.qr_token}" in zpl.content.decode()
@@ -435,9 +434,7 @@ def test_qc_screen_splits_rework_pieces_and_offers_their_tag(company, factory, o
     c.post(reverse("receipt_detail", args=[rec.pk]), {"action": "qc", "line": l1.pk, "accepted": "20", "rejected": "0", "rework": "5"})
     child = Bundle.objects.get(split_from=bundles[1])
     page = c.get(reverse("receipt_detail", args=[rec.pk])).content.decode()
-    assert "as bundle B002-R1" in page and f"?bundle={child.pk}" in page
-    tags = c.get(reverse("lot_tags", args=[ns.lot.pk]), {"bundle": child.pk}).content.decode()
-    assert "B002-R1" in tags
+    assert "as bundle B002-R1" in page and "print its tag" not in page                                # no bundle tags in production
     lot_page = c.get(reverse("lot_detail", args=[ns.lot.pk])).content.decode()
     assert "from B002" in lot_page
     form = c.get(reverse("challan_new"), {"lot": ns.lot.pk, "kind": "rework", "step": step(ns, "STITCH").pk}).content.decode()

@@ -138,7 +138,7 @@ The system supplies these. Copy and adjust rather than starting from blank.
 | Production Planner | Planner | Production orders and route planning |
 | Production Supervisor | Floor supervisor | Move bundles, challans, receipts, QC |
 | QC Checker | QC | Accept, reject, send back |
-| Cutting Master | Cutting | Cutting entries, bundle tags |
+| Cutting Master | Cutting | Cutting entries and bundles |
 | Store Keeper | Store | Goods received (GRN), transfers, opening stock, labels |
 | Billing Clerk | Billing | Invoices, packing, dispatch |
 | Salesperson | Sales | Orders and own customers |
@@ -891,7 +891,7 @@ Part A prepared the masters. This part follows one lot from the production order
 | --- | --- | --- |
 | 1 | Make → Production orders → New order → **Release order** (or **Release** in the list) | Order numbered; one **lot** per style and colour, each with its own copy of the route |
 | 2 | Lot → Next button **Issue fabric** | Rolls move from godown to cutting floor |
-| 3 | Lot → Next button **Record cutting**: the pieces in each bundle received, and the fabric used (continues to the tags) | Fabric cost goes into the lot; the pieces received become **bundles** with QR tags |
+| 3 | Lot → Next button **Record cutting**: the pieces in each bundle received, and the fabric used | Fabric cost goes into the lot; the pieces received become **bundles** |
 | 4 | Lot → Next button **Move to …** (in-house step) or **Send to … for …** (fabricator step) | Bundle moves to the next step on the route |
 | 5 | Lot → Next button **Receive from …**, then **Check received pieces** | Accepted pieces become ready for the next step; pieces for rework become a bundle of their own and go back |
 | 6 | Repeat 4–5 down the route | |
@@ -1076,7 +1076,7 @@ You record what you receive from the cutting floor. Bundles come with different 
 
 In **Pieces in each bundle**, type the pieces of every bundle of that size with a space (or a comma) between them: `25 25 22 18` makes four bundles of 25, 25, 22 and 18 pieces. As you type, the row shows the number of bundles and the pieces they hold. Leave a size empty if none came.
 
-Press **Record cutting and make QR tags**. The cutting is saved, the bundles are made, and you go straight on to the tags.
+Press **Record cutting and make bundles**. The cutting is saved, the bundles are made, and you go back to the lot.
 
 - Used and waste become the lot's fabric cost. Remnant goes back to the godown.
 - You cannot use more than the roll holds on the cutting floor.
@@ -1092,7 +1092,7 @@ To change a cutting (its bundles, its pieces or its fabric), use **Edit this cut
 
 ### 22.3 Print tags
 
-Lot page → **Print tags** (also shown after recording a cutting): choose **A4 sheet**, **Thermal 4 x 2 in** or **Thermal 2 x 1 in** and press Print, or download the **ZPL** file for a Zebra-type printer. Each tag shows the QR, style, colour and size, quantity, bundle number and lot number. Attach a tag to every bundle. All later work is done by scanning it.
+Tags are printed **after packing**, not while the lot is being made. Once a lot has packed pieces, its page shows **Print tags**: it prints one piece tag (style, colour, size, barcode and price) for every packed piece, size by size. While the lot is being made, bundles are picked from the list on each screen (moving, sending to a fabricator, receiving); there are no bundle tags to print.
 
 ---
 
@@ -1189,7 +1189,7 @@ Lot page or challan page → Next button **Receive from …**, Home → **Receiv
 Press **Receive**. Scanning the bundle tags ticks the rows, and the box in the table heading ticks them all.
 
 - Counted **less than** issued records a **shortage**. It is valued at lot cost and recoverable on the labour bill.
-- **Held for rework.** When the fabricator has kept some pieces back to fix them, enter them under **Held for rework**. Only the pieces that are neither counted nor held are a shortage: issued 25, counted 20, held 3 records a shortage of 2. The held pieces are split into a bundle of their own (B002-R1) that stays with the fabricator **on the same challan**, as a line marked **Held for rework, from B002**. The challan stays **Partly received** and the lot keeps waiting for them. When they come back, receive that bundle like any other (scan its new tag, or tick it) and check it at QC. They are paid at the challan's **normal** rate, like the rest of the bundle, and no piece is paid twice: the first bundle is paid on the pieces received on it, the held bundle on its own. If held pieces never come back, receive their bundle with **0** counted: they become a shortage then. You cannot hold back every piece of a bundle; leave that bundle off the receipt until it comes back.
+- **Held for rework.** When the fabricator has kept some pieces back to fix them, enter them under **Held for rework**. Only the pieces that are neither counted nor held are a shortage: issued 25, counted 20, held 3 records a shortage of 2. The held pieces are split into a bundle of their own (B002-R1) that stays with the fabricator **on the same challan**, as a line marked **Held for rework, from B002**. The challan stays **Partly received** and the lot keeps waiting for them. When they come back, receive that bundle like any other (tick it in the list) and check it at QC. They are paid at the challan's **normal** rate, like the rest of the bundle, and no piece is paid twice: the first bundle is paid on the pieces received on it, the held bundle on its own. If held pieces never come back, receive their bundle with **0** counted: they become a shortage then. You cannot hold back every piece of a bundle; leave that bundle off the receipt until it comes back.
 - The challan page shows a **Held for rework** column and, at the top, the pieces still held and with whom. Its **Pieces** figure counts the held pieces once, as issued on the first line. The fabricator ledger (*Job work reports*) shows them in the column **of which held for rework**. The printed challan marks a held line as "not counted again".
 - Counted **more than** issued is an **over-receipt**. Nothing moves, and the receipt waits for the owner. The owner opens the receipt and presses **Approve over-receipt**. Until then QC is blocked.
 - A bundle cannot be received twice. A bundle counted on an over-receipt that still waits for approval is not listed again and cannot be received again ("Bundle … is on a receipt waiting for the owner's approval"); approve that receipt first.
@@ -1212,7 +1212,7 @@ Press **Receive**. Scanning the bundle tags ticks the rows, and the box in the t
 Press **Save QC**. The rules:
 
 - Accepted + Rejected + Rework must equal the pieces received.
-- Accepted and rework can be mixed. The rework pieces are then **split into a bundle of their own**, numbered after the first (B002 gives B002-R1), so the accepted pieces move on without waiting. The receipt shows "as bundle B002-R1" with a link to **print its tag**; put that tag on the pieces going back. With nothing accepted, the whole bundle goes back as it is.
+- Accepted and rework can be mixed. The rework pieces are then **split into a bundle of their own**, numbered after the first (B002 gives B002-R1), so the accepted pieces move on without waiting. The receipt shows "as bundle B002-R1"; pick it from the list when you send it back. With nothing accepted, the whole bundle goes back as it is.
 - QC is recorded once per bundle.
 
 Results:
@@ -1228,7 +1228,7 @@ What is payable follows the challan's **Pay on**: the accepted pieces, or every 
 
 | Step | What the user does | Bundle status after |
 | --- | --- | --- |
-| 1 Cutting | Issue fabric, record the cutting, make bundles, print tags | Cut |
+| 1 Cutting | Issue fabric, record the cutting, make bundles | Cut |
 | 2 Embroidery (Royal Embroidery) | Send to fabricator for all bundles, issue, print. Later: Receive, then QC (say 296 accepted, 4 rejected) | Ready for next stage |
 | 3 Stitching (Gurpreet Garments) | Send to fabricator, issue. Later: Receive, then QC | Ready for next stage |
 | 4 Ironing (in-house) | Move bundles to "Ironing and pressing"; enter Loss on a row if a piece was damaged | At stage |

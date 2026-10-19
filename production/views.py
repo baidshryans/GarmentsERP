@@ -8,6 +8,7 @@ from django.core.exceptions import PermissionDenied
 from django.db import transaction
 from django.db.models import Count, Q, Sum
 from django.http import HttpResponse
+from django.urls import reverse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.views import View
@@ -263,6 +264,8 @@ class LotDetail(LoginRequiredMixin, ScreenPermissionMixin, View):
             "can_move": request.user.has_screen_perm("production.move", "create"),
             "can_pack": request.user.has_screen_perm("production.move", "create"),
             "can_tags": request.user.has_screen_perm("production.bundle", "view"),
+            "can_print_tags": request.user.has_screen_perm("inventory.labels", "view"),
+            "packed_any": any(b.status == Bundle.Status.PACKED for b in bundles),
             "can_open_order": request.user.has_screen_perm("production.order", "view"),
             "pack_ready": pack_ready,
             "box_plan": boxes.plan_for_bundles([b for b in pack_ready if not b.rework_qty], lot.company),   # if all of them are packed
@@ -465,8 +468,8 @@ class CuttingView(LoginRequiredMixin, ScreenPermissionMixin, View):
                 # a cutting recorded earlier without its bundles
                 counted = {cs.size: _typed_bundles(p, cs.size) for cs in entry.sizes.select_related("size")}
                 made = cutting.create_bundles(entry, bundles=counted, user=request.user)
-                messages.success(request, f"{len(made)} bundles made. Print their QR tags now.")
-                return redirect("lot_tags", pk=pk)
+                messages.success(request, f"{len(made)} bundles made.")
+                return redirect("lot_detail" if request.user.has_screen_perm("production.lot", "view") else "lot_cutting", pk=pk)
             counted = {ss.size: _typed_bundles(p, ss.size) for ss in lot.style.style_sizes.select_related("size")}
             rolls = []
             for key in p:
@@ -484,9 +487,8 @@ class CuttingView(LoginRequiredMixin, ScreenPermissionMixin, View):
             messages.warning(request, f"Pieces cut are {entry.variance_pct}% against the estimate ({entry.expected_pieces} expected from the fabric burnt): beyond the {lot.company.bom_tolerance_pct}% tolerance (BR-10).")
         made = entry.bundles.count()
         messages.success(request, f"Cutting {entry.lay_no} recorded: {sum(cs.pieces for cs in entry.sizes.all())} pieces in {made} bundle(s)."
-                         + (f" Against the estimate of {entry.expected_pieces} pieces: {entry.variance_pct}%." if entry.variance_pct is not None and not entry.over_tolerance else "")
-                         + " Print their QR tags now.")
-        return redirect("lot_tags", pk=pk)
+                         + (f" Against the estimate of {entry.expected_pieces} pieces: {entry.variance_pct}%." if entry.variance_pct is not None and not entry.over_tolerance else ""))
+        return redirect("lot_detail" if request.user.has_screen_perm("production.lot", "view") else "lot_cutting", pk=pk)
 
 
 # ================================================================ QR tags (E7.5)
@@ -561,6 +563,10 @@ class LotTags(LoginRequiredMixin, ScreenPermissionMixin, View):
 
     def get(self, request, pk):
         lot = get_object_or_404(Lot.objects.for_user(request.user).select_related("style", "colour"), pk=pk)
+        if not bundle_service.packed_counts(lot):
+            messages.info(request, "Tags are printed once the lot is packed.")
+            return redirect("lot_detail", pk=pk)
+        return redirect(f"{reverse('tag_print')}?lot={lot.pk}")
         qs = lot.bundles.select_related("sku__size", "sku__colour").order_by("bundle_no")
         if request.GET.get("bundle"):
             qs = qs.filter(pk=request.GET["bundle"])

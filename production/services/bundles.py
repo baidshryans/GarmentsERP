@@ -432,6 +432,16 @@ def packing_step(lot):
     return steps[0] if steps else None
 
 
+def packed_counts(lot) -> dict:
+    """{SKU: pieces packed} of a lot, from its packed bundles: what its piece tags are printed for."""
+    from masters.models import SKU
+
+    rows = (Bundle.objects.filter(lot=lot, status=Bundle.Status.PACKED).values("sku_id").annotate(n=Sum("qty"))
+            .order_by("sku_id"))
+    skus = SKU.objects.in_bulk([r["sku_id"] for r in rows])
+    return {skus[r["sku_id"]]: r["n"] for r in rows if r["n"]}
+
+
 @actions.recorded(actions.Kind.PACK, _pack_step)
 @transaction.atomic
 def pack_bundles(*, bundles, user, date=None, location=None, materials=None) -> list:

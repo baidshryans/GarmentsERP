@@ -1409,13 +1409,13 @@ def test_the_goods_received_list_shows_edit_and_delete_only_to_a_role_that_may_e
     assert reverse("grn_edit", args=[posted.pk]) not in page(ns.owner, "grn_list")
 
 
-def test_goods_received_can_be_cancelled_with_cancel_or_edit_and_cancel_gives_nothing_else(ns):
+def test_goods_received_are_deleted_only_with_the_cancel_right_and_cancel_gives_nothing_else(ns):
     g1 = received(ns)
     canceller = role_user("grn_canceller", {"purchases.grn": ["view", "cancel"]}, ns.factory)
     editor = role_user("grn_editor", {"purchases.grn": ["view", "edit"]}, ns.factory)
     viewer = role_user("grn_viewer", {"purchases.grn": ["view"]}, ns.factory)
     form = '<input type="hidden" name="action" value="cancel">'
-    assert form in page(canceller, "grn_detail", g1.pk) and form in page(editor, "grn_detail", g1.pk)
+    assert form in page(canceller, "grn_detail", g1.pk) and form not in page(editor, "grn_detail", g1.pk)
     assert form not in page(viewer, "grn_detail", g1.pk)
     r = login(viewer).post(reverse("grn_detail", args=[g1.pk]), {"action": "cancel", "reason": "wrong supplier"})
     assert r.status_code == 403 and grn_of(g1).status == "posted"
@@ -1427,10 +1427,10 @@ def test_goods_received_can_be_cancelled_with_cancel_or_edit_and_cancel_gives_no
     for action in ("save_qc", "finish_qc", "accept_all", "post"):
         assert login(canceller).post(reverse("grn_detail", args=[g2.pk]), qc_form(g2, action)).status_code == 403, action
     assert grn_of(g2).status == "draft"
-    # a role with edit (the store keeper) can still cancel, as it always could
+    # edit (the store keeper) does not delete: a delete removes the goods, their stock and journal entry for good
     g3 = received(ns)
-    r = login(editor).post(reverse("grn_detail", args=[g3.pk]), {"action": "cancel"}, follow=True)
-    assert "Goods received deleted" in r.content.decode() and not Grn.objects.filter(pk=g3.pk).exists()
+    r = login(editor).post(reverse("grn_detail", args=[g3.pk]), {"action": "cancel"})
+    assert r.status_code == 403 and Grn.objects.filter(pk=g3.pk).exists()
 
 
 def test_the_bill_form_leaves_out_quantity_already_on_another_draft_bill_and_says_so(ns):

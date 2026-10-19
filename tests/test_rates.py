@@ -227,3 +227,21 @@ def test_bom_has_no_charges(company):
     from masters import models as m
 
     assert not hasattr(m, "BomCharge")
+
+
+def test_a_bundle_sent_back_two_steps_is_not_paid_again_for_the_step_between(company, factory, owner):
+    """Review finding: sent back from FINISH to STITCH, the bundle passes IRON a second time; IRON was already paid."""
+    ns = build(company, factory, owner)
+    for s in ns.lot.steps.all():
+        s.assignment, s.party, s.factory = "in_house", None, factory
+        s.save()
+    set_inhouse_rate("IRON", "5")
+    bundles = cut(ns)
+    go(ns, bundles, "STITCH")
+    go(ns, bundles, "IRON")
+    go(ns, bundles, "FINISH")                                 # ironing paid once: 100 x 5
+    before = costing.cost_breakdown(ns.lot)["labour"]
+    go(ns, bundles[:1], "STITCH", reason="Redo")              # back two steps
+    go(ns, bundles[:1], "IRON")
+    go(ns, bundles[:1], "FINISH")                             # through ironing again: not paid again
+    assert costing.cost_breakdown(ns.lot)["labour"] == before

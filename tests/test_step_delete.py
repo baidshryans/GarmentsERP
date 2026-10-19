@@ -97,6 +97,13 @@ def test_delete_the_newest_step_on_lot_a_after_lot_b_used_the_same_trim(company,
 
     from production.services import orders
 
+    """Review Focus 1: lot A takes zippers, a new zipper receipt at another rate changes the average, lot B takes
+    zippers at that average, then lot A's newest step is deleted. Lot B is untouched; the zippers lot A took come
+    back at exactly the value they left at; the books and stock still reconcile (autouse fixture)."""
+    from core.services.factories import godown_location
+    from inventory.models import StockBalance
+    from inventory.services.opening import OpeningItem, post_opening_stock
+
     a = build(company, factory, owner)
     all_in_house(a)
     a_bundles = cut(a)
@@ -104,15 +111,32 @@ def test_delete_the_newest_step_on_lot_a_after_lot_b_used_the_same_trim(company,
                                 lines=[orders.OrderLineSpec(a.style, a.black, 20, {a.sizes["M"]: 1})])
     b = SimpleNamespace(**{**vars(a), "order": orders.release_order(order, user=owner)})
     b.lot = b.order.lines.get().lot
+    all_in_house(b)
     cutting.issue_fabric(lot=b.lot, lines=[(a.roll_b, D("20"))], user=owner, date=DAY)
     cutting.receive_cutting(lot=b.lot, user=owner, date=DAY, bundles={b.sizes["M"]: [20]},
                             rolls=[cutting.RollUseSpec(a.roll_b, used=D("8"), waste=D("0"), remnant=D("12"))])
-    go(a, a_bundles, "STITCH")                                  # the newest step on lot A, after lot B's cutting
+    godown = godown_location(factory)
+
+    def zips():
+        bal = StockBalance.objects.get(location=godown, material=a.zipper)
+        return bal.qty, bal.value
+
+    start = zips()                                              # 1000 at 2
+    go(a, a_bundles, "STITCH", materials=[(a.zipper, D("100"))])  # lot A takes 100 zippers at 2
+    a_took = StockMovement.objects.get(lot=a.lot, material=a.zipper, qty=D("-100"))
+    post_opening_stock(company=company, factory=factory, location=godown, user=owner, date=DAY,
+                       entries=[OpeningItem(a.zipper, D("500"), D("5"))])          # the average moves
+    go(b, list(Bundle.objects.filter(lot=b.lot)), "STITCH", materials=[(a.zipper, D("20"))])
     b_moves = set(StockMovement.objects.filter(lot=b.lot).values_list("pk", "qty", "value"))
-    b_vouchers = set(Voucher.objects.filter(source_type="production.cuttingentry").values_list("pk", "total"))
-    actions.delete_step(last(K.MOVE), user=owner)
+    b_vouchers = set(Voucher.objects.filter(pk__in=StockMovement.objects.filter(lot=b.lot).values("voucher_id"))
+                     .values_list("pk", "total"))
+    before_delete = zips()
+    actions.delete_step(ProductionAction.objects.filter(lot=a.lot, kind=K.MOVE).latest("pk"), user=owner)
     assert set(StockMovement.objects.filter(lot=b.lot).values_list("pk", "qty", "value")) == b_moves
-    assert set(Voucher.objects.filter(source_type="production.cuttingentry").values_list("pk", "total")) == b_vouchers
+    after = zips()
+    assert after == (before_delete[0] + 100, before_delete[1] - a_took.value)       # back at the value it left at
+    assert after[0] == start[0] + 500 - 20
+    assert set(Voucher.objects.filter(pk__in=[pk for pk, _ in b_vouchers]).values_list("pk", "total")) == b_vouchers
     assert Bundle.objects.filter(lot=b.lot).count() == 1
 
 

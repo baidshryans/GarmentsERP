@@ -289,12 +289,19 @@ def hold_back(bundle, count, *, user, date) -> Bundle:
     return child
 
 
+def _left_before(bundle, step) -> bool:
+    """Has this bundle already gone forward out of this step once? Then its pieces were paid for it, and passing
+    through it again after being sent back earlier is not paid again (owner, 19 Oct 2026)."""
+    return StageMovement.objects.filter(bundle=bundle, from_step=step, is_rework=False, kind__in=(
+        StageMovement.Kind.MOVE, StageMovement.Kind.FACTORY, StageMovement.Kind.ISSUE)).exists()
+
+
 def accrue_leaving_labour(lot, items, date, user, note):
     """In-house piece-rate labour for stages bundles are leaving. items = [(bundle, stage left, pieces that pass)]."""
     labour = {}                                   # (factory, stage left) -> [amount, pieces, rate]
     for b, in_step, passing in items:
         if in_step is not None and in_step.assignment == LotStep.Assignment.IN_HOUSE and passing > 0:
-            amount, rate = costing.inhouse_amount(in_step, passing, date, rework=b.is_rework)
+            amount, rate = costing.inhouse_amount(in_step, passing, date, rework=b.is_rework or _left_before(b, in_step))
             if amount > 0:
                 row = labour.setdefault((b.location.factory, in_step), [ZERO, 0, rate])
                 row[0] += amount

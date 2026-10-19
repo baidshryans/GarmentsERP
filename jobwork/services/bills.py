@@ -284,8 +284,12 @@ def delete_bill(bill, *, user) -> None:
         for payment in settled_against(bill.voucher):
             raise BusinessRuleError(f"{payment.get_voucher_type_display()} {payment.number} is settled against this bill. "
                                     f"Delete the {payment.get_voucher_type_display().lower()} first.")
-        assert_period_open(bill.company, bill.factory, bill.date)
-        assert_period_open(bill.company, bill.factory, max(timezone.localdate(), bill.date))
+    # the bill's own date, today (its reversal, if it is posted now) and any reversal made earlier: none may be locked
+    assert_period_open(bill.company, bill.factory, bill.date)
+    assert_period_open(bill.company, bill.factory, max(timezone.localdate(), bill.date))
+    if bill.voucher_id:
+        for rev_date in Voucher.objects.filter(reverses_id=bill.voucher_id).values_list("date", flat=True):
+            assert_period_open(bill.company, bill.factory, rev_date)
     voucher_id = bill.voucher_id
     if bill.status != JobWorkBill.Status.CANCELLED:
         cancel_bill(bill, user=user, reason="Deleted")

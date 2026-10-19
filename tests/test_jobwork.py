@@ -845,3 +845,17 @@ def test_a_bill_covering_two_lots_names_both_before_it_is_deleted(ns, company, f
     bill = bills.post_bill(bills.create_bill(company=company, factory=factory, party=ns.fab, date=DAY, user=ns.owner), user=ns.owner)
     text = " ".join(bills.consequences(bill, ns.owner))
     assert ns.lot.lot_no in text and lot2.lot_no in text and bill.voucher.number in text
+
+
+def test_deleting_a_cancelled_bill_respects_a_locked_period(ns, company, factory):
+    """Review finding: a bill cancelled earlier has its entry and its reversal; purging them must not touch a
+    locked month."""
+    from core.services import periods
+
+    accepted_challan(ns)
+    bill = bills.post_bill(bills.create_bill(company=company, factory=factory, party=ns.fab, date=DAY, user=ns.owner), user=ns.owner)
+    bills.cancel_bill(bill, user=ns.owner, reason="Wrong rate")
+    periods.lock_period(company=company, upto=DAY, user=ns.owner)
+    with pytest.raises(BusinessRuleError, match="locked"):
+        bills.delete_bill(bill, user=ns.owner)
+    assert bill.__class__.objects.filter(pk=bill.pk).exists()

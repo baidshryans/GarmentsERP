@@ -17,7 +17,7 @@ from core.exceptions import BusinessRuleError
 from core.models import Factory, Location
 from core.scoping import ScreenPermissionMixin
 from core.services.active_factory import in_active, require_active_factory
-from core.services.factories import cutting_location, godown_location
+from core.services.factories import choices_for, cutting_location, godown_location
 from inventory.models import RollBalance
 from masters.models import Colour, Material, Party, Process, Size, Style
 
@@ -262,7 +262,7 @@ class LotDetail(LoginRequiredMixin, ScreenPermissionMixin, View):
             "box_plan": boxes.plan_for_bundles([b for b in pack_ready if not b.rework_qty], lot.company),   # if all of them are packed
             "packs": lot.pack_entries.prefetch_related("lines__sku__size"),
             "unused_lines": material_service.unused_lines(lot),
-            "dispatch_locations": Location.objects.filter(factory=lot.factory, is_active=True).exclude(loc_type__in=("transit", "rejects", "fabricator")),
+            "dispatch_locations": choices_for(lot.factory, "pack"),
         })
 
     def post(self, request, pk):

@@ -9,6 +9,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.views import View
 
+from core.services.factories import choices_for
 from core.exceptions import BusinessRuleError
 from core.models import Company, Factory, Location
 from core.scoping import ScreenPermissionMixin
@@ -496,7 +497,7 @@ class ExcelImport(LoginRequiredMixin, ScreenPermissionMixin, View):
         kinds = [(k, spec["title"], spec["notes"]) for k, spec in imports.TEMPLATES.items()
                  if request.user.has_screen_perm(IMPORT_PERMISSION[k], "create")]
         return {"kinds": kinds, "result": result, "kind": kind, "factory": request.factory,
-                "locations": Location.objects.filter(factory=request.factory, is_active=True).exclude(loc_type="transit")}
+                "locations": choices_for(request.factory, "any") if request.factory else []}
 
     def get(self, request):
         return render(request, "masters/import.html", self._ctx(request))

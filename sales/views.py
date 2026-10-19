@@ -12,6 +12,7 @@ from django.utils import timezone
 from django.views import View
 
 from core import viewutils as vu
+from core.services.factories import choices_for
 from core.exceptions import BusinessRuleError
 from core.models import Location
 from core.scoping import ScreenPermissionMixin
@@ -63,9 +64,14 @@ def _customers(keep=None):
     return Party.objects.filter(is_customer=True, is_active=True)
 
 
-def _locations(factory):
-    return Location.objects.filter(factory=factory, is_active=True).exclude(
-        loc_type__in=packing_service.NOT_PACKED_FROM) if factory else Location.objects.none()
+def _locations(factory, purpose="sell"):
+    """Where goods leave from when selling (Ready Goods first), or where returned goods come back to (Godown)."""
+    return choices_for(factory, purpose) if factory else []
+
+
+def _location_qs(factory, purpose="sell"):
+    """The same places, as a queryset to check a posted choice against."""
+    return Location.objects.filter(pk__in=[l.pk for l in _locations(factory, purpose)])
 
 
 def _can(request, screen, action):
@@ -443,7 +449,7 @@ class PackingSave(LoginRequiredMixin, ScreenPermissionMixin, View):
                         items[l.sku] = _dec(raw, f"Carton {i} quantity of {l.sku}")
                 if items:
                     specs.append(packing_service.CartonSpec(items))
-            location = _choose(_locations(order.factory), p.get("location"), "location")
+            location = _choose(_location_qs(order.factory), p.get("location"), "location")
             kwargs = dict(order=order, location=location, date=_day(p.get("date"), "Date"), cartons=specs, user=request.user,
                           transporter=Party.objects.filter(pk=_pk(p.get("transporter")), is_transporter=True).first(),
                           lr_no=p.get("lr_no", ""), lr_date=_day(p["lr_date"]) if p.get("lr_date") else None,
@@ -612,7 +618,7 @@ class Billing(LoginRequiredMixin, ScreenPermissionMixin, View):
             inv = invoices.save_invoice(
                 company=_company(), factory=factory, customer=vu.chosen(_customers(), p.get("customer"), "customer"),
                 date=_day(p.get("date"), "Date"), lines=_line_specs(p), user=request.user,
-                location=_choose(_locations(factory), p.get("location"), "location"), notes=p.get("notes", ""), **_tax_args(p))
+                location=_choose(_location_qs(factory), p.get("location"), "location"), notes=p.get("notes", ""), **_tax_args(p))
             if p.get("action") == "post":
                 inv = invoices.post_invoice(inv, user=request.user)
                 messages.success(request, f"Bill {inv.number} posted.")
@@ -768,7 +774,7 @@ class CreditNoteNew(LoginRequiredMixin, ScreenPermissionMixin, View):
 
     def _ctx(self, request, inv, p=None):
         return {"inv": inv, "lines": [l for l in inv.lines.select_related("sku__style", "sku__colour", "sku__size") if l.returnable > 0],
-                "locations": _locations(inv.factory), "p": p or {}, "today": timezone.localdate().isoformat()}
+                "locations": _locations(inv.factory, "receive"), "p": p or {}, "today": timezone.localdate().isoformat()}
 
     def get(self, request, pk):
         return render(request, "sales/creditnote_form.html", self._ctx(request, self._inv(request, pk)))
@@ -782,7 +788,7 @@ class CreditNoteNew(LoginRequiredMixin, ScreenPermissionMixin, View):
                 if raw:
                     pairs.append((line, _dec(raw, f"Returned quantity of {line.sku}")))
             note = credit_notes.save_credit_note(
-                invoice=inv, location=_choose(_locations(inv.factory), p.get("location"), "location"),
+                invoice=inv, location=_choose(_location_qs(inv.factory, "receive"), p.get("location"), "location"),
                 date=_day(p.get("date"), "Date"), lines=pairs, reason=p.get("reason", ""), user=request.user)
         except ERRORS as exc:
             _msgs(request, exc)

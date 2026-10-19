@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load forms_ui %}
 {% load static %}
 {% block title %}Opening stock{% endblock %}
 {% block content %}
@@ -9,7 +10,7 @@
     {% csrf_token %}
     <div class="field-row">
       <div class="field"><label>Factory</label><div class="static-value">{{ factory.code }} — {{ factory.name }}</div></div>
-      <div class="field"><label for="location">Location</label><select id="location" name="location">{% for l in locations %}<option value="{{ l.pk }}" data-factory="{{ l.factory_id }}" {% if d.location == l.pk|stringformat:"s" %}selected{% endif %}>{{ l.name }}</option>{% endfor %}</select></div>
+      {% location_field "location" "Location" locations d.location %}
       <div class="field"><label for="date">As at</label><input id="date" name="date" type="date" value="{{ d.date|default:today }}"></div>
     </div>
     <div class="table-wrap"><table data-entry>

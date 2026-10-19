@@ -27,6 +27,32 @@ def location_of(factory, loc_type):
     return loc
 
 
+# Which places a form offers, by what it does. The default (the first) is the one the owner named: everything
+# received goes to the Godown, packed pieces to Ready Goods, sales leave from Ready Goods.
+PURPOSE_TYPES = {
+    "receive": ("godown",),
+    "pack": ("dispatch", "showroom"),
+    "sell": ("dispatch", "showroom", "godown"),   # Ready Goods first; finished stock already in a godown stays sellable
+    "any": Location.VISIBLE_TYPES,
+}
+ORDER = {t: i for i, t in enumerate(("godown", "dispatch", "showroom", "rejects"))}
+
+
+def choices_for(factories, purpose):
+    """Visible locations of these factories that a form for `purpose` may use, default first. `factories` is one
+    factory, a list or a queryset. Each factory's default kind is made if it is missing."""
+    from core.models import Factory
+
+    if isinstance(factories, Factory):
+        factories = [factories]
+    factories = list(factories)
+    kinds = PURPOSE_TYPES[purpose]
+    for f in factories:
+        location_of(f, kinds[0])
+    rows = Location.objects.visible().filter(factory__in=factories, loc_type__in=kinds).select_related("factory")
+    return sorted(rows, key=lambda l: (l.factory.code, ORDER.get(l.loc_type, 9), l.pk))
+
+
 def transit_location(factory):
     """Stock on the way between factories."""
     return location_of(factory, Location.Type.TRANSIT)

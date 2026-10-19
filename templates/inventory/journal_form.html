@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load forms_ui %}
 {% load static %}
 {% block title %}New stock journal{% endblock %}
 {% block content %}
@@ -6,7 +7,7 @@
   <form method="post" novalidate>{% csrf_token %}
     <div class="island"><div class="field-row">
       <div class="field"><label>Factory</label><div class="static-value">{{ factory.code }} — {{ factory.name }}</div></div>
-      <div class="field"><label for="location">Location</label><select id="location" name="location">{% for l in locations %}<option value="{{ l.pk }}" data-factory="{{ l.factory_id }}" {% if d.location == l.pk|stringformat:"s" %}selected{% endif %}>{{ l.name }}</option>{% endfor %}</select></div>
+      {% location_field "location" "Location" locations d.location %}
       <div class="field"><label for="date">Date</label><input id="date" name="date" type="date" value="{{ d.date|default:today }}" required></div>
       <div class="field"><label for="reason">Reason</label><select id="reason" name="reason">{% for v, l in reasons %}<option value="{{ v }}" {% if d.reason == v %}selected{% endif %}>{{ l }}</option>{% endfor %}</select></div>
     </div><div class="field"><label for="remarks">Notes</label><input id="remarks" name="remarks" type="text" value="{{ d.remarks }}"></div></div>

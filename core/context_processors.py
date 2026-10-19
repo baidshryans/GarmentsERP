@@ -54,6 +54,7 @@ NAV = [
         ("salecn_list", "Returns from customer", "sales.creditnote", "credit notes"),
     ]),
     ("Stock", [
+        ("where_stock", "Where is my stock", "inventory.stock", "locations godown ready goods work in progress"),
         ("stock_enquiry", "Stock", "inventory.stock"),
         ("roll_list", "Fabric rolls", "inventory.stock"),
         ("transfer_list", "Transfers", "inventory.transfer"),

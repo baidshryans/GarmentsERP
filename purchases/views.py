@@ -9,6 +9,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.views import View
 
+from core.services.factories import choices_for
 from core.exceptions import BusinessRuleError
 from core import forms_ui, viewutils as vu
 from core.models import Company, Location
@@ -301,7 +302,7 @@ class GrnSave(LoginRequiredMixin, ScreenPermissionMixin, View):
         if rows is None:
             rows = self._rows_from_grn(grn) if grn else (self._rows_from_po(po) if po else [])
         factory = grn.factory if grn else (po.factory if po else request.factory)
-        locations = Location.objects.filter(factory=factory, is_active=True).exclude(loc_type="transit")
+        locations = choices_for(factory, "receive")
         vals = form_values(grn, d, ("vendor", "location", "date", "vendor_challan_no", "vendor_challan_date", "remarks"))
         if po is not None and not (d or grn):
             vals.update(vendor=str(po.vendor_id))
@@ -473,8 +474,7 @@ class InvoiceSave(LoginRequiredMixin, ScreenPermissionMixin, View):
         grn_lines, rows, locations = [], [], []
         mats, skus = item_choices() if direct else ([], [])
         if direct and factory:
-            locations = Location.objects.filter(factory=factory, is_active=True).exclude(
-                loc_type__in=("cutting", "process", "fabricator", "rejects", "transit"))
+            locations = choices_for(factory, "receive")
             if posted:
                 items, qtys, rates = d.getlist("item"), d.getlist("qty"), d.getlist("rate")
                 rows = [{"item": v, "qty": qtys[i], "rate": rates[i]} for i, v in enumerate(items) if v or qtys[i] or rates[i]]
@@ -715,7 +715,7 @@ class DebitNoteSave(LoginRequiredMixin, ScreenPermissionMixin, View):
             "vendors": _vendors(note.vendor_id if note else None), "factory": factory, "mats": mats, "skus": skus, "note": note, "itc": itc,
             "tax_open": forms_ui.more_open({"gst_template": (d or {}).get("gst_template"), "itc_claimable": itc},
                                            {"gst_template": "", "itc_claimable": True}),
-            "locations": Location.objects.filter(factory=factory, is_active=True).exclude(loc_type="transit"),
+            "locations": choices_for(factory, "receive"),
             "rolls": RollBalance.objects.for_user(request.user).filter(qty__gt=0).select_related("roll__material", "location"),
             "gst_templates": TaxTemplate.objects.filter(kind="gst", is_active=True, is_reverse_charge=False),
             "rows": (rows or [{}, {}, {}]) + ([{}] if note else []), "d": d or {},

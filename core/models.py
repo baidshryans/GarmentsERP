@@ -121,7 +121,16 @@ class Factory(models.Model):
         return f"{self.code} - {self.name}"
 
 
+class LocationQuerySet(models.QuerySet):
+    def visible(self):
+        """The places people see and choose: godowns, ready goods, rejects and showrooms. Cutting floor, process
+        area, in transit and fabricators' premises are bookkeeping for work in progress (owner, 19 Oct 2026)."""
+        return self.filter(loc_type__in=Location.VISIBLE_TYPES, is_active=True)
+
+
 class Location(models.Model):
+    VISIBLE_TYPES = ("godown", "dispatch", "rejects", "showroom")
+
     class Type(models.TextChoices):
         GODOWN = "godown", "Godown"
         CUTTING = "cutting", "Cutting floor"
@@ -141,6 +150,7 @@ class Location(models.Model):
     )
     is_active = models.BooleanField(default=True)
 
+    objects = LocationQuerySet.as_manager()
     history = HistoricalRecords()
 
     class Meta:

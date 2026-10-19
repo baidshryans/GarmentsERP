@@ -14,7 +14,7 @@
       <thead><tr><th scope="col">Item</th><th scope="col">Type</th><th scope="col">Factory</th><th scope="col">Location</th><th scope="col" class="num">Quantity</th>{% if can_cost %}<th scope="col" class="num">Value</th><th scope="col" class="num">Average cost</th>{% endif %}</tr></thead>
       <tbody>{% for r in rows %}<tr>
         <td>{{ r.item }}</td><td>{% if r.kind == "raw" %}<span class="pill">Raw material</span>{% elif r.kind == "semi" %}<span class="pill warning">Semi-finished</span>{% else %}<span class="pill success">Finished goods</span>{% endif %}</td><td>{{ r.b.factory.code }}</td>
-        <td>{{ r.b.location.name }}{% if r.transit %} <span class="pill warning">In transit</span>{% endif %}</td>
+        <td>{{ r.place }}{% if r.transit %} <span class="pill warning">In transit</span>{% endif %}</td>
         <td class="num">{{ r.b.qty|floatformat:"-3" }}</td>
         {% if can_cost %}{% if r.kind == "semi" %}<td class="num muted" colspan="2">in the lot's cost</td>{% else %}<td class="num">{{ r.b.value }}</td><td class="num">{{ r.avg|default_if_none:"" }}</td>{% endif %}{% endif %}</tr>{% endfor %}</tbody>
     </table></div>

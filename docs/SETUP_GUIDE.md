@@ -1182,7 +1182,6 @@ Lot page or challan page → Next button **Receive from …**, Home → **Receiv
 | Field | Example |
 | --- | --- |
 | Date | 12-10-2026 |
-| Receive into | Process Area. Filled in for you; it is under **More options** if you need to change it |
 | Counted, per bundle | the pieces actually counted, with the tick box |
 | Held for rework, per bundle | pieces the fabricator kept back to fix, which will come later. Leave blank if none |
 | Trims: Returned / Missing | 0 / 10 |
@@ -1208,7 +1207,7 @@ Press **Receive**. Scanning the bundle tags ticks the rows, and the box in the t
 | Rejected | Pieces that fail |
 | Rework (send back) | Pieces to send back to the fabricator to be redone |
 | Reject reason | Required if any piece is rejected |
-| Rejected go to | **Rejects stock** (kept) or **Scrapped** (written off as loss) |
+| Rejected pieces | **Keep as rejects** (they go to the factory's Rejects stock) or **Scrap** (written off as a loss). Choose each time; it varies |
 
 Press **Save QC**. The rules:
 
@@ -1220,7 +1219,7 @@ Results:
 
 - **No rework:** the bundle becomes **Ready for next stage** and the step counts as complete for it. Move it on (23.1, or a new challan).
 - **Rework:** the bundle (or the split bundle) becomes **Awaiting rework**. It cannot move until you issue a **Rework challan** for it (the **Send back for rework** link, or Send to fabricator with Kind = Rework under More options), on the same step it came back from. The form opens on the fabricator who did the step. When it comes back and passes, it moves on like any other bundle; it stays a separate bundle to the end. What the rework pays follows the rate's **Pay on** (section 11).
-- **Rejected:** goes to the Rejects location (or is scrapped).
+- **Rejected:** kept in Rejects, or scrapped, as you chose.
 - When every bundle on the receipt has QC, the receipt is **QC done**, and checking the last line returns you to the lot. If your role cannot open lots you stay on the receipt, where the Next button names what comes next.
 
 What is payable follows the challan's **Pay on**: the accepted pieces, or every piece received (section 11).
@@ -1267,12 +1266,13 @@ The lot becomes **Completed** when none of its bundles is still live; packed, wr
 - **Make → Production dashboard:** Cut today, Stitched today, Packed today; work in progress by stage and by factory; pieces with fabricators; late lots (past the due date); oldest open lots.
 - **Home → Items in production** lists each open lot with its **Next step**.
 - The **Where is it?** box searches by order number, style number, lot number or order reference and lists each bundle with size, pieces, current stage, location and status.
+- **Stock → Where is my stock** is the simplest view: what is in the Godown, Ready Goods and Rejects of each factory, then every lot being made with the step it is at and who has it (a fabricator's name, your factory, or "on the way to" another factory). Values show only to people who may see cost.
 - **Stock → Stock** lists everything on hand with a **Type** on each line, and the **Type** filter shows one kind at a time:
 
   | Type | What it is |
   | --- | --- |
   | **Raw material** | Fabric, accessories and packing material |
-  | **Semi-finished goods** | Pieces still being made: on the cutting floor, at a process, with a fabricator, or rejected. Only the quantity is shown; their value is in the lot's cost |
+  | **Semi-finished goods** | Pieces still being made, shown as **Work in progress** in the Location column, and kept rejects. Only the quantity is shown; their value is in the lot's cost |
   | **Finished goods** | Packed pieces ready to sell |
 
   You can combine it with the search box and the Location filter.

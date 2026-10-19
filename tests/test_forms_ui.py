@@ -848,25 +848,20 @@ def out(job):
                                      step=ph.step(job, "STITCH"), bundles=job.bundles[:2], date=DAY, user=job.owner)
 
 
-def test_receiving_from_a_fabricator_folds_the_place_it_is_received_into(job, out, owner_c):
+def test_receiving_from_a_fabricator_asks_for_no_place(job, out, owner_c):
+    """Pieces back from a fabricator are work in progress, not stock in a place (owner, 19 Oct 2026)."""
     from jobwork.models import Receipt
 
     url = reverse("receipt_new", args=[out.pk])
     html = html_of(owner_c.get(url))
     first = out.bundles.first()
-    assert in_view(html, "date", f"use_{first.pk}", f"count_{first.pk}") and folded(html, "location")
-    usual = Location.objects.get(factory=job.factory, loc_type="process")
-    assert chosen(html, "location") == str(usual.pk)                        # prefilled, exactly as before
-    assert '<label for="location">Receive into</label>' in html
+    assert in_view(html, "date", f"use_{first.pk}", f"count_{first.pk}")
+    assert 'name="location"' not in html and "Receive into" not in html
     if out.trims.exists():
         assert in_view(html, f"returned_{out.trims.first().pk}")
-    other = Location.objects.filter(factory=job.factory, is_active=True).exclude(
-        loc_type__in=("transit", "fabricator", "rejects", "process")).first()
-    html = html_of(owner_c.post(url, {"date": DAY.isoformat(), "location": other.pk}))       # nothing ticked: it comes back
-    assert folded(html, "location", is_open=True) and chosen(html, "location") == str(other.pk)
-    r = owner_c.post(url, {"date": DAY.isoformat(), "location": usual.pk, f"use_{first.pk}": "on",
-                           f"count_{first.pk}": str(first.qty_issued)})
-    assert r.status_code == 302 and Receipt.objects.get().location == usual
+    r = owner_c.post(url, {"date": DAY.isoformat(), f"use_{first.pk}": "on", f"count_{first.pk}": str(first.qty_issued)})
+    assert r.status_code == 302
+    assert Receipt.objects.get().location == Location.objects.get(factory=job.factory, loc_type="process")
 
 
 def test_the_labour_bill_folds_tds_and_notes(job, out, owner_c):

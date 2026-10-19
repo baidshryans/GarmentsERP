@@ -520,14 +520,14 @@ def test_stock_is_shown_and_filtered_as_raw_semi_finished_and_finished(company, 
 
     def shown(kind):
         html = c.get(url, {"kind": kind}).content.decode()
-        return {name for name in ("Fleece", "Zipper", "Cutting Floor", "Ready Goods") if name in html.split("<tbody>")[1]}, html
+        return {name for name in ("Fleece", "Zipper", "Work in progress", "Ready Goods") if name in html.split("<tbody>")[1]}, html
 
     everything, html = shown("")
-    assert everything == {"Fleece", "Zipper", "Cutting Floor", "Ready Goods"}
+    assert everything == {"Fleece", "Zipper", "Work in progress", "Ready Goods"}
     assert "Raw material</span>" in html and "Semi-finished</span>" in html and "Finished goods</span>" in html
     assert shown("raw")[0] == {"Fleece", "Zipper"}
     semi, html = shown("semi")
-    assert semi == {"Cutting Floor"} and html.count("Semi-finished</span>") == 3 and "in the lot" in html    # M, L, XL still cut
+    assert semi == {"Work in progress"} and html.count("Semi-finished</span>") == 3 and "in the lot" in html    # M, L, XL still cut
     done, html = shown("finished")
     assert done == {"Ready Goods"} and html.count("Finished goods</span>") == 1
     assert shown("material")[0] == {"Fleece", "Zipper"} and shown("sku")[0] == {"Ready Goods"}                  # older links

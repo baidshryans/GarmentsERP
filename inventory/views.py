@@ -9,6 +9,7 @@ from django.db.models import Q
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views import View
 
+from core.services.factories import choices_for
 from core.exceptions import BusinessRuleError
 from core.models import Company, Factory, Location
 from core.scoping import ScreenPermissionMixin
@@ -137,12 +138,27 @@ class StockEnquiry(LoginRequiredMixin, ScreenPermissionMixin, View):
         for b in qs.order_by("factory__code", "location__name")[:500]:
             avg = (b.value / b.qty).quantize(Decimal("0.0001")) if b.qty else None
             semi = b.sku_id is not None and b.location.loc_type in stock.QTY_ONLY_TYPES
-            rows.append({"b": b, "item": b.item, "avg": avg, "transit": b.location.loc_type == "transit",
+            place = b.location.name if b.location.loc_type in Location.VISIBLE_TYPES else "Work in progress"
+            rows.append({"b": b, "item": b.item, "avg": avg, "transit": b.location.loc_type == "transit", "place": place,
                          "kind": "raw" if b.material_id else "semi" if semi else "finished"})
         return render(request, "inventory/stock.html", {
             "rows": rows, "can_cost": can_cost, "f": g, "q": q, "kind": kind,
-            "locations": Location.objects.filter(factory__in=request.active_factories),
+            "locations": Location.objects.visible().filter(factory__in=request.active_factories),
         })
+
+
+class WhereIsStock(LoginRequiredMixin, View):
+    """Godown, Ready Goods and Rejects, and pieces being made by lot and step (owner, 19 Oct 2026). Open to anyone who
+    may see stock or the production dashboard; money only to those who may see cost."""
+
+    def get(self, request):
+        from django.core.exceptions import PermissionDenied
+
+        from inventory.services import where
+
+        if not (request.user.has_screen_perm("inventory.stock", "view") or request.user.has_screen_perm("production.dashboard", "view")):
+            raise PermissionDenied
+        return render(request, "inventory/where.html", where.summary(request.user, request.factory))
 
 
 class RollList(LoginRequiredMixin, ScreenPermissionMixin, View):
@@ -253,7 +269,7 @@ class JournalNew(LoginRequiredMixin, ScreenPermissionMixin, View):
         mats, skus = item_choices()
         rolls = RollBalance.objects.for_user(request.user).filter(qty__gt=0).select_related("roll__material", "location")
         return {"factory": request.factory,
-                "locations": Location.objects.filter(factory=request.factory, is_active=True).exclude(loc_type="transit"),
+                "locations": choices_for(request.factory, "any") if request.factory else [],
                 "mats": mats, "skus": skus, "rolls": rolls, "rows": rows or [{}, {}, {}, {}], "d": data or {},
                 "reasons": StockJournal.Reason.choices}
 
@@ -409,7 +425,7 @@ class TransferNew(LoginRequiredMixin, ScreenPermissionMixin, View):
         return {
             "factories_from": Factory.objects.for_user(request.user).filter(is_active=True),
             "factories_to": Factory.objects.filter(is_active=True),
-            "locations": Location.objects.filter(factory__is_active=True, is_active=True).select_related("factory"),
+            "locations": Location.objects.visible().filter(factory__is_active=True).select_related("factory"),
             "mats": mats, "skus": skus, "rolls": rolls, "rows": rows or [{}, {}, {}], "d": data or {},
             "documents": StockTransfer.Document.choices,
         }
@@ -493,7 +509,7 @@ class OpeningStockView(LoginRequiredMixin, ScreenPermissionMixin, View):
         mats, skus = item_choices()
         return {
             "company": _company(), "factory": request.factory,
-            "locations": Location.objects.filter(factory=request.factory, is_active=True).exclude(loc_type="transit"),
+            "locations": choices_for(request.factory, "any") if request.factory else [],
             "mats": mats, "skus": skus, "rows": rows or [{} for _ in range(6)], "d": d or {},
             "existing": OpeningStock.objects.filter(factory__in=request.active_factories).select_related("factory", "location"),
             "can_create": request.user.has_screen_perm("inventory.opening", "create"),

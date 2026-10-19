@@ -8,7 +8,7 @@
   <form method="post" novalidate>{% csrf_token %}<input type="hidden" name="n" value="{{ n }}">
     <button hidden tabindex="-1" aria-hidden="true"></button>
     <div class="island"><div class="field-row">
-      <div class="field"><label for="location">Pack from</label><select id="location" name="location">{% for l in locations %}<option value="{{ l.pk }}" {% if vals.location == l.pk|stringformat:"s" %}selected{% endif %}>{{ l.name }}</option>{% endfor %}</select></div>
+      {% location_field "location" "Pack from" locations vals.location %}
       <div class="field"><label for="date">Date</label><input id="date" name="date" type="date" value="{{ vals.date|default:today }}"></div>
     </div>
     {% more_open vals "transporter lr_no lr_date vehicle_no remarks" as transport_open %}

@@ -20,7 +20,7 @@
       <div class="field"><label>Rejected</label><input type="text" inputmode="numeric" name="rejected" value="0"></div>
       <div class="field"><label>Rework (send back)</label><input type="text" inputmode="numeric" name="rework" value="0"></div>
       <div class="field"><label>Reject reason</label><input type="text" name="reason"></div>
-      <div class="field"><label>Rejected go to</label><select name="destination"><option value="rejects">Rejects stock</option><option value="scrap">Scrapped</option></select></div>
+      <div class="field"><label>Rejected pieces</label><select name="destination"><option value="rejects">Keep as rejects</option><option value="scrap">Scrap</option></select></div>
       <div class="field"><button class="btn primary">Save QC</button></div></form>
     {% else %}<p class="muted">Waiting for QC.</p>{% endif %}
   </div>

@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block title %}Where is my stock{% endblock %}
+{% block content %}
+  <div class="page-head"><h1 class="page-title">Where is my stock</h1></div>
+  <p class="muted" style="max-width:720px">Everything received is in the Godown, packed pieces are in Ready Goods, and kept rejects are in Rejects. Pieces being made are listed by lot and step, with whoever has them.</p>
+  {% for loc, rows in places %}
+  <div class="island"><h2>{{ loc.name }} <span class="muted">{{ loc.factory.code }}</span></h2>
+    <div class="table-wrap"><table>
+      <thead><tr><th scope="col">Item</th><th scope="col" class="num">Quantity</th>{% if see_cost %}<th scope="col" class="num">Value</th>{% endif %}</tr></thead>
+      <tbody>{% for item, qty, value in rows %}<tr><td>{{ item }}</td><td class="num">{{ qty|floatformat:"-3" }}</td>{% if see_cost %}<td class="num">{{ value }}</td>{% endif %}</tr>{% endfor %}</tbody>
+    </table></div></div>
+  {% empty %}<div class="island"><div class="empty"><div class="hand">No stock yet</div></div></div>{% endfor %}
+  <div class="island"><h2>Being made</h2>
+    {% if wip %}<div class="table-wrap"><table>
+      <thead><tr><th scope="col">Lot</th><th scope="col">At step</th><th scope="col">With</th><th scope="col" class="num">Pieces</th></tr></thead>
+      <tbody>{% for w in wip %}<tr><td><a href="{% url 'lot_detail' w.lot.pk %}">{{ w.lot.lot_no }}</a></td><td>{{ w.step_name }}</td><td>{{ w.with_whom }}</td><td class="num">{{ w.pieces }}</td></tr>{% endfor %}</tbody>
+    </table></div>{% else %}<p class="muted">Nothing is being made right now.</p>{% endif %}
+  </div>
+{% endblock %}

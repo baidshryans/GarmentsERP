@@ -1,7 +1,7 @@
 """Template side of the lighter forms: the "More options" section and fields that show for one choice only.
 The rule for opening a section is `core.forms_ui.more_open`; nothing here decides it again."""
 from django import template
-from django.utils.html import format_html
+from django.utils.html import format_html, format_html_join
 from django.utils.safestring import mark_safe
 
 from core import forms_ui
@@ -58,6 +58,26 @@ def more(parser, token):
 def rate_words(words, value):
     """A stored choice value in the plain words a form uses for it; the value itself when there are none."""
     return words.get(value, value)
+
+
+@register.simple_tag
+def location_field(name, label, locations, selected=""):
+    """A location box that only asks when there is a choice (owner, 19 Oct 2026). One place: it is named and sent
+    as a hidden field. Several: a select, defaulting to the first. Each option carries its factory for forms that
+    switch factory."""
+    locations = list(locations)
+    if not locations:
+        return ""
+    if len(locations) == 1:
+        loc = locations[0]
+        return format_html('<div class="field"><label>{}</label><div class="static-value">{}</div>'
+                           '<input type="hidden" name="{}" value="{}"></div>', label, loc.name, name, loc.pk)
+    chosen = str(selected or locations[0].pk)
+    options = format_html_join("", '<option value="{}" data-factory="{}"{}>{}</option>',
+                               ((l.pk, l.factory_id, mark_safe(" selected") if str(l.pk) == chosen else "", l.name)
+                                for l in locations))
+    return format_html('<div class="field"><label for="{0}">{1}</label><select id="{0}" name="{0}">{2}</select></div>',
+                       name, label, options)
 
 
 @register.simple_tag

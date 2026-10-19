@@ -244,14 +244,8 @@ class ReceiptNew(LoginRequiredMixin, ScreenPermissionMixin, View):
             cb.scan = scan_text(cb.bundle)
             cb.count_val = (d or {}).get(f"count_{cb.pk}", cb.qty_issued)    # what was typed comes back with the form
             cb.held_val = (d or {}).get(f"held_{cb.pk}", "")
-        locations = list(Location.objects.filter(factory=challan.factory, is_active=True).exclude(loc_type__in=("transit", "fabricator", "rejects")))
-        # prefilled with the process area, as before; what the user chose comes back with the form
-        usual = next((l for l in reversed(locations) if l.loc_type == "process"), locations[0] if locations else None)
-        usual = str(usual.pk) if usual else ""
-        chosen = (d or {}).get("location") or usual
         return {"ch": challan, "lines": lines, "trims": [t for t in challan.trims.select_related("material")],
-                "d": d or {}, "locations": locations, "location_sel": chosen,
-                "more_is_open": forms_ui.more_open({"location": chosen}, {"location": usual})}
+                "d": d or {}}
 
     def _challan(self, request, pk):
         return get_object_or_404(JobWorkChallan.objects.for_user(request.user).select_related("party", "lot", "factory", "step__process"), pk=pk)
@@ -273,8 +267,7 @@ class ReceiptNew(LoginRequiredMixin, ScreenPermissionMixin, View):
                 returned, missing = vu.dec(p.get(f"returned_{t.pk}"), "Returned", Decimal("0")), vu.dec(p.get(f"missing_{t.pk}"), "Missing", Decimal("0"))
                 if returned or missing:
                     trims[t] = (returned, missing)
-            location = Location.objects.filter(pk=p.get("location"), factory=ch.factory).first() if p.get("location") else None
-            receipt = receipts.create_receipt(challan=ch, counts=counts, user=request.user, location=location, trims=trims,
+            receipt = receipts.create_receipt(challan=ch, counts=counts, user=request.user, trims=trims,
                                               date=vu.day(p.get("date"), default=timezone.localdate()))
         except (ValueError, BusinessRuleError) as exc:
             vu.report(request, exc)

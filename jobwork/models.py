@@ -212,8 +212,8 @@ class QcResult(models.Model):
     by the challan's pay basis: the accepted pieces, or every piece received."""
 
     class Destination(models.TextChoices):
-        REJECTS = "rejects", "Rejects stock"
-        SCRAP = "scrap", "Scrapped"
+        REJECTS = "rejects", "Keep as rejects"
+        SCRAP = "scrap", "Scrap"
 
     line = models.OneToOneField(ReceiptLine, on_delete=models.PROTECT, related_name="qc")
     accepted = models.PositiveIntegerField()

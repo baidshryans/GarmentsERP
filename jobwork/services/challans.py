@@ -18,6 +18,7 @@ from inventory.models import StockMovement
 from inventory.services import stock
 from jobwork.models import ChallanBundle, ChallanTrim, JobWorkChallan, PayBasis
 from jobwork.services import rates
+from ledger.services import narration
 from ledger.services.posting import LineSpec, post_voucher
 from production.models import Bundle, LotCostEntry, LotRouteChange, LotStep
 from production.services import bundles as bundle_service
@@ -204,7 +205,7 @@ def issue_challan(challan, *, user) -> JobWorkChallan:
             company = challan.company
             voucher = post_voucher(
                 company=company, factory=factory, voucher_type="stock_journal", date=date, user=user, source=challan,
-                narration=f"Materials issued to {party.name} on challan, lot {lot.lot_no}",
+                narration=narration.materials_to_fabricator(party, lot, [(t.material, t.qty_issued) for t in trims], total),
                 lines=[LineSpec(ledger=costing.ledger_for(company, "stock_wip"), debit=total),
                        LineSpec(ledger=costing.ledger_for(company, "stock_raw_material"), credit=total)])
             costing.add_cost(lot=lot, factory=factory, kind=LotCostEntry.Kind.TRIM, amount=total, date=date,

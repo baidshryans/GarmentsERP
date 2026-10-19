@@ -9,6 +9,7 @@ from django.db.models import Sum
 
 from core.exceptions import BusinessRuleError
 from ledger.models import Ledger
+from ledger.services import narration
 from ledger.services.posting import LineSpec, post_voucher
 from production.models import Bundle, LotCostEntry
 
@@ -76,7 +77,8 @@ def accrue_labour(*, lot, factory, amount, date, user, note="", source=None, ste
     company = lot.company
     voucher = post_voucher(
         company=company, factory=factory, voucher_type="stock_journal", date=date, user=user, source=source,
-        narration=f"In-house labour on lot {lot.lot_no}: {note}"[:500],
+        narration=(narration.inhouse_labour(step.process, factory, lot, qty, rate) if rate is not None and qty and step is not None
+                   else f"In-house labour on lot {lot.lot_no}: {note}"[:500]),
         lines=[LineSpec(ledger=ledger_for(company, "stock_wip"), debit=amount),
                LineSpec(ledger=ledger_for(company, "labour_absorbed"), credit=amount)],
     )
@@ -99,7 +101,7 @@ def transfer_cost_between_factories(*, lot, from_factory, to_factory, pieces, da
     wip = ledger_for(company, "stock_wip")
     voucher = post_voucher(
         company=company, factory=from_factory, voucher_type="stock_journal", date=date, user=user, source=source,
-        scope_lines=False, narration=f"Lot {lot.lot_no} moved from {from_factory.code} to {to_factory.code}",
+        scope_lines=False, narration=narration.moved_between_factories(lot, from_factory, to_factory, pieces, moved),
         lines=[
             LineSpec(ledger=ledger_for(company, "interfactory_receivable"), debit=moved, factory=from_factory),
             LineSpec(ledger=wip, credit=moved, factory=from_factory),

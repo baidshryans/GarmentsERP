@@ -12,6 +12,7 @@ from core.scoping import assert_factory_access
 from core.services.numbering import next_document_number
 from inventory.models import StockMovement
 from inventory.services import stock
+from ledger.services import narration
 from ledger.services.posting import LineSpec, post_voucher
 from masters.services import boms
 from production.models import (
@@ -194,7 +195,7 @@ def close_order(order, *, user, reason) -> ProductionOrder:
             if amount > 0:
                 voucher = post_voucher(
                     company=company, factory=f, voucher_type="stock_journal", date=today, user=user,
-                    narration=f"Work in progress written off: lot {lot.lot_no}, order {order.number} closed",
+                    narration=narration.wip_written_off(lot, order, amount),
                     lines=[LineSpec(ledger=costing.ledger_for(company, "wip_written_off"), debit=amount),
                            LineSpec(ledger=costing.ledger_for(company, "stock_wip"), credit=amount)],
                     scope_lines=False,

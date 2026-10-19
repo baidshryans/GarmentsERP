@@ -18,6 +18,7 @@ from core.services.numbering import next_document_number
 from inventory.models import StockMovement
 from inventory.services import stock
 from jobwork.models import ChallanBundle, ChallanTrim, JobWorkChallan, PayBasis, QcResult, Receipt, ReceiptLine, ReceiptTrim
+from ledger.services import narration
 from ledger.services.posting import LineSpec, post_voucher
 from production.models import Bundle, LotCostEntry, LotStep
 from production.services import bundles as bundle_service
@@ -167,7 +168,7 @@ def _post_receipt(receipt, user) -> Receipt:
         company = challan.company
         voucher = post_voucher(
             company=company, factory=factory, voucher_type="stock_journal", date=date, user=user, source=receipt,
-            narration=f"Trims returned by {challan.party.name}, lot {lot.lot_no}",
+            narration=narration.trims_returned(challan.party, lot, returned_value),
             lines=[LineSpec(ledger=costing.ledger_for(company, "stock_raw_material"), debit=returned_value),
                    LineSpec(ledger=costing.ledger_for(company, "stock_wip"), credit=returned_value)])
         costing.add_cost(lot=lot, factory=factory, kind=LotCostEntry.Kind.TRIM, amount=-returned_value, date=date,

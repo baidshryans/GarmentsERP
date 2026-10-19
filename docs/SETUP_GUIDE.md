@@ -1634,6 +1634,14 @@ A supplier bill posts what you owe the supplier (reference = their bill number, 
 | Is everything balanced? | More → Accountant → **Trial balance** (debits must equal credits) |
 | Profit and position | Reports → **Profit and loss**, **Balance sheet** |
 | Find a voucher | Money → **All entries** (all vouchers) (filter by factory, type, status, number) |
+
+**Entries made by production read as sentences.** Every journal entry that cutting, moving bundles, packing, a challan or a labour bill posts says what happened, who did it, on which lot, and for labour the pieces × the rate = the amount with the date of the rate used. For example:
+
+- *Cutting in-house at Ludhiana Unit 1, lot LOT/LDH1/26-27/0012: 240 pieces × ₹1.50 = ₹360 (rate from 1 Oct 2026)*
+- *Stitching by Ramesh, lot LOT/LDH1/26-27/0012: 240 pieces × ₹12 = ₹2,880 (rate from 1 Oct 2026); TDS ₹29*
+- *Lot LOT/LDH1/26-27/0012: 230 pieces packed into Ready Goods at ₹96.40 a piece*
+
+Open the entry and its **Made by** line takes you back to the lot and names the step that posted it.
 | Sales summary | Reports → **Sales** |
 | Finished goods stock | Reports → **Finished stock** |
 | GST filing data | Reports → GST → **GSTR-1 data**, **GSTR-3B summary**, **Tax register** |

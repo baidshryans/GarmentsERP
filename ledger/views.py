@@ -203,11 +203,35 @@ SOURCE_PAGES = {   # source document -> (what to call it, url name)
 }
 
 
+def _production_link(voucher):
+    """A voucher a production step posted links back to its lot, named by the step that made it."""
+    from django.urls import reverse
+
+    from production.models import ProductionActionItem
+
+    item = (ProductionActionItem.objects.filter(model="ledger.voucher", object_id=voucher.pk)
+            .select_related("action__lot").first())
+    if item is not None:
+        lot = item.action.lot
+        return {"label": f"{item.action.summary} on lot", "number": lot.lot_no, "url": reverse("lot_detail", args=[lot.pk])}
+    if voucher.source_type.startswith("production.") and voucher.source_id:
+        from django.apps import apps
+
+        obj = apps.get_model(voucher.source_type).objects.filter(pk=voucher.source_id).first()
+        lot = obj if voucher.source_type == "production.lot" else getattr(obj, "lot", None)
+        if lot is not None:
+            return {"label": "Lot", "number": lot.lot_no, "url": reverse("lot_detail", args=[lot.pk])}
+    return None
+
+
 def source_link(voucher):
     """(label, number, url) of the document that made this voucher, or None for a hand-entered one (E9.1)."""
     from django.apps import apps
     from django.urls import reverse
 
+    lot_link = _production_link(voucher)
+    if lot_link is not None:
+        return lot_link
     page = SOURCE_PAGES.get(voucher.source_type)
     if not page or not voucher.source_id:
         return None

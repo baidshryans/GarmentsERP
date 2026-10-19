@@ -14,6 +14,7 @@ from django.db.models import Max, Sum
 from core.exceptions import BusinessRuleError
 from core.scoping import assert_factory_access
 from core.services.factories import cutting_location, godown_location
+from ledger.services import narration
 from core.services.numbering import next_document_number
 from inventory.models import FabricRoll, StockMovement
 from inventory.services import stock
@@ -205,7 +206,7 @@ def record_cutting(*, lot, pieces, rolls, user, date, notes="", loss=None) -> Cu
     if consumed and total_value > 0:
         voucher = post_voucher(
             company=company, factory=factory, voucher_type="stock_journal", date=date, user=user, source=entry,
-            narration=f"Fabric cut for lot {lot.lot_no}, cutting {lay_no}",
+            narration=narration.fabric_cut(lot, lay_no, actual, rolls[0].roll.material.unit.code, total_value),
             lines=[LineSpec(ledger=costing.ledger_for(company, "stock_wip"), debit=costing.r2(total_value)),
                    LineSpec(ledger=costing.ledger_for(company, "stock_raw_material"), credit=costing.r2(total_value))])
         heads = bundles_module.cutting_steps(lot)       # fabric is the cost of the cutting step

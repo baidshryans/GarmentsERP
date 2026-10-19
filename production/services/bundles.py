@@ -19,6 +19,7 @@ from core.scoping import assert_factory_access
 from core.services.factories import dispatch_location, process_location, rejects_location
 from inventory.models import StockMovement
 from inventory.services import stock
+from ledger.services import narration
 from ledger.services.posting import LineSpec, post_voucher
 from production.models import Bundle, Lot, LotCostEntry, LotStep, PackEntry, PackEntryLine, StageMovement
 from production.services import actions, boxes, costing, orders
@@ -495,7 +496,7 @@ def pack_bundles(*, bundles, user, date=None, location=None, materials=None) -> 
     if relief > 0:
         voucher = post_voucher(
             company=company, factory=factory, voucher_type="stock_journal", date=date, user=user, source=lot,
-            narration=f"Lot {lot.lot_no}: {packed} pieces packed into finished goods",
+            narration=narration.packed(lot, packed, costing.r2(relief / packed)),
             lines=[LineSpec(ledger=costing.ledger_for(company, "stock_finished"), debit=relief),
                    LineSpec(ledger=costing.ledger_for(company, "stock_wip"), credit=relief)])
         costing.add_cost(lot=lot, factory=factory, kind=LotCostEntry.Kind.RELIEF, amount=-relief, date=date,

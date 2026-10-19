@@ -18,6 +18,7 @@ from jobwork.models import (
     JobWorkBill, JobWorkBillDeduction, JobWorkBillLine, JobWorkChallan, JobWorkDeductionWaiver, PayBasis, QcResult,
     ReceiptLine, ReceiptTrim,
 )
+from ledger.services import narration
 from ledger.services.posting import AllocationSpec, LineSpec, post_voucher, reverse_voucher
 from production.models import LotCostEntry
 from production.services import costing
@@ -149,6 +150,23 @@ def create_bill(*, company, factory, party, date, user, qc_results=None, deducti
     return bill
 
 
+def _bill_items(bill):
+    """[(lot, process, pieces, rate)] of a bill, one per lot, process and rate, for its narration."""
+    from types import SimpleNamespace
+
+    items = {}
+    for l in bill.lines.select_related("lot", "challan__step__process", "challan__labour_rate").order_by("id"):
+        ch = l.challan
+        rate = ch.labour_rate if ch.labour_rate is not None and ch.labour_rate.rate == l.rate else \
+            SimpleNamespace(rate=l.rate, effective_from=ch.date)
+        key = (l.lot_id, ch.step.process_id, l.rate, rate.effective_from)
+        if key in items:
+            items[key][2] += l.qty
+        else:
+            items[key] = [l.lot, ch.step.process, l.qty, rate]
+    return [tuple(v) for v in items.values()]
+
+
 @transaction.atomic
 def post_bill(bill, *, user) -> JobWorkBill:
     bill = JobWorkBill.objects.select_related("company", "factory", "party").get(pk=bill.pk)
@@ -169,7 +187,7 @@ def post_bill(bill, *, user) -> JobWorkBill:
                           allocations=(AllocationSpec("new", bill.net, number, due),)))
     voucher = post_voucher(
         company=company, factory=factory, voucher_type="job_work_bill", date=bill.date, lines=lines, user=user,
-        narration=f"Labour bill {number}: {party.name}", source=bill)
+        narration=narration.labour_bill(party, _bill_items(bill), bill.tds), source=bill)
     per_step = {}                                      # (lot, route step of the challan) -> amount
     lots, steps, paid, used = {}, {}, {}, {}           # pieces paid and the rates used, per (lot, step)
     for l in bill.lines.select_related("lot", "challan__step", "challan__labour_rate"):

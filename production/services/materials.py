@@ -14,6 +14,7 @@ from core.scoping import assert_factory_access
 from core.services.factories import godown_location
 from inventory.models import StockMovement
 from inventory.services import stock
+from ledger.services import narration
 from ledger.services.posting import LineSpec, post_voucher
 from masters.services import boms
 from production.models import LotCostEntry, StageMovement, StepMaterialIssue, StepMaterialIssueLine
@@ -99,7 +100,7 @@ def issue_to_step(*, lot, step, factory, lines, user, date, pieces=0):
     if total > 0:
         voucher = post_voucher(
             company=company, factory=factory, voucher_type="stock_journal", date=date, user=user, source=issue,
-            narration=f"Materials used at {step.process.name}, lot {lot.lot_no}",
+            narration=narration.materials_used(step.process, lot, lines, total),
             lines=[LineSpec(ledger=costing.ledger_for(company, "stock_wip"), debit=total),
                    LineSpec(ledger=costing.ledger_for(company, "stock_raw_material"), credit=total)])
         costing.add_cost(lot=lot, factory=factory, kind=LotCostEntry.Kind.TRIM, amount=total, date=date,

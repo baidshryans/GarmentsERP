@@ -52,6 +52,16 @@ class StepRow:
     first: object = None
     last: object = None
     events: list = field(default_factory=list)
+    rate: object = None                   # the rate on Rates last used at this step
+
+    @property
+    def rate_text(self):
+        if self.rate is None:
+            return ""
+        from jobwork.services.rates import source_text
+        from ledger.services.narration import money
+
+        return f"{money(self.rate.rate)} a piece · {source_text(self.rate)}"
 
     @property
     def lost(self):
@@ -206,7 +216,10 @@ def build(lot, user) -> LotView:
     _pieces(lot, steps, by_pk, cut_step)
     _to_bill(lot, by_pk)
 
-    entries = list(lot.cost_entries.all())
+    entries = list(lot.cost_entries.select_related("rate"))
+    for ch in JobWorkChallan.objects.filter(lot=lot, labour_rate__isnull=False).select_related("labour_rate").order_by("pk"):
+        if ch.step_id in by_pk:
+            by_pk[ch.step_id].rate = ch.labour_rate
     for e in entries:
         if e.kind == LotCostEntry.Kind.TRANSFER:
             view.transfer += e.amount
@@ -216,6 +229,8 @@ def build(lot, user) -> LotView:
             view.write_off += e.amount
         elif e.step_id in by_pk:
             _add_cost(by_pk[e.step_id], e.kind, e.amount)
+            if e.rate_id is not None:
+                by_pk[e.step_id].rate = e.rate
         else:
             view.unlinked += e.amount
     view.wip = costing.lot_cost(lot)

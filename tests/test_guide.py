@@ -11,7 +11,7 @@ from core.exceptions import BusinessRuleError
 from core.models import Role, RolePermission
 from jobwork.services import challans, rates, receipts
 from jobwork.services.receipts import Counted
-from production.models import Bundle
+from production.models import LotStep, Bundle
 from production.services import bundles as bundle_service
 from production.services import cutting, orders, routes
 from production.services.guide import lot_guide, order_next
@@ -301,8 +301,8 @@ def test_a_role_that_may_send_but_not_move_gets_the_optional_sends(ns):
 
 def test_when_only_optional_steps_remain_they_are_all_that_is_offered(ns):
     stitch_in_house(ns)
-    for code in ("IRON", "FINISH", "QC", "PACK"):
-        routes.remove_step(step(ns, code), user=ns.owner, reason="test: a route that ends in optional steps")
+    # a route planned to end in optional steps (arranged directly: once cut, steps are no longer removed)
+    LotStep.objects.filter(lot=ns.lot, process__code__in=("IRON", "FINISH", "QC", "PACK")).delete()
     go(ns, ns.bundles, "STITCH")
     g = lot_guide(ns.lot, ns.owner)
     assert labels(g) == ["Send to a fabricator for Embroidery (optional)", "Send to a fabricator for Printing (optional)",
@@ -437,13 +437,10 @@ def test_the_lot_page_opens_with_the_journey_and_one_next_button(company, factor
     assert g.count('class="j-tag"') == 3  # embroidery, printing and washing are marked optional
     # only labels, counts and links are shown: the permission and sort keys stay inside the service
     assert "production.cutting" not in html and "jobwork.challan" not in html
-    # the four header buttons are gone; fabric, cutting and move live in the corrections row
+    # the four header buttons are gone, and so is the old corrections row: the lot diary replaces it
     head = html[html.index('class="page-head"'):html.index('class="island guide"')]
     assert "Issue fabric" not in head and "Move bundles" not in head and "Cutting" not in head and ns.order.number in head
-    more = html[html.index('class="guide-more"'):]
-    for label, url in (("Fabric issue", reverse("lot_fabric", args=[ns.lot.pk])), ("Cutting", reverse("lot_cutting", args=[ns.lot.pk])),
-                       ("Move bundles", reverse("move_bundles") + f"?lot={ns.lot.pk}&amp;back=1")):
-        assert f'<a class="btn ghost" href="{url}">{label}</a>' in more
+    assert 'class="guide-more"><span class="muted">Corrections' not in html and "Lot diary" in html
 
 
 def test_a_role_that_may_not_cut_sees_what_the_lot_waits_for_and_no_link(company, factory, owner):
@@ -514,7 +511,7 @@ def test_a_closed_lot_shows_no_stage_as_current(company, factory, owner):
 def test_the_lot_page_offers_optional_steps_as_smaller_links_never_as_the_button(ns):
     stitched(ns)
     html = lot_page(ns, ns.owner)
-    assert '<details class="fold"><summary>Change the route</summary>' in html  # past planning: folded again
+    assert '<details class="fold"><summary>Who does each step</summary>' in html  # cut: only who does a step changes
     g = guide_of(html)
     assert re.search(r'<a class="btn primary" href="[^"]*">Move to Ironing and pressing</a>', g)
     also = g[g.index("Also waiting"):]
@@ -697,7 +694,7 @@ def test_a_bundle_still_on_an_open_challan_is_not_offered_to_another_fabricator(
 
 def test_a_route_with_no_packing_step_packs_from_its_last_step(ns):
     stitch_in_house(ns)
-    routes.remove_step(step(ns, "PACK"), user=ns.owner, reason="packed at the checking table")
+    LotStep.objects.filter(lot=ns.lot, process__code="PACK").delete()   # a route planned without packing
     for code in ("STITCH", "IRON", "FINISH"):
         go(ns, ns.bundles, code)
     g = lot_guide(ns.lot, ns.owner)
@@ -855,8 +852,8 @@ def test_the_move_screen_agrees_with_the_guide_for_bundles_back_from_a_fabricato
 
 def test_the_move_screen_falls_back_to_the_next_optional_stage_when_nothing_mandatory_is_left(ns):
     stitch_in_house(ns)
-    for code in ("IRON", "FINISH", "QC", "PACK"):
-        routes.remove_step(step(ns, code), user=ns.owner, reason="test: a route that ends in optional steps")
+    # a route planned to end in optional steps (arranged directly: once cut, steps are no longer removed)
+    LotStep.objects.filter(lot=ns.lot, process__code__in=("IRON", "FINISH", "QC", "PACK")).delete()
     go(ns, ns.bundles, "STITCH")
     assert set(next_stages(ns).values()) == {"Embroidery (by challan)"}
     routes.skip_step(step(ns, "EMB"), user=ns.owner, reason="plain")

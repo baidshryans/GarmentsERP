@@ -24,6 +24,13 @@ def _with_whom(location) -> str:
     return location.factory.name
 
 
+def place_of(location) -> str:
+    """Where something is, in the owner's words: a place people see by its name, else who has it."""
+    if location.loc_type in Location.VISIBLE_TYPES:
+        return location.name
+    return _with_whom(location)
+
+
 def summary(user, factory=None) -> dict:
     """{"places": [(location, [(item, qty, value)])], "wip": [WipRow]} for the factories the user may see.
     Values are left as None when the user may not see cost."""

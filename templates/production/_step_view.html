@@ -9,7 +9,7 @@
       <tr class="step-row">
         <td class="num">{{ r.step.sequence }}</td>
         <td>{% if r.events %}<button type="button" class="step-toggle" aria-expanded="false" aria-controls="ev-{{ r.step.pk }}">{{ r.step.process.name }}</button>{% else %}{{ r.step.process.name }}{% endif %}
-          <div class="muted small">{% if r.step.assignment == "in_house" %}In-house · {{ r.step.factory.code|default:lot.factory.code }}{% else %}{{ r.step.party.name|default:"Fabricator to be chosen" }}{% endif %}{% if r.first %} · {{ r.first|date:"d M" }}{% if r.last and r.last != r.first %} – {{ r.last|date:"d M" }}{% endif %}{% endif %}</div></td>
+          <div class="muted small">{% if r.step.assignment == "in_house" %}In-house · {{ r.step.factory.code|default:lot.factory.code }}{% else %}{{ r.step.party.name|default:"Fabricator to be chosen" }}{% endif %}{% if can_cost and r.rate_text %} · {{ r.rate_text }}{% endif %}{% if r.first %} · {{ r.first|date:"d M" }}{% if r.last and r.last != r.first %} – {{ r.last|date:"d M" }}{% endif %}{% endif %}</div></td>
         <td><span class="pill {% if r.step.status == 'done' %}success{% elif r.step.status == 'in_progress' %}warning{% endif %}">{{ r.step.get_status_display }}</span></td>
         <td class="num">{{ r.pieces_in|default:"" }}</td><td class="num">{{ r.pieces_out|default:"" }}</td>
         <td class="num">{% if r.lost %}<span data-tip="Loss {{ r.loss }} · rejected {{ r.rejected }} · short {{ r.short }}">{{ r.lost }}</span>{% endif %}</td>

@@ -16,7 +16,7 @@
     {% if bundles %}<div class="table-wrap"><table>
       <thead><tr><th scope="col">Bundle</th><th scope="col">Size</th><th scope="col" class="num">Pieces</th><th scope="col">Stage</th><th scope="col">Where</th><th scope="col">Status</th></tr></thead>
       <tbody>{% for b in bundles %}<tr><td>{{ b.bundle_no }}{% if b.split_from_id %} <span class="muted">from {{ b.split_from.bundle_no }}</span>{% if can_tags %} <a href="{% url 'lot_tags' lot.pk %}?bundle={{ b.pk }}">tag</a>{% endif %}{% endif %}</td><td>{{ b.sku.size.code }}</td><td class="num">{{ b.qty }}</td>
-        <td>{{ b.current_step.process.name|default:"Cut" }}{% if b.is_rework %} <span class="pill warning">Rework</span>{% endif %}{% if b.held_for_rework %} <span class="pill warning">Held for rework</span>{% endif %}</td><td>{{ b.location.name }}</td>
+        <td>{{ b.current_step.process.name|default:"Cut" }}{% if b.is_rework %} <span class="pill warning">Rework</span>{% endif %}{% if b.held_for_rework %} <span class="pill warning">Held for rework</span>{% endif %}</td><td>{{ b.where }}</td>
         <td><span class="pill">{{ b.get_status_display }}</span></td></tr>{% endfor %}</tbody>
     </table></div>
     {% if pack_ready and can_pack %}<form id="pack" method="post" action="{% url 'pack_bundles' lot.pk %}" style="margin-top:12px">{% csrf_token %}
@@ -35,8 +35,9 @@
     {% else %}<div class="empty"><div class="hand">No bundles yet</div><p>Issue fabric, record the cutting, then make bundles.</p></div>{% endif %}
   </div>
   {% if unused_lines %}<div class="island"><p><span class="pill warning">Not on this route</span> {% for l in unused_lines %}{{ l.material.name }} ({{ l.process.name|default:"by kind" }}){% if not forloop.last %}, {% endif %}{% endfor %}: the style's list uses {{ unused_lines|length|pluralize:"this material,these materials" }} in a process this lot's route does not have, so nothing is filled in for {{ unused_lines|length|pluralize:"it,them" }}. Add {{ unused_lines|length|pluralize:"it,them" }} by hand where needed.</p></div>{% endif %}
-  <div class="island"><details class="fold"{% if route_open %} open{% endif %}><summary>Change the route</summary>
-    <p class="muted">Where each step is done. What each step costs is set on <a href="{% url 'rate_list' %}">Rates</a>. While a step has not started you can reassign, skip or remove it, add a step or move one.</p>
+  {% include "production/_lot_diary.html" %}
+  <div class="island"><details class="fold"{% if route_open %} open{% endif %}><summary>{% if route_fixed %}Who does each step{% else %}Change the route{% endif %}</summary>
+    <p class="muted">Where each step is done. What each step costs is set on <a href="{% url 'rate_list' %}">Rates</a>.{% if route_fixed %} The steps are fixed now that cutting has started; you can still change who does a step that has not started, or skip an optional one. Choosing a fabricator on a challan does this for you.{% else %} While a step has not started you can reassign, skip or remove it, add a step or move one.{% endif %}</p>
     <div class="table-wrap"><table>
       <thead><tr><th scope="col" class="num">#</th><th scope="col">Process</th><th scope="col">Where</th><th scope="col">Status</th>{% if can_edit %}<th scope="col">Change</th>{% endif %}</tr></thead>
       <tbody>{% for s in steps %}<tr {% if s.status == "skipped" %}class="muted"{% endif %}>
@@ -52,10 +53,10 @@
               <div class="field" {% show_when "assignment" s.assignment "subcontract" "off" %}><label>Fabricator</label><select name="party"><option value="">—</option>{% for p in fabricators %}<option value="{{ p.pk }}" {% if s.party_id == p.pk %}selected{% endif %}>{{ p.name }}</option>{% endfor %}</select></div>
               <div style="align-self:end"><button class="btn" name="action" value="reassign">Reassign</button>
                 {% if not s.is_mandatory %}<button class="btn" name="action" value="skip">Skip</button>{% endif %}
-                <button class="btn danger" name="action" value="remove">Remove</button></div>
+                {% if not route_fixed %}<button class="btn danger" name="action" value="remove">Remove</button>{% endif %}</div>
             </form></details>{% endif %}</td>{% endif %}</tr>{% endfor %}</tbody>
     </table></div>
-    {% if can_edit %}<details style="margin-top:12px"><summary>Add a step</summary>
+    {% if can_edit and not route_fixed %}<details style="margin-top:12px"><summary>Add a step</summary>
       <form method="post" class="field-row" style="margin-top:8px">{% csrf_token %}<input type="hidden" name="action" value="add">
         <div class="field"><label>Process</label><select name="process">{% for p in processes %}<option value="{{ p.pk }}">{{ p.name }}</option>{% endfor %}</select></div>
         <div class="field"><label>After step no.</label><input type="text" name="after_sequence" value="1"></div>
@@ -71,10 +72,6 @@
         <div class="field"><label>Reason</label><input type="text" name="reason" required></div>
         <div style="align-self:end"><button class="btn">Move</button></div></form></details>{% endif %}
   </details></div>
-  {% if changes %}<div class="island"><details class="fold"><summary>History</summary><div class="table-scroll"><table><tbody>{% for c in changes %}<tr><td>{{ c.at|date:"d M H:i" }}</td><td>{{ c.user.username }}</td><td>{{ c.detail }}</td><td class="muted">{{ c.reason }}</td></tr>{% endfor %}</tbody></table></div></details></div>{% endif %}
-  {% if can_cut or can_move %}<div class="guide-more"><span class="muted">Corrections</span>
-    {% if can_cut %}<a class="btn ghost" href="{% url 'lot_fabric' lot.pk %}">Fabric issue</a><a class="btn ghost" href="{% url 'lot_cutting' lot.pk %}">Cutting</a>{% endif %}
-    {% if can_move %}<a class="btn ghost" href="{% url 'move_bundles' %}?lot={{ lot.pk }}&amp;back=1">Move bundles</a>{% endif %}</div>{% endif %}
   <script src="{% static 'js/step_view.js' %}?v={{ asset_v }}" defer></script>
   <script src="{% static 'js/reveal.js' %}?v={{ asset_v }}" defer></script>
 {% endblock %}

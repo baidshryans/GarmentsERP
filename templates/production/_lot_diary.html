@@ -1,0 +1,13 @@
+{# The lot diary: every step recorded, oldest first. Needs `diary` (diary.entries). #}
+<div class="island" id="diary"><h2>Lot diary</h2>
+  {% if diary %}<p class="muted">Everything recorded on this lot, oldest first. Made a mistake? <strong>Change</strong> or <strong>Delete</strong> the newest step; to change an earlier one, delete the later steps first.</p>
+  <div class="table-scroll"><table>
+    <thead><tr><th scope="col">Date</th><th scope="col">What happened</th><th scope="col">By</th><th scope="col"></th></tr></thead>
+    <tbody>{% for e in diary %}<tr>
+      <td>{{ e.date|date:"d M Y" }}</td>
+      <td>{% if e.link %}<a href="{{ e.link }}">{{ e.text }}</a>{% else %}{{ e.text }}{% endif %}{% for number, url in e.voucher_links %} <a class="muted small" href="{{ url }}">{{ number }}</a>{% endfor %}</td>
+      <td>{{ e.who }}</td>
+      <td>{% if e.can_delete %}<span style="white-space:nowrap"><a class="btn" href="{% url 'step_delete' e.action.pk %}?edit=1">Change</a> <a class="btn ghost" href="{% url 'step_delete' e.action.pk %}">Delete</a></span>{% endif %}</td></tr>{% endfor %}</tbody>
+  </table></div>
+  {% else %}<p class="muted">Nothing recorded yet. Start with the Next button above.</p>{% endif %}
+</div>

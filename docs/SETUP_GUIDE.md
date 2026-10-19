@@ -924,7 +924,7 @@ Part A prepared the masters. This part follows one lot from the production order
 
 Lot pages, fabric issue, cutting and tags are **not** menu items. Open the production order, then click the lot ("Lot … — status"). Releasing an order that has one lot opens that lot directly.
 
-The lot page tells you what to do next. At the top is a **journey strip**: Order, Fabric, Cut, each step of the route, then Finished goods. Each stage is shown as done, now or to come, with the pieces sitting there, the fabricator's name on outside steps, and an "optional" tag on steps that can be skipped. An optional step stays on the strip while bundles could still go to it; once every bundle is past it, the strip keeps it only if bundles really went there (showing those pieces, then done) and drops it if nobody used it. Below it is one violet **Next** button naming what the lot needs, for example Issue fabric, Record cutting, Make bundles, Move to a stage, Send to a fabricator, Receive from a fabricator, Check received pieces or Pack into finished goods. The Next button points at the next mandatory step. Optional steps, and any other pending actions when bundles are spread over several stages, are listed beside it as smaller links under **Also waiting**. If the next step belongs to another role, the page says **Waiting for:** and the step instead of a button. A finished lot says "This lot is complete." **Change the route**, **Lot cost** and **History** are folded sections; click one to open it. A **Corrections** row keeps Fabric issue, Cutting and Move bundles reachable if you need to go back, and the header keeps **Print tags**. Fabric issue, cutting, tags, challan and receipt pages have a **Back to lot** button.
+The lot page tells you what to do next. At the top is a **journey strip**: Order, Fabric, Cut, each step of the route, then Finished goods. Each stage is shown as done, now or to come, with the pieces sitting there, the fabricator's name on outside steps, and an "optional" tag on steps that can be skipped. An optional step stays on the strip while bundles could still go to it; once every bundle is past it, the strip keeps it only if bundles really went there (showing those pieces, then done) and drops it if nobody used it. Below it is one violet **Next** button naming what the lot needs, for example Issue fabric, Record cutting, Make bundles, Move to a stage, Send to a fabricator, Receive from a fabricator, Check received pieces or Pack into finished goods. The Next button points at the next mandatory step. Optional steps, and any other pending actions when bundles are spread over several stages, are listed beside it as smaller links under **Also waiting**. If the next step belongs to another role, the page says **Waiting for:** and the step instead of a button. A finished lot says "This lot is complete." Below the **Step by step** table is the **Lot diary**: everything recorded on the lot, oldest first, in plain words with who did it (for example *Cutting recorded: Cutting 1: 240 pieces in 12 bundle(s)*). The newest entry has **Change** and **Delete**; people who may see money also get a link to each journal entry. The **Bundles** table says where each bundle is in plain words: a fabricator's name, your factory, or Ready Goods. Then comes **Change the route**, folded (it becomes **Who does each step** once cutting starts). Fabric issue, cutting, tags, challan and receipt pages have a **Back to lot** button.
 
 Challans and receipts guide you the same way (section 23.2). On Home, **Receive from fabricator** opens *Sent to fabricators* on the **Out with fabricators** tab: only the challans that are issued or partly received, each with a **Receive from …** button in its **Next step** column.
 
@@ -1028,9 +1028,9 @@ Order statuses: Draft → Released → In production → Partly completed → Co
 
 ## 21. Plan the route of each lot
 
-Open the lot page and go to **Change the route**. While the lot is still Planned it is already open for anyone who may change the route; later, click it to unfold. The table shows #, Process, Where and Status (Pending, In progress, Done, Skipped). The route was copied from the style, so for most lots **you change nothing**.
+Open the lot page and go to **Change the route**. While the lot is still Planned it is already open for anyone who may change the route; later, click it to unfold. **Once the first cutting is recorded the steps are fixed**: the panel becomes **Who does each step**, where you can only change who does a step that has not started (in-house or which fabricator) or skip an optional step. Steps cannot be added, removed or moved any more. Choosing a fabricator on a challan sets the step's fabricator for you. The table shows #, Process, Where and Status (Pending, In progress, Done, Skipped). The route was copied from the style, so for most lots **you change nothing**.
 
-Change only what differs for this lot, using the **Change…** menu on a step or the forms below it. Every change needs a **reason** and is logged under **History** on the lot page with date, user and reason.
+Change only what differs for this lot, using the **Change…** menu on a step or the forms below it. Every change needs a **reason**.
 
 | Need | How | Rule |
 | --- | --- | --- |
@@ -1049,7 +1049,7 @@ A step that is In progress or Done cannot be changed. Issuing a challan to a fab
 
 ### 22.1 Issue fabric
 
-Lot page → Next button **Issue fabric** (or **Fabric issue** in the Corrections row). The page lists rolls in the factory godown with a balance: Roll, Fabric, Lot/shade, GSM, In store.
+Lot page → Next button **Issue fabric**. The page lists rolls in the factory godown with a balance: Roll, Fabric, Lot/shade, GSM, In store.
 
 1. Enter the **Issue qty** against each roll you are sending to the cutting floor (in KG).
 2. Enter **Pieces you expect from this fabric**: your own estimate for the fabric on this issue, for example 150 pieces from 60 kg. It is optional; leave it empty and no comparison is made.
@@ -1061,7 +1061,7 @@ Rules: quantity must be above zero and cannot exceed the roll's balance; only fa
 
 ### 22.2 Record the cutting from the bundles received
 
-Lot page → Next button **Record cutting** (or **Cutting** in the Corrections row) → *Record cutting*.
+Lot page → Next button **Record cutting** → *Record cutting*.
 
 You record what you receive from the cutting floor. Bundles come with different numbers of pieces, so each one is entered as it is, and the pieces cut are simply what the bundles hold. There is no separate "pieces cut" figure to type and no "lost in cutting": a piece spoiled on the table is never counted.
 

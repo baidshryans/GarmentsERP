@@ -17,6 +17,16 @@ def _check(lot, user, reason):
         raise BusinessRuleError("Give a reason for the route change.")
 
 
+FIXED = "The route is fixed once cutting has started. Choose who does a step when you send the work."
+
+
+def _not_cut(lot):
+    """After the first cutting the processes are fixed (owner, 19 Oct 2026): only who does a step changes. An
+    optional step can still be skipped: it was always a maybe, and skipping it records that it did not happen."""
+    if lot.cuttings.exists():
+        raise BusinessRuleError(FIXED)
+
+
 def _log(lot, action, detail, reason, user):
     LotRouteChange.objects.create(lot=lot, action=action, detail=detail[:255], reason=reason.strip()[:255], user=user)
 
@@ -53,6 +63,7 @@ def add_step(lot, *, process, after_sequence, user, reason, assignment="in_house
              is_mandatory=True) -> LotStep:
     lot = Lot.objects.get(pk=lot.pk)
     _check(lot, user, reason)
+    _not_cut(lot)
     _validate_assignment(assignment, factory, party)
     steps = list(lot.steps.order_by("sequence"))
     if any(s.sequence > after_sequence and s.status in STARTED for s in steps):
@@ -70,6 +81,7 @@ def add_step(lot, *, process, after_sequence, user, reason, assignment="in_house
 def remove_step(step, *, user, reason):
     step = LotStep.objects.select_related("lot", "process").get(pk=step.pk)
     _check(step.lot, user, reason)
+    _not_cut(step.lot)
     _movable(step)
     lot, name = step.lot, step.process.name
     if step.challans.exists():
@@ -96,6 +108,7 @@ def reorder_step(step, *, new_sequence, user, reason):
     step = LotStep.objects.select_related("lot", "process").get(pk=step.pk)
     lot = step.lot
     _check(lot, user, reason)
+    _not_cut(step.lot)
     steps = list(lot.steps.order_by("sequence"))
     if not 1 <= new_sequence <= len(steps):
         raise BusinessRuleError("That position does not exist on the route.")

@@ -25,7 +25,9 @@ from . import labels
 from .models import Bundle, CuttingEntry, Lot, LotStep, PackEntry, ProductionAction, ProductionOrder, StageMovement
 from .services import actions as step_actions
 from .services import bundles as bundle_service
-from .services import boxes, costing, cutting, guide, orders, routes, step_view
+from inventory.services import where
+
+from .services import boxes, costing, cutting, diary, guide, orders, routes, step_view
 from .services import materials as material_service
 
 
@@ -234,7 +236,10 @@ class LotDetail(LoginRequiredMixin, ScreenPermissionMixin, View):
     def get(self, request, pk):
         lot = self._lot(request, pk)
         steps = list(lot.steps.select_related("process", "factory", "party"))
-        bundles = list(lot.bundles.select_related("sku__size", "location", "current_step__process", "split_from").order_by("bundle_no"))
+        bundles = list(lot.bundles.select_related("sku__size", "location", "location__factory", "location__party",
+                                                  "current_step__process", "split_from").order_by("bundle_no"))
+        for b in bundles:
+            b.where = where.place_of(b.location)
         cuts = list(lot.cuttings.all())
         planned = sum(l.qty for l in lot.order_line.sizes.all())
         can_cost = request.user.can_view_field("cost")
@@ -249,7 +254,8 @@ class LotDetail(LoginRequiredMixin, ScreenPermissionMixin, View):
             "cutting_loss": sum(cs.loss for c in cuts for cs in c.sizes.all()),
             "can_cost": can_cost,
             "sv": step_view.build(lot, request.user),     # pieces and cost at each step; money shown only with can_cost
-            "changes": lot.route_changes.select_related("user")[:20],
+            "diary": diary.entries(lot, request.user),
+            "route_fixed": lot.cuttings.exists(),
             "processes": Process.objects.filter(is_active=True), "factories": _factories(request.user),
             "fabricators": Party.objects.filter(is_fabricator=True, is_active=True),
             "can_edit": can_edit, "route_open": can_edit and lot.status == Lot.Status.PLANNED,   # the route is planned then

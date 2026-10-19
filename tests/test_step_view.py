@@ -137,7 +137,7 @@ def test_the_lot_page_shows_steps_to_all_and_money_only_with_the_cost_permission
     o.force_login(ns.owner)
     page = o.get(reverse("lot_detail", args=[ns.lot.pk])).content.decode()
     assert "To bill" in page and "875.00" in page and "Work in progress now" in page and "js/step_view.js" in page
-    assert "Change the route" in page and "Lot cost</summary>" not in page
+    assert "Who does each step" in page and "Lot cost</summary>" not in page
 
 
 def test_cost_recorded_before_steps_carried_their_cost_is_linked_by_the_backfill(ns):

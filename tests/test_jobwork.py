@@ -11,6 +11,7 @@ from jobwork.models import ChallanBundle, JobWorkChallan, QcResult, Receipt
 from jobwork.services import bills, challans, rates, receipts
 from jobwork.services.challans import SecondFabricatorWarning
 from jobwork.services.receipts import Counted
+from ledger.models import Voucher
 from ledger.selectors import outstanding_bills
 from masters.models import Size
 from production.models import Bundle, LotCostEntry
@@ -781,3 +782,66 @@ def test_a_posted_bill_cost_entry_carries_its_rate_and_pieces(ns, company, facto
     bills.post_bill(bills.create_bill(company=company, factory=factory, party=ns.fab, date=DAY, user=ns.owner), user=ns.owner)
     entry = LotCostEntry.objects.get(lot=ns.lot, kind="jobwork")
     assert (entry.qty, entry.rate.rate, entry.amount) == (42, D("25.00"), D("1050.00"))
+
+
+# ---------------- delete a labour bill (Task 12) ----------------
+
+def _pay(ns, company, factory, bill, amount=None):
+    from ledger.models import Ledger
+    from ledger.services.posting import AllocationSpec, LineSpec, post_voucher
+
+    amount = amount or bill.net
+    return post_voucher(company=company, factory=factory, voucher_type="payment", date=DAY, user=ns.owner, narration="Paid",
+                        lines=[LineSpec(ledger=bill.party.payable_ledger, debit=amount,
+                                        allocations=(AllocationSpec("against", amount, bill.number),)),
+                               LineSpec(ledger=Ledger.objects.get(company=company, system_key="cash"), credit=amount)])
+
+
+def test_delete_a_paid_bill_is_refused_and_names_the_payment(ns, company, factory):
+    from ledger.services import settlement
+
+    accepted_challan(ns)
+    bill = bills.post_bill(bills.create_bill(company=company, factory=factory, party=ns.fab, date=DAY, user=ns.owner), user=ns.owner)
+    payment = _pay(ns, company, factory, bill)
+    assert settlement.settled_against(bill.voucher) == [payment]
+    with pytest.raises(BusinessRuleError) as exc:
+        bills.delete_bill(bill, user=ns.owner)
+    assert str(exc.value) == f"Payment {payment.number} is settled against this bill. Delete the payment first."
+
+
+def test_delete_a_bill_leaves_no_trace_and_frees_its_pieces(ns, company, factory):
+    from tests.deletion_helpers import assert_no_trace, books
+
+    accepted_challan(ns)
+    before, cost_before = books(company), costing.lot_cost(ns.lot)
+    bill = bills.post_bill(bills.create_bill(company=company, factory=factory, party=ns.fab, date=DAY, user=ns.owner), user=ns.owner)
+    voucher_pk, lines = bill.voucher_id, bill.lines.count()
+    bills.delete_bill(bill, user=ns.owner)
+    assert_no_trace("jobwork.jobworkbill", bill.pk)
+    assert not Voucher.objects.filter(pk=voucher_pk).exists() and not Voucher.objects.filter(reverses_id=voucher_pk).exists()
+    assert books(company) == before and costing.lot_cost(ns.lot) == cost_before
+    assert not LotCostEntry.objects.filter(source_type="jobwork.jobworkbill").exists()
+    again = bills.create_bill(company=company, factory=factory, party=ns.fab, date=DAY, user=ns.owner)
+    assert again.lines.count() == lines and again.gross == bill.gross       # the pieces can be billed again
+
+
+def test_a_bill_covering_two_lots_names_both_before_it_is_deleted(ns, company, factory, owner):
+    from production.services import orders
+
+    accepted_challan(ns)
+    order = orders.create_order(company=company, factory=factory, date=DAY, user=owner,
+                                lines=[orders.OrderLineSpec(ns.style, ns.black, 10, {ns.sizes["M"]: 1})])
+    lot2 = orders.release_order(order, user=owner).lines.get().lot
+    from production.services import cutting
+
+    cutting.issue_fabric(lot=lot2, lines=[(ns.roll_b, D("10"))], user=owner, date=DAY)
+    cutting.receive_cutting(lot=lot2, user=owner, date=DAY, bundles={ns.sizes["M"]: [10]},
+                            rolls=[cutting.RollUseSpec(ns.roll_b, used=D("5"), waste=D("0"), remnant=D("5"))])
+    b2 = Bundle.objects.get(lot=lot2)
+    ch2 = challans.create_and_issue(company=company, factory=factory, party=ns.fab, lot=lot2, step=lot2.steps.get(process__code="STITCH"),
+                                    bundles=[b2], date=DAY, user=owner)
+    r2 = receive(ns, ch2)
+    qc(ns, r2.lines.get(), accepted=10)
+    bill = bills.post_bill(bills.create_bill(company=company, factory=factory, party=ns.fab, date=DAY, user=ns.owner), user=ns.owner)
+    text = " ".join(bills.consequences(bill, ns.owner))
+    assert ns.lot.lot_no in text and lot2.lot_no in text and bill.voucher.number in text

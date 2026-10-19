@@ -255,6 +255,53 @@ def waive_deduction(*, user, reason, receipt_line=None, receipt_trim=None) -> Jo
                                                  reason=reason.strip()[:255], waived_by=user)
 
 
+def consequences(bill, user) -> list:
+    """What deleting a bill does, in plain sentences, naming every lot it covers."""
+    see_cost = user.can_view_field("cost")
+    lots = sorted({l.lot.lot_no for l in bill.lines.select_related("lot")})
+    out = [f"remove the job work cost of this bill from lot{'s' if len(lots) > 1 else ''} {', '.join(lots)}"
+           + (f" (₹{bill.gross - bill.deductions})" if see_cost else "")]
+    if bill.voucher_id:
+        out.append(f"delete journal entry {bill.voucher.number}" + (f" (₹{bill.voucher.total})" if see_cost else ""))
+    out.append(f"free the {sum(l.qty for l in bill.lines.all())} pieces on it to be billed again")
+    return out
+
+
+@transaction.atomic
+def delete_bill(bill, *, user) -> None:
+    """Delete a labour bill entirely (owner, 19 Oct 2026): it is cancelled the usual way, then its voucher, the
+    reversal, its cost on the lots and its rows are purged with their history. Refused while a payment is settled
+    against it, and in a locked period."""
+    from core.services import purge
+    from core.services.periods import assert_period_open
+    from django.utils import timezone
+    from ledger.models import Voucher
+    from ledger.services.settlement import settled_against
+
+    bill = JobWorkBill.objects.select_related("factory", "company", "voucher").get(pk=bill.pk)
+    assert_factory_access(user, bill.factory)
+    if bill.status == JobWorkBill.Status.POSTED:
+        for payment in settled_against(bill.voucher):
+            raise BusinessRuleError(f"{payment.get_voucher_type_display()} {payment.number} is settled against this bill. "
+                                    f"Delete the {payment.get_voucher_type_display().lower()} first.")
+        assert_period_open(bill.company, bill.factory, bill.date)
+        assert_period_open(bill.company, bill.factory, max(timezone.localdate(), bill.date))
+    voucher_id = bill.voucher_id
+    if bill.status != JobWorkBill.Status.CANCELLED:
+        cancel_bill(bill, user=user, reason="Deleted")
+    source = {"source_type": JobWorkBill._meta.label_lower, "source_id": bill.pk}
+    LotCostEntry.objects.filter(**source).delete()
+    if voucher_id:
+        ids = [voucher_id] + list(Voucher.objects.filter(reverses_id=voucher_id).values_list("pk", flat=True))
+        purge.vouchers(Voucher.objects.filter(pk__in=ids))
+    line_ids = list(bill.lines.values_list("pk", flat=True))
+    deduction_ids = list(bill.deduction_lines.values_list("pk", flat=True))
+    JobWorkBill._base_manager.filter(pk=bill.pk).delete()
+    purge.history(JobWorkBill, [bill.pk])
+    purge.history(JobWorkBillLine, line_ids)
+    purge.history(JobWorkBillDeduction, deduction_ids)
+
+
 @transaction.atomic
 def cancel_bill(bill, *, user, reason) -> JobWorkBill:
     bill = JobWorkBill.objects.select_related("factory").get(pk=bill.pk)

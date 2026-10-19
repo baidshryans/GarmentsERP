@@ -1378,7 +1378,7 @@ Details:
 
 **What posting does:** the bill is added to the lot's cost as job work; the net amount becomes owed to the fabricator (due date = bill date + the fabricator's credit days); TDS goes to TDS Payable; the challans become **Billed** once everything is received, QC'd and paid with no rework open.
 
-To undo a posted bill, use **Cancel bill** with a reason. It reverses the entries and frees the pieces to be billed again.
+To take a posted bill back, press **Delete** on the bill. The page first lists what goes: the job work cost on each lot the bill covers and its journal entry. The bill is then removed completely and its pieces can be billed again. A bill that has been paid (fully or in part) cannot be deleted until that payment is deleted; the page names the payment.
 
 ### 25.2 Pay the money
 

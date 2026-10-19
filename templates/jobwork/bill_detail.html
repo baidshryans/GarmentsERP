@@ -11,5 +11,7 @@
       {% for d in deductions %}<tr><td class="muted">Less: {{ d.description }}</td><td></td><td></td><td class="num">- {{ d.amount }}</td></tr>{% endfor %}</tbody>
     <tfoot><tr><td colspan="3">Gross {{ b.gross }} · deductions {{ b.deductions }}{% if b.tds_template %} · TDS {{ b.tds }} ({{ b.tds_template.name }}){% endif %}</td><td class="num">Net payable {{ b.net }}</td></tr></tfoot></table></div></div>
   {% if b.status == "draft" and can_edit %}<form method="post" class="island">{% csrf_token %}<button class="btn primary" name="action" value="post">Post bill</button> <button class="btn danger" name="action" value="cancel">Discard draft</button><input type="hidden" name="reason" value="Draft discarded"></form>{% endif %}
-  {% if b.status == "posted" and can_cancel %}<form method="post" class="island" style="max-width:520px">{% csrf_token %}<input type="hidden" name="action" value="cancel"><div class="field"><label for="why">Cancel with a reason</label><input id="why" name="reason" type="text" required></div><button class="btn danger">Cancel bill</button></form>{% endif %}
+  {% if b.status == "posted" and can_cancel %}<div class="island" style="max-width:640px"><h2>Delete this bill</h2>
+    {% if paid_by %}<p>{{ paid_by }}</p>{% else %}<p>Deleting this will:</p><ul>{% for line in consequences %}<li>{{ line|capfirst }}</li>{% endfor %}</ul>
+    <form method="post">{% csrf_token %}<input type="hidden" name="action" value="delete"><button class="btn danger">Delete</button></form>{% endif %}</div>{% endif %}
 {% endblock %}

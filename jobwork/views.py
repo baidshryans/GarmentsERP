@@ -526,6 +526,8 @@ class BillDetail(LoginRequiredMixin, ScreenPermissionMixin, View):
             "settle": settlement(request.user, ledger=b.party.payable_ledger, reference=b.number, direction="pay",
                                  narration=f"Paid against labour bill {b.number}")
             if b.status == "posted" and b.party.payable_ledger_id else None,
+            "consequences": bills.consequences(b, request.user) if b.status == "posted" else [],
+            "paid_by": _paid_by(b),
         })
 
     def post(self, request, pk):
@@ -542,9 +544,28 @@ class BillDetail(LoginRequiredMixin, ScreenPermissionMixin, View):
                     raise PermissionDenied
                 bills.cancel_bill(b, user=user, reason=request.POST.get("reason", ""))
                 messages.success(request, "Bill cancelled. Its accepted pieces can be billed again.")
+            elif action == "delete":
+                if not user.has_screen_perm("jobwork.bill", "cancel"):
+                    raise PermissionDenied
+                bills.delete_bill(b, user=user)
+                messages.success(request, "Bill deleted. Its pieces can be billed again.")
+                return redirect("bill_list")
         except BusinessRuleError as exc:
             messages.error(request, str(exc))
         return redirect("bill_detail", pk=pk)
+
+
+def _paid_by(bill):
+    """Why a posted bill cannot be deleted yet: the payments settled against it."""
+    from ledger.services.settlement import settled_against
+
+    if bill.status != "posted" or bill.voucher_id is None:
+        return ""
+    paid = settled_against(bill.voucher)
+    if not paid:
+        return ""
+    names = ", ".join(f"{v.get_voucher_type_display()} {v.number}" for v in paid)
+    return f"{names} is settled against this bill. Delete it first, then this bill can be deleted."
 
 
 # ================================================================ reports (JOB-05, JOB-08, JOB-12)

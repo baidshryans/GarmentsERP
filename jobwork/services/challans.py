@@ -114,6 +114,7 @@ def create_challan(*, company, factory, party, lot, step, bundles, date, user, e
     challan = JobWorkChallan.objects.create(
         company=company, factory=factory, party=party, lot=lot, step=step, kind=kind, date=date, pay_basis=bases.pop(),
         expected_date=expected_date, rate_type="A", flat_amount=ZERO,
+        labour_rate=rate.source if rate is not None and kind == JobWorkChallan.Kind.ISSUE else None,
         remarks=remarks, second_fabricator_ack=bool(others.exists()), created_by=user)
     for b, qty, price in lines:
         ChallanBundle.objects.create(challan=challan, bundle=b, qty_issued=qty, rate=price)

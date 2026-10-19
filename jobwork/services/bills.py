@@ -171,10 +171,12 @@ def post_bill(bill, *, user) -> JobWorkBill:
         company=company, factory=factory, voucher_type="job_work_bill", date=bill.date, lines=lines, user=user,
         narration=f"Labour bill {number}: {party.name}", source=bill)
     per_step = {}                                      # (lot, route step of the challan) -> amount
-    lots, steps = {}, {}
-    for l in bill.lines.select_related("lot", "challan__step"):
+    lots, steps, paid, used = {}, {}, {}, {}           # pieces paid and the rates used, per (lot, step)
+    for l in bill.lines.select_related("lot", "challan__step", "challan__labour_rate"):
         key = (l.lot_id, l.challan.step_id)
         per_step[key] = per_step.get(key, ZERO) + l.amount
+        paid[key] = paid.get(key, 0) + (l.qty or 0)
+        used.setdefault(key, set()).add(l.challan.labour_rate)
         lots[l.lot_id], steps[l.challan.step_id] = l.lot, l.challan.step
     for d in bill.deduction_lines.select_related("lot", "challan__step"):
         key = (d.lot_id, d.challan.step_id)
@@ -182,8 +184,10 @@ def post_bill(bill, *, user) -> JobWorkBill:
         lots[d.lot_id], steps[d.challan.step_id] = d.lot, d.challan.step
     for (lot_id, step_id), amount in per_step.items():
         if amount != 0:
+            one = used.get((lot_id, step_id), set())
             costing.add_cost(lot=lots[lot_id], factory=factory, kind=LotCostEntry.Kind.JOBWORK, amount=amount,
-                             date=bill.date, note=f"Labour bill {number}", source=bill, voucher=voucher, step=steps[step_id])
+                             date=bill.date, note=f"Labour bill {number}", source=bill, voucher=voucher, step=steps[step_id],
+                             rate=next(iter(one)) if len(one) == 1 else None, qty=paid.get((lot_id, step_id)) or None)
     bill.number, bill.status, bill.voucher = number, JobWorkBill.Status.POSTED, voucher
     bill.save()
     for ch in JobWorkChallan.objects.filter(pk__in={l.challan_id for l in bill.lines.all()}):

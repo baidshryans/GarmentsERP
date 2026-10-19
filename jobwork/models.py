@@ -79,6 +79,8 @@ class JobWorkChallan(FactoryScopedModel):
     date = models.DateField()
     expected_date = models.DateField(null=True, blank=True)
     status = models.CharField(max_length=16, choices=Status.choices, default=Status.DRAFT)
+    labour_rate = models.ForeignKey(LabourRate, on_delete=models.PROTECT, null=True, blank=True, related_name="challans",
+                                    help_text="The rate on Rates this challan was priced at")
     rate_type = models.CharField(max_length=1, default="A", help_text="A per piece; D flat per lot (only on challans issued before 19 Oct 2026)")
     flat_amount = models.DecimalField(max_digits=12, decimal_places=2, default=ZERO)
     pay_basis = models.CharField(max_length=8, choices=PayBasis.choices, default=PayBasis.ACCEPTED,

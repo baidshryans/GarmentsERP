@@ -754,3 +754,30 @@ def test_the_first_challan_is_not_marked_billed_while_its_split_rework_is_still_
     assert ch.status == "fully_received"                                    # 5 pieces still wait to go back
     guide = jw_guide.challan_guide(ch, ns.owner)
     assert guide["primary"]["kind"] == "rework" and guide["primary"]["pieces"] == 5 and not guide["complete"]
+
+
+# ---------------- the rate each challan and cost entry used (19 Oct 2026) ----------------
+
+def test_an_issue_challan_records_the_rate_it_used(ns):
+    ch = issue(ns, ns.fab, ns.bundles[:1])
+    assert ch.labour_rate == rates.rate_for(ns.fab, step(ns, "STITCH").process, DAY)
+    assert {cb.rate for cb in ch.bundles.all()} == {D("25.00")}
+
+
+def test_on_pieces_accepted_a_reworked_piece_is_paid_once(ns, company, factory):
+    ch = issue(ns, ns.fab, ns.bundles[2:3])                                 # B003, 8 pieces at 25, paid on accepted
+    qc(ns, receive(ns, ch).lines.get(), accepted=6, rework=2)
+    child = Bundle.objects.get(split_from=ns.bundles[2])
+    rw = challans.issue_challan(challans.create_challan(
+        company=ns.company, factory=ns.factory, party=ns.fab, lot=ns.lot, step=step(ns, "STITCH"), bundles=[child],
+        date=DAY, user=ns.owner, kind="rework"), user=ns.owner)
+    qc(ns, receive(ns, rw).lines.get(), accepted=2)
+    bill = bills.create_bill(company=company, factory=factory, party=ns.fab, date=DAY, user=ns.owner)
+    assert bill.gross == D("200.00")                                        # (6 + 2) x 25, each piece once
+
+
+def test_a_posted_bill_cost_entry_carries_its_rate_and_pieces(ns, company, factory):
+    accepted_challan(ns)                                                    # S17 + M25 at 25
+    bills.post_bill(bills.create_bill(company=company, factory=factory, party=ns.fab, date=DAY, user=ns.owner), user=ns.owner)
+    entry = LotCostEntry.objects.get(lot=ns.lot, kind="jobwork")
+    assert (entry.qty, entry.rate.rate, entry.amount) == (42, D("25.00"), D("1050.00"))

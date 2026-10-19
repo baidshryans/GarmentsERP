@@ -152,3 +152,11 @@ def test_migration_creates_inhouse_and_zero_rates(company, factory, owner):
 
     assert inhouse("STITCH") == D("10") and inhouse("PACK") == D("0") and inhouse("CUT") == D("0")
     assert LabourRate.objects.get(party_id=p.pk, process__code="IRON").rate == D("3")
+
+
+def test_inhouse_cost_entry_records_rate_and_qty(company, factory, owner):
+    ns = build(company, factory, owner)
+    set_inhouse_rate("CUT", "1.50")
+    cut(ns)
+    entry = LotCostEntry.objects.get(lot=ns.lot, kind="labour")
+    assert (entry.qty, entry.rate.rate, entry.amount) == (100, D("1.50"), D("150.00"))

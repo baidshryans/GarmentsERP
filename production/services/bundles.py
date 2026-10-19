@@ -284,15 +284,17 @@ def hold_back(bundle, count, *, user, date) -> Bundle:
 
 def accrue_leaving_labour(lot, items, date, user, note):
     """In-house piece-rate labour for stages bundles are leaving. items = [(bundle, stage left, pieces that pass)]."""
-    labour = {}                                   # (factory, stage left) -> amount
+    labour = {}                                   # (factory, stage left) -> [amount, pieces, rate]
     for b, in_step, passing in items:
         if in_step is not None and in_step.assignment == LotStep.Assignment.IN_HOUSE and passing > 0:
-            amount, _ = costing.inhouse_amount(in_step, passing, date, rework=b.is_rework)
+            amount, rate = costing.inhouse_amount(in_step, passing, date, rework=b.is_rework)
             if amount > 0:
-                key = (b.location.factory, in_step)
-                labour[key] = labour.get(key, ZERO) + amount
-    for (f, step), amount in labour.items():
-        costing.accrue_labour(lot=lot, factory=f, amount=amount, date=date, user=user, note=note, source=lot, step=step)
+                row = labour.setdefault((b.location.factory, in_step), [ZERO, 0, rate])
+                row[0] += amount
+                row[1] += passing
+    for (f, step), (amount, pieces, rate) in labour.items():
+        costing.accrue_labour(lot=lot, factory=f, amount=amount, date=date, user=user, note=note, source=lot, step=step,
+                              rate=rate, qty=pieces)
 
 
 def _check_same_lot(bundles):
@@ -448,7 +450,7 @@ def pack_bundles(*, bundles, user, date=None, location=None, materials=None) -> 
     if target.factory_id != factory.pk:
         raise BusinessRuleError("Finished goods must go to a location of the factory the bundles are in.")
 
-    labour = ZERO
+    labour, paid_pieces, pack_rate = ZERO, 0, None
     for b in bundles:
         at_pack = (b.status == Bundle.Status.AT_STAGE and b.current_step_id == pack_step.pk)
         done_pack = (b.status == Bundle.Status.READY and b.completed_seq >= pack_step.sequence)
@@ -457,10 +459,11 @@ def pack_bundles(*, bundles, user, date=None, location=None, materials=None) -> 
         if b.rework_qty:
             raise BusinessRuleError(f"Bundle {b.bundle_no} has pieces waiting for rework.")
         if at_pack and pack_step.assignment == LotStep.Assignment.IN_HOUSE:
-            amount, _ = costing.inhouse_amount(pack_step, b.qty, date, rework=b.is_rework)
+            amount, pack_rate = costing.inhouse_amount(pack_step, b.qty, date, rework=b.is_rework)
             labour += amount
+            paid_pieces += b.qty if amount else 0
     if labour > 0:
-        costing.accrue_labour(lot=lot, factory=factory, amount=labour, date=date, user=user,
+        costing.accrue_labour(lot=lot, factory=factory, amount=labour, date=date, user=user, rate=pack_rate, qty=paid_pieces,
                               note=f"Packing, {sum(b.qty for b in bundles)} pieces", source=lot, step=pack_step)
 
     packed = sum(b.qty for b in bundles)

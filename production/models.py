@@ -446,6 +446,9 @@ class LotCostEntry(models.Model):
                                        "factories, write-offs, finished goods)")
     kind = models.CharField(max_length=10, choices=Kind.choices)
     amount = models.DecimalField(max_digits=16, decimal_places=2)
+    rate = models.ForeignKey("jobwork.LabourRate", on_delete=models.PROTECT, null=True, blank=True, related_name="+",
+                             help_text="The rate on Rates this labour was paid at")
+    qty = models.PositiveIntegerField(null=True, blank=True, help_text="Pieces paid for")
     date = models.DateField()
     note = models.CharField(max_length=255, blank=True)
     source_type = models.CharField(max_length=60, blank=True)

@@ -3,47 +3,58 @@ from django.db import transaction
 from core.models import FinancialYear, Location
 from core.services.numbering import create_default_series
 
+# Every factory has these. Godown, Ready Goods and Rejects are the places people see (owner, 19 Oct 2026); the
+# others are bookkeeping for work in progress and are never shown or chosen.
 DEFAULT_LOCATIONS = [
-    ("Main Godown", Location.Type.GODOWN),
+    ("Godown", Location.Type.GODOWN),
     ("Cutting Floor", Location.Type.CUTTING),
     ("Process Area", Location.Type.PROCESS),
-    ("Dispatch", Location.Type.DISPATCH),
+    ("Ready Goods", Location.Type.DISPATCH),
     ("In Transit", Location.Type.TRANSIT),
     ("Rejects", Location.Type.REJECTS),
 ]
+DEFAULT_NAME = {loc_type: name for name, loc_type in DEFAULT_LOCATIONS}
+
+
+def location_of(factory, loc_type):
+    """The factory's location of this kind: the first active one. Found by kind, never by name, so the owner can
+    rename it. Made with its default name if the factory has none."""
+    loc = Location.objects.filter(factory=factory, loc_type=loc_type, is_active=True).order_by("id").first()
+    if loc is None:
+        name = DEFAULT_NAME[loc_type]
+        loc = Location.objects.filter(factory=factory, name=name).first() or \
+            Location.objects.create(factory=factory, name=name, loc_type=loc_type)
+    return loc
 
 
 def transit_location(factory):
-    """The factory's In Transit location (stock moving between factories). Created on first use for older factories."""
-    loc, _ = Location.objects.get_or_create(
-        factory=factory, name="In Transit", defaults={"loc_type": Location.Type.TRANSIT}
-    )
-    return loc
-
-
-def _get(factory, name, loc_type, **extra):
-    loc, _ = Location.objects.get_or_create(factory=factory, name=name, defaults={"loc_type": loc_type, **extra})
-    return loc
+    """Stock on the way between factories."""
+    return location_of(factory, Location.Type.TRANSIT)
 
 
 def cutting_location(factory):
-    return _get(factory, "Cutting Floor", Location.Type.CUTTING)
+    return location_of(factory, Location.Type.CUTTING)
 
 
 def process_location(factory):
-    return _get(factory, "Process Area", Location.Type.PROCESS)
+    return location_of(factory, Location.Type.PROCESS)
 
 
 def godown_location(factory):
-    return _get(factory, "Main Godown", Location.Type.GODOWN)
+    """Where everything received lands by default."""
+    return location_of(factory, Location.Type.GODOWN)
 
 
-def dispatch_location(factory):
-    return _get(factory, "Dispatch", Location.Type.DISPATCH)
+def ready_goods_location(factory):
+    """Packed, finished pieces only; sales and dispatch take from here."""
+    return location_of(factory, Location.Type.DISPATCH)
+
+
+dispatch_location = ready_goods_location
 
 
 def rejects_location(factory):
-    return _get(factory, "Rejects", Location.Type.REJECTS)
+    return location_of(factory, Location.Type.REJECTS)
 
 
 def fabricator_location(factory, party):

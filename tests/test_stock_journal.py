@@ -16,6 +16,7 @@ from ledger.selectors import ledger_balance
 from tests import sales_helpers as sh
 from tests.conftest import make_user
 from tests.test_sales import quick_invoice
+from core.services.factories import godown_location
 
 D = Decimal
 DAY = sh.DAY
@@ -23,7 +24,7 @@ DAY = sh.DAY
 
 @pytest.fixture
 def ns(company, factory, owner):
-    return sh.build(company, factory, owner)          # 8 SKUs x 100 pieces at cost 300 in the Main Godown
+    return sh.build(company, factory, owner)          # 8 SKUs x 100 pieces at cost 300 in the Godown
 
 
 def bal(company, key, factory=None):
@@ -69,7 +70,7 @@ def test_fabric_goes_out_by_roll_and_comes_in_as_a_new_roll(company, factory, ow
     from tests.prod_helpers import build
 
     ns = build(company, factory, owner)
-    godown = Location.objects.get(factory=factory, name="Main Godown")
+    godown = godown_location(factory)
     before = RollBalance.objects.get(roll=ns.roll_a, location=godown).qty
     with pytest.raises(BusinessRuleError, match="choose the roll"):
         post_journal(company=company, factory=factory, location=godown, date=DAY, reason="damage", user=owner,

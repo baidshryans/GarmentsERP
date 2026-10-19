@@ -10,6 +10,7 @@ from ledger.models import Voucher
 from masters.models import Colour, Material, Product, Size, Unit
 from masters.services import styles
 from tests.test_imports import run, sheet
+from core.services.factories import godown_location
 
 D = Decimal
 
@@ -20,7 +21,7 @@ def test_opening_stock_import_posts_rolls_items_and_skus(company, factory, owner
     s = styles.create_style(company=company, style_no="J1", product=Product.objects.get(code="JGR"), name="J",
                             colours=list(Colour.objects.filter(name="Black")), sizes=list(Size.objects.filter(code="M")))
     barcode = s.skus.get().barcode
-    godown = Location.objects.get(factory=factory, name="Main Godown")
+    godown = godown_location(factory)
     data = sheet("opening_stock", ["fab-001", 100, 180, "OLD-1", "L1", 280, 180, ""], ["FAB-001", 50, 190, "OLD-2", "", "", "", ""],
                  ["ZIP-1", 500, "2.5", "", "", "", "", ""], [barcode, 40, 300, "", "", "", "", ""])
     r = run("opening_stock", data, company, owner, factory=factory, location=godown, commit=True)
@@ -32,7 +33,7 @@ def test_opening_stock_import_posts_rolls_items_and_skus(company, factory, owner
 
 def test_opening_stock_import_errors_name_the_rows_and_post_nothing(company, factory, owner):
     Material.objects.create(code="FAB-001", name="Fleece", kind="fabric", unit=Unit.objects.get(code="KG"))
-    godown = Location.objects.get(factory=factory, name="Main Godown")
+    godown = godown_location(factory)
     r = run("opening_stock", sheet("opening_stock", ["NOPE", 1, 1, "", "", "", "", ""], ["FAB-001", 5, 1, "", "", "", "", ""]),
             company, owner, factory=factory, location=godown, commit=True)
     assert r.errors[0][0] == 2 and "No material" in r.errors[0][1] and not r.committed

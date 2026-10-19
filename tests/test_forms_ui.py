@@ -24,6 +24,7 @@ from purchases.services import orders as po_service
 from sales.models import SaleInvoice, SaleOrder
 from tests import prod_helpers as ph
 from tests import sales_helpers as sh
+from core.services.factories import godown_location
 
 D = Decimal
 DAY = date(2026, 6, 15)
@@ -361,7 +362,7 @@ def fabric(db):
 
 @pytest.fixture
 def godown(factory):
-    return Location.objects.get(factory=factory, name="Main Godown")
+    return godown_location(factory)
 
 
 def test_a_purchase_order_needs_its_supplier_chosen(company, factory, owner_c, vendor, second_vendor, trim):

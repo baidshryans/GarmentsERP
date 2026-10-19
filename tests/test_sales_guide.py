@@ -613,7 +613,7 @@ def test_a_made_to_order_order_waits_for_production_until_its_goods_are_in_stock
     assert g["waiting"] == "goods from production" and g["blocked"] and g["pack"] is None
     # a draft packing list cannot be finished while nothing is in stock, and the screen says why
     p = draft_pack(ns, o, [{"M": "40"}])
-    with pytest.raises(BusinessRuleError, match="only 0 available at LDH1 / Main Godown; 40 packed"):
+    with pytest.raises(BusinessRuleError, match="only 0 available at LDH1 / Godown; 40 packed"):
         packing.finalize_packing(p, user=ns.owner)
     packing.cancel_packing(p, user=ns.owner)
     # another size of the style coming into stock changes nothing; the ordered one does
@@ -1207,7 +1207,7 @@ def test_if_the_goods_are_not_in_stock_nothing_is_finished_or_billed(bare):
     p = draft_pack(ns, o, ALL)
     url = reverse("packing_detail", args=[p.pk])
     r = login(ns.owner).post(url, {"action": "finish_and_bill"}, follow=True)
-    assert r.redirect_chain == [(url, 302)] and "only 0 available at LDH1 / Main Godown" in r.content.decode()
+    assert r.redirect_chain == [(url, 302)] and "only 0 available at LDH1 / Godown" in r.content.decode()
     assert packing_of(p).status == "draft" and packing_of(p).number is None and not SaleInvoice.objects.exists()
 
 

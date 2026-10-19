@@ -22,6 +22,7 @@ from tests import sales_helpers as sh
 from tests.conftest import make_user
 from tests.prod_helpers import DAY, build, gl
 from tests.test_production import finish_route
+from core.services.factories import ready_goods_location
 
 D = Decimal
 
@@ -96,7 +97,7 @@ def test_A5_mto_order_traced_by_number_production_never_sees_the_customer_until_
     bundle_service.pack_bundles(bundles=bundles, user=owner, date=DAY)
     assert dict(sale_orders.production_stages(order)) == {"Packed, in finished stock": 100}
     # dispatch from the finished goods in the Dispatch area
-    dispatch = Location.objects.get(factory=factory, name="Dispatch")
+    dispatch = ready_goods_location(factory)
     cartons = [packing.CartonSpec({sku_of("S"): D("17"), sku_of("M"): D("33")}), packing.CartonSpec({sku_of("L"): D("33"), sku_of("XL"): D("17")})]
     pl = packing.finalize_packing(packing.save_packing(order=order, location=dispatch, date=DAY, cartons=cartons, user=owner), user=owner)
     inv = invoices.post_invoice(invoices.invoice_from_packing(pl, user=owner, date=DAY), user=owner)

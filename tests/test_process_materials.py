@@ -25,6 +25,7 @@ from production.services import costing, materials, orders, routes
 from tests.conftest import make_user
 from tests.prod_helpers import D, DAY, build, cut, fabricator, gl, go, step
 from tests.prod_helpers import set_inhouse_rate
+from core.services.factories import godown_location
 
 
 @pytest.fixture
@@ -36,7 +37,7 @@ def ns(company, factory, owner):
     ns.label = Material.objects.create(code="LBL-1", name="Wash label", kind="trim", unit=pcs)
     ns.polybag = Material.objects.create(code="PB-1", name="Polybag", kind="packing", unit=pcs)
     post_opening_stock(company=company, factory=factory, user=owner,
-                       location=Location.objects.get(factory=factory, name="Main Godown"),
+                       location=godown_location(factory),
                        entries=[OpeningItem(ns.label, D("500"), D("0.5")), OpeningItem(ns.polybag, D("300"), D("1"))])
     version, _ = boms.save_bom(ns.style, user=owner, lines=[
         boms.BomLineSpec(ns.zipper, D("1")),

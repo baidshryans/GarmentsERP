@@ -15,6 +15,7 @@ from purchases.models import DebitNote, Grn, PurchaseOrder
 from purchases.services import debit_notes, grn as grns, invoices, orders
 from tax.models import TaxTemplate
 from tests.conftest import make_user
+from core.services.factories import godown_location
 
 D = Decimal
 DAY = date(2026, 6, 15)
@@ -28,7 +29,7 @@ def vendor(company):
 
 @pytest.fixture
 def godown(factory):
-    return Location.objects.get(factory=factory, name="Main Godown")
+    return godown_location(factory)
 
 
 @pytest.fixture
@@ -209,7 +210,7 @@ def test_duplicate_or_already_received_roll_numbers_are_refused(company, factory
 
 
 def test_grn_needs_a_vendor_and_a_location_in_the_factory(company, factory, factory2, vendor, owner, trim):
-    other = Location.objects.get(factory=factory2, name="Main Godown")
+    other = godown_location(factory2)
     with pytest.raises(BusinessRuleError, match="different factory"):
         grns.create_grn(company=company, factory=factory, location=other, vendor=vendor, date=DAY, user=owner,
                         lines=[grns.GrnLineSpec(item=trim, rate=D("1"), qty_received=D("1"))])
@@ -221,7 +222,7 @@ def test_store_keeper_cannot_receive_into_a_factory_they_lack(company, factory, 
     keeper = make_user("keeper")
     keeper.roles.add(Role.objects.get(name="Store Keeper"))
     keeper.allowed_factories.add(factory)
-    loc2 = Location.objects.get(factory=factory2, name="Main Godown")
+    loc2 = godown_location(factory2)
     with pytest.raises(FactoryNotAllowed):
         grns.create_grn(company=company, factory=factory2, location=loc2, vendor=vendor, date=DAY, user=keeper,
                         lines=[grns.GrnLineSpec(item=trim, rate=D("1"), qty_received=D("1"))])
@@ -493,7 +494,7 @@ def test_direct_invoice_rules(company, factory, factory2, vendor, owner, godown,
         direct(company, factory, vendor, owner, godown, [(trim, "0", "10")])
     with pytest.raises(BusinessRuleError, match="twice"):
         direct(company, factory, vendor, owner, godown, [(trim, "1", "10"), (trim, "2", "10")])
-    other = Location.objects.get(factory=factory2, name="Main Godown")
+    other = godown_location(factory2)
     with pytest.raises(BusinessRuleError, match="different factory"):
         direct(company, factory, vendor, owner, other, [(trim, "1", "10")])
     inv = direct(company, factory, vendor, owner, godown, [(trim, "1", "10")], post=False)

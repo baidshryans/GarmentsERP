@@ -97,25 +97,19 @@ Everything created is editable. Re-running the seeders only adds what is missing
 
 *More → Settings → Factories.* One record per physical unit. Every voucher and stock movement belongs to a factory, and users only see the factories they are assigned to.
 
-Each new factory gets these locations automatically. Add more with **Add location**.
+Each new factory gets its locations automatically. **You do not have to set up any.** Three are the places you see and use:
 
-| Location | Type | What it is for |
+| Location | What it holds | Used by default for |
 | --- | --- | --- |
-| Main Godown | Godown | Fabric and trims store |
-| Cutting Floor | Cutting floor | Fabric issued for cutting, cut pieces |
-| Process Area | Process area | In-house stitching / finishing WIP |
-| Dispatch | Dispatch | Finished goods ready to ship |
-| In Transit | In transit | Stock moving between factories |
-| Rejects | Rejects | QC rejects and remnants |
+| **Godown** | Fabric, trims, consumables: everything received | Goods received from suppliers, trims returned by fabricators, fabric left over from cutting, good pieces a customer returns |
+| **Ready Goods** | Packed, finished pieces only | Packing puts pieces here; sales and dispatch take them from here |
+| **Rejects** | Rejected pieces you keep (not scrapped) | QC "Keep as rejects" |
 
-**Examples of extra locations**
+The ERP finds these by their **type**, not their name, so you can rename them (for example "Store 1") and nothing breaks.
 
-| Factory | Location | Type |
-| --- | --- | --- |
-| LDH1 | Finished Goods Store | Godown |
-| LDH1 | Trims Rack | Godown |
-| LDH2 | Main Godown | Godown |
-| LDH1 | Showroom | Showroom |
+Pieces being made are not in a location you choose. They are shown where they really are: *Lot L-12 · 240 pieces · at Stitching · with Ramesh*, or *on the way to Factory 2*. Behind the scenes the ERP keeps a few bookkeeping places for this (cutting floor, process area, in transit, at each fabricator). You never pick them and they are not listed with your stock.
+
+If you ever open a second store in the same factory, add it with **Add location** and type Godown. Forms then let you choose between the two; with only one, they fill it in for you.
 
 Do **not** create locations for fabricators. A location "At <fabricator name>" is created by the system the first time work is issued to them.
 
@@ -817,7 +811,7 @@ Rules for the sheet:
 
 Run one small lot through the whole system. This is the same flow as BRD scenarios A1–A3 and A10.
 
-1. **Purchase fabric.** *Buy → Purchase orders → New purchase order*, then **Save and submit**. From there follow the violet Next button on each page: **Receive goods** (into Main Godown, with roll numbers and weights) → **Check quality** → **Post goods received** → **Enter supplier bill** → **Post supplier bill** → **Pay …** (section 19 lists every step). Check the roll balance in *Stock → Stock*.
+1. **Purchase fabric.** *Buy → Purchase orders → New purchase order*, then **Save and submit**. From there follow the violet Next button on each page: **Receive goods** (into the Godown, with roll numbers and weights) → **Check quality** → **Post goods received** → **Enter supplier bill** → **Post supplier bill** → **Pay …** (section 19 lists every step). Check the roll balance in *Stock → Stock*.
 2. **Create a production order** for `JGR-104`, Black, 20 pieces each of M and L, and release it. Route B is copied into the lot.
 3. **Plan the route.** On the lot page open **Change the route** and check each step; assign stitching to Gurpreet Garments and embroidery to Royal Embroidery.
 4. **Issue fabric** by roll (the lot's Next button), with the pieces you expect from it. The roll balance reduces.
@@ -1123,7 +1117,7 @@ Bundle statuses you will see: Cut → At stage → Received, awaiting QC → Rea
 4. Pick **Move to stage** (shown as "5. Ironing and pressing — in-house"). When you came from the lot's Next button, the stage it named is already chosen. The **Next stage** column on each row names where that bundle goes next: the next mandatory step after where the bundle actually is, the same step the lot's Next button names. A bundle sitting at Stitching shows the step after Stitching, and optional steps are passed over. Only when no mandatory step is left does it show the next optional step. Two cases cannot be moved from this screen, and the column says so: **With fabricator** for a bundle that is out on a challan (receive it first, 23.3), and the stage name followed by **(by challan)** when the next stage is done by a fabricator (issue a challan, 23.2).
 5. **At factory**: leave as "Stage default", or choose another factory to send the goods there (inter-factory move).
 6. Press **Move selected bundles**.
-7. **Materials for the stage.** If the style's list has materials for this stage (10.2), a second page shows them with the quantity worked out for the pieces you are moving. Change a quantity to what is really handed over, clear it to leave a material out, or add another material in the empty rows, then press **Move to …**. The materials leave the factory's Main Godown and go into the lot's cost in the same save as the move; if stock is short the move is refused and nothing is saved (unless negative stock is allowed in Inventory settings). **Cancel** takes you back with nothing moved. To issue materials that are not on the list, tick **Issue materials from the store with this move** before pressing Move. A stage with nothing on the list, and no tick, moves straight away as before. On the lot page, **Step by step** lists what was issued under the step it was used at.
+7. **Materials for the stage.** If the style's list has materials for this stage (10.2), a second page shows them with the quantity worked out for the pieces you are moving. Change a quantity to what is really handed over, clear it to leave a material out, or add another material in the empty rows, then press **Move to …**. The materials leave the factory's Godown and go into the lot's cost in the same save as the move; if stock is short the move is refused and nothing is saved (unless negative stock is allowed in Inventory settings). **Cancel** takes you back with nothing moved. To issue materials that are not on the list, tick **Issue materials from the store with this move** before pressing Move. A stage with nothing on the list, and no tick, moves straight away as before. On the lot page, **Step by step** lists what was issued under the step it was used at.
 
 What the system checks:
 
@@ -1250,9 +1244,9 @@ What is payable follows the challan's **Pay on**: the accepted pieces, or every 
 When bundles reach the packing step, open the lot page and press the Next button **Pack into finished goods**, which takes you to the **Pack into finished goods** box under Bundles.
 
 1. Tick the bundles ("These bundles have reached packing").
-2. Choose **Receive into** (default: the factory's Dispatch location).
+2. **Receive into** is the factory's Ready Goods (you choose only if it has more than one).
 3. Press **Pack**.
-4. **Packing materials.** If the style's list has packing materials (10.2), a second page shows them for the pieces being packed, for example 102 polybags for 100 pieces at 2% wastage. Change, clear or add as on a move (23.1), then press **Pack**. They leave the Main Godown into the lot's cost first, so the finished pieces carry their cost. To use packing materials that are not on the list, tick **Issue packing materials that are not on the style's list** before pressing Pack.
+4. **Packing materials.** If the style's list has packing materials (10.2), a second page shows them for the pieces being packed, for example 102 polybags for 100 pieces at 2% wastage. Change, clear or add as on a move (23.1), then press **Pack**. They leave the Godown into the lot's cost first, so the finished pieces carry their cost. To use packing materials that are not on the list, tick **Issue packing materials that are not on the style's list** before pressing Pack.
 
 The pieces become **finished goods stock** at that location, valued at the lot's cost per piece (fabric + accessories and packing + labour). Each bundle becomes **Packed**. The message reads "N pieces packed into finished goods."
 
@@ -1472,7 +1466,7 @@ The order's Next button **Pack goods** (also a plain button in the order's heade
 
 | Field | Example |
 | --- | --- |
-| Pack from | Dispatch (LDH1) |
+| Pack from | Ready Goods (LDH1) |
 | Date | 15-10-2026 |
 | Transporter | Jai Mata Roadlines |
 | LR / docket no., LR date | 44821, 15-10-2026 |
@@ -1550,7 +1544,7 @@ On screen a credit note is called a **return from customer**. Open the posted bi
 | Field | Example |
 | --- | --- |
 | Date | Not before the bill date |
-| Goods come back to | Main Godown |
+| Goods come back to | Godown |
 | Reason | Required. "6 pieces wrong colour" |
 | Returning | Quantity per line, up to "Can be returned" |
 

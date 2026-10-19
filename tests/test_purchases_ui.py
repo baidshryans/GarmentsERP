@@ -14,6 +14,7 @@ from masters.services import parties, styles
 from purchases.models import DebitNote, Grn, PurchaseInvoice, PurchaseOrder
 from tax.models import TaxTemplate
 from tests.conftest import make_user
+from core.services.factories import godown_location
 
 D = Decimal
 
@@ -25,7 +26,7 @@ def vendor(company):
 
 @pytest.fixture
 def godown(factory):
-    return Location.objects.get(factory=factory, name="Main Godown")
+    return godown_location(factory)
 
 
 @pytest.fixture
@@ -214,7 +215,7 @@ def test_stock_enquiry_is_scoped_hides_cost_and_shows_in_transit(company, factor
     from inventory.services.opening import OpeningItem, post_opening_stock
 
     post_opening_stock(company=company, factory=factory, location=godown, user=owner, entries=[OpeningItem(trim, D("100"), D("5"))])
-    godown2 = Location.objects.get(factory=factory2, name="Main Godown")
+    godown2 = godown_location(factory2)
     t = transfers.create_transfer(company=company, from_factory=factory, from_location=godown, to_factory=factory2,
                                   to_location=godown2, date=date(2026, 6, 15), user=owner, lines=[(trim, D("30"), None)])
     transfers.issue_transfer(t, user=owner)
@@ -230,7 +231,7 @@ def test_transfer_screens_end_to_end(company, factory, factory2, owner, godown, 
     from inventory.services.opening import OpeningItem, post_opening_stock
 
     post_opening_stock(company=company, factory=factory, location=godown, user=owner, entries=[OpeningItem(trim, D("100"), D("5"))])
-    godown2 = Location.objects.get(factory=factory2, name="Main Godown")
+    godown2 = godown_location(factory2)
     c = login(owner)
     r = c.post(reverse("transfer_new"), {
         "from_factory": factory.pk, "from_location": godown.pk, "to_factory": factory2.pk, "to_location": godown2.pk,

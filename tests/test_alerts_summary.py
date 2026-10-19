@@ -21,6 +21,7 @@ from tests.conftest import make_user
 from tests.prod_helpers import DAY, build, cut, fabricator, step
 from tests.test_jobwork import issue, qc, receive
 from tests.test_sales import quick_invoice
+from core.services.factories import godown_location
 
 D = Decimal
 
@@ -40,7 +41,7 @@ def user_with(role, name, factory):
 
 @pytest.fixture
 def godown(factory):
-    return Location.objects.get(factory=factory, name="Main Godown")
+    return godown_location(factory)
 
 
 @pytest.fixture

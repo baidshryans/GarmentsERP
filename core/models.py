@@ -127,7 +127,7 @@ class Location(models.Model):
         CUTTING = "cutting", "Cutting floor"
         PROCESS = "process", "Process area"
         SHOWROOM = "showroom", "Showroom"
-        DISPATCH = "dispatch", "Dispatch"
+        DISPATCH = "dispatch", "Ready goods"
         TRANSIT = "transit", "In transit"
         FABRICATOR = "fabricator", "At a fabricator / subcontractor"
         REJECTS = "rejects", "Rejects"

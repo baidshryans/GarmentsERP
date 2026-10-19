@@ -25,6 +25,7 @@ from purchases.services.guide import (
     WAITS_FOR_BILL, debitnote_guide, grn_guide, grn_next, invoice_guide, invoice_next, owed, po_guide, po_next,
 )
 from tests.conftest import make_user
+from core.services.factories import godown_location
 
 D = Decimal
 DAY = date(2026, 6, 15)
@@ -35,7 +36,7 @@ def ns(company, factory, owner):
     return SimpleNamespace(
         company=company, factory=factory, owner=owner,
         vendor=parties.create_party(company=company, name="Yarn House", mobile="9833333333", is_vendor=True, credit_days=30),
-        godown=Location.objects.get(factory=factory, name="Main Godown"),
+        godown=godown_location(factory),
         trim=Material.objects.create(code="ZIP-1", name="Zipper", kind="trim", unit=Unit.objects.get(code="PCS")),
         fabric=Material.objects.create(code="FAB-1", name="Fleece", kind="fabric", unit=Unit.objects.get(code="KG")))
 

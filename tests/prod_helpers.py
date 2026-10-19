@@ -12,6 +12,7 @@ from masters.models import Colour, Material, Product, RouteTemplate, Size, Unit
 from masters.services import boms, parties, styles
 from production.services import bundles as bundle_service
 from production.services import cutting, orders
+from core.services.factories import godown_location
 
 D = Decimal
 DAY = date(2026, 6, 15)
@@ -36,7 +37,7 @@ def build(company, factory, owner, qty=100, ratios=None, with_stock=True, route=
                          fabric=fabric, zipper=zipper)
     inhouse_rates_of_zero()
     if with_stock:
-        godown = Location.objects.get(factory=factory, name="Main Godown")
+        godown = godown_location(factory)
         post_opening_stock(company=company, factory=factory, location=godown, user=owner, entries=[
             OpeningItem(fabric, D("100"), D("200"), vendor_roll_no="A", lot_no="L1"),
             OpeningItem(fabric, D("100"), D("220"), vendor_roll_no="B", lot_no="L1"),

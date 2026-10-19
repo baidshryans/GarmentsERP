@@ -10,6 +10,7 @@ from inventory.exceptions import InsufficientStock, MovementImmutable, StockErro
 from inventory.models import RollBalance, StockBalance, StockMovement
 from inventory.services import stock
 from masters.models import Material, Unit
+from core.services.factories import godown_location
 
 pytestmark = pytest.mark.raw_stock
 D = Decimal
@@ -19,7 +20,7 @@ T = StockMovement.Type
 
 @pytest.fixture
 def godown(factory):
-    return Location.objects.get(factory=factory, name="Main Godown")
+    return godown_location(factory)
 
 
 @pytest.fixture
@@ -146,13 +147,13 @@ def test_quantities_must_be_decimal_nonzero_and_three_places(company, factory, g
 
 
 def test_location_must_belong_to_the_factory(company, factory, factory2, trim, owner):
-    other = Location.objects.get(factory=factory2, name="Main Godown")
+    other = godown_location(factory2)
     with pytest.raises(StockError, match="not in factory"):
         receive(factory, other, trim, "1", "1", owner)
 
 
 def test_user_without_factory_access_cannot_move_stock(company, factory, factory2, godown, trim, accountant):
-    other = Location.objects.get(factory=factory2, name="Main Godown")
+    other = godown_location(factory2)
     with pytest.raises(FactoryNotAllowed):
         receive(factory2, other, trim, "1", "1", accountant)
 

@@ -17,6 +17,7 @@ from masters.services import styles
 from tax import calc
 from tax.models import TaxTemplate
 from tests.conftest import make_user
+from core.services.factories import godown_location
 
 D = Decimal
 DAY = date(2026, 6, 15)
@@ -24,12 +25,12 @@ DAY = date(2026, 6, 15)
 
 @pytest.fixture
 def godown(factory):
-    return Location.objects.get(factory=factory, name="Main Godown")
+    return godown_location(factory)
 
 
 @pytest.fixture
 def godown2(factory2):
-    return Location.objects.get(factory=factory2, name="Main Godown")
+    return godown_location(factory2)
 
 
 @pytest.fixture

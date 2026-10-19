@@ -26,11 +26,12 @@ from tests.conftest import make_user
 from tests.prod_helpers import D, DAY, build, cut, fabricator, gl, step
 from production.services import cutting, costing
 from tests.prod_helpers import set_inhouse_rate
+from core.services.factories import godown_location
 
 
 def test_A1_order_fabric_issue_by_roll_cutting_and_variance_against_the_bom(company, factory, owner):
     ns = build(company, factory, owner)
-    godown = Location.objects.get(factory=factory, name="Main Godown")
+    godown = godown_location(factory)
     before = RollBalance.objects.get(roll=ns.roll_a, location=godown).qty
     cutting.issue_fabric(lot=ns.lot, lines=[(ns.roll_a, D("60"))], user=owner, date=DAY, estimated_pieces=150)
     assert RollBalance.objects.get(roll=ns.roll_a, location=godown).qty == before - D("60")  # the roll balance reduces

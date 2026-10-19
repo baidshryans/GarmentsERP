@@ -9,6 +9,7 @@ from masters.models import SKU, Colour, CustomerRate, PriceList, PriceListRate, 
 from masters.services import parties, styles
 from tax import services as tax_services
 from tax.models import HSN
+from core.services.factories import godown_location
 
 D = Decimal
 DAY = date(2026, 6, 15)
@@ -28,7 +29,7 @@ def build(company, factory, owner, stock_qty=100, cost="300", hsn="6112"):
     colours = {n: Colour.objects.get(name=n) for n in ("Black", "Navy")}
     style = styles.create_style(company=company, style_no="TP-1", product=Product.objects.get(code="JGR"), name="Track pant",
                                 colours=list(colours.values()), sizes=list(sizes.values()), hsn=HSN.objects.get(code=hsn))
-    godown = Location.objects.get(factory=factory, name="Main Godown")
+    godown = godown_location(factory)
     skus = {(c, s): SKU.objects.get(style=style, colour=colours[c], size=sizes[s]) for c in colours for s in sizes}
     if stock_qty:
         post_opening_stock(company=company, factory=factory, location=godown, user=owner,

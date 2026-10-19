@@ -20,6 +20,7 @@ from sales.services import credit_notes
 from tax.models import TaxTemplate
 from tests import sales_helpers as sh
 from tests.test_sales import quick_invoice
+from core.services.factories import godown_location
 
 D = Decimal
 DAY = sh.DAY
@@ -94,7 +95,7 @@ def test_A12_one_of_each_voucher_type_and_every_factory_tallies_alone_and_combin
     from inventory.services.journal import JournalLineSpec, post_journal
 
     for fac in (factory, factory2):                                                      # a stock journal for each factory
-        godown = fac.locations.get(name="Main Godown")
+        godown = godown_location(fac)
         if fac == factory:
             posted.append(post_journal(company=company, factory=fac, location=godown, date=DAY, reason="damage", user=owner,
                                        lines=[JournalLineSpec("out", ns.sku("Black", "S"), D("2"))]).voucher)

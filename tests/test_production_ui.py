@@ -520,17 +520,17 @@ def test_stock_is_shown_and_filtered_as_raw_semi_finished_and_finished(company, 
 
     def shown(kind):
         html = c.get(url, {"kind": kind}).content.decode()
-        return {name for name in ("Fleece", "Zipper", "Cutting Floor", "Dispatch") if name in html.split("<tbody>")[1]}, html
+        return {name for name in ("Fleece", "Zipper", "Cutting Floor", "Ready Goods") if name in html.split("<tbody>")[1]}, html
 
     everything, html = shown("")
-    assert everything == {"Fleece", "Zipper", "Cutting Floor", "Dispatch"}
+    assert everything == {"Fleece", "Zipper", "Cutting Floor", "Ready Goods"}
     assert "Raw material</span>" in html and "Semi-finished</span>" in html and "Finished goods</span>" in html
     assert shown("raw")[0] == {"Fleece", "Zipper"}
     semi, html = shown("semi")
     assert semi == {"Cutting Floor"} and html.count("Semi-finished</span>") == 3 and "in the lot" in html    # M, L, XL still cut
     done, html = shown("finished")
-    assert done == {"Dispatch"} and html.count("Finished goods</span>") == 1
-    assert shown("material")[0] == {"Fleece", "Zipper"} and shown("sku")[0] == {"Dispatch"}                  # older links
+    assert done == {"Ready Goods"} and html.count("Finished goods</span>") == 1
+    assert shown("material")[0] == {"Fleece", "Zipper"} and shown("sku")[0] == {"Ready Goods"}                  # older links
     assert "Nothing matches" in c.get(url, {"kind": "finished", "q": "nothing-like-this"}).content.decode()
 
 

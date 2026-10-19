@@ -17,6 +17,7 @@ from tests.prod_helpers import D, DAY, build, cut, fabricator, gl, go, step
 from tests.prod_helpers import set_inhouse_rate
 from jobwork.services import rates
 from datetime import date
+from core.services.factories import godown_location, ready_goods_location
 
 
 # ---------------- orders (E7.1) ----------------
@@ -176,7 +177,7 @@ def test_cutting_books_consumed_fabric_as_lot_cost_and_returns_the_remnant(compa
     lot = ns.lot
     assert costing.lot_cost(lot, factory) == D("9030.00")  # (41 used + 2 waste) x 210
     assert gl(company, "stock_wip", factory) == D("9030.00")
-    godown = Location.objects.get(factory=factory, name="Main Godown")
+    godown = godown_location(factory)
     cutting_floor = Location.objects.get(factory=factory, name="Cutting Floor")
     assert StockBalance.objects.get(location=godown, material=ns.fabric).qty == D("157.000")  # 200 - 60 + 17 remnant
     assert StockBalance.objects.get(location=cutting_floor, material=ns.fabric).qty == D("0.000")
@@ -477,7 +478,7 @@ def test_packing_receives_finished_goods_at_lot_cost_and_clears_wip(company, fac
     assert all(b.status == "packed" for b in packed)
     assert costing.lot_cost(ns.lot) == D("0.00") and gl(company, "stock_wip", factory) == D("0.00")
     assert gl(company, "stock_finished", factory) == D("10030.00")  # 9,030 fabric + 1,000 stitching
-    dispatch = Location.objects.get(factory=factory, name="Dispatch")
+    dispatch = ready_goods_location(factory)
     assert StockBalance.objects.filter(location=dispatch, sku__isnull=False).count() == 4
     ns.lot.refresh_from_db()
     ns.order.refresh_from_db()
@@ -712,13 +713,13 @@ def test_packing_records_the_boxes_and_changes_nothing_in_stock_or_the_books(com
     entry = PackEntry.objects.get()
     line = entry.lines.get()
     assert (line.pieces, line.pieces_per_box, line.full_boxes, line.short_box_qty) == (33, 12, 2, 9)
-    assert entry.boxes == 3 and entry.factory == factory and entry.location.name == "Dispatch"
+    assert entry.boxes == 3 and entry.factory == factory and entry.location.name == "Ready Goods"
     labels = boxes.labels_for(entry)
     assert [(l["qty"], l["no"], l["total"], l["short"]) for l in labels] == [(12, 1, 3, False), (12, 2, 3, False), (9, 3, 3, True)]
     # the same money moved as a pack without boxes would move: 33 of the 83 pieces left
     relieved = gl(company, "stock_finished", factory) - finished
     assert relieved == (cost_before * 33 / 83).quantize(D("0.01")) and gl(company, "stock_wip", factory) == wip - relieved
-    dispatch = Location.objects.get(factory=factory, name="Dispatch")
+    dispatch = ready_goods_location(factory)
     assert StockBalance.objects.get(location=dispatch, sku=line.sku).qty == 33      # stock is in pieces, not boxes
     assert not costing.check_wip_reconciles(company)
 

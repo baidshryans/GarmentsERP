@@ -14,6 +14,7 @@ from decimal import ROUND_HALF_UP, Decimal
 from django.db import transaction
 from django.db.models import Sum
 
+from core import checks
 from core.models import Company
 from core.scoping import assert_factory_access
 from inventory.exceptions import InsufficientStock, StockError
@@ -123,6 +124,8 @@ def post_movement(*, factory, location, item, qty, movement_type, date, user, so
     kw = item_kwargs(item)
     is_reval = movement_type == T.REVALUATION
     qty = _qty(qty)
+    if checks.counts_whole(item) and qty != qty.to_integral_value():
+        raise StockError(f"{item}: pieces must be a whole number of pieces.")
     if qty == 0 and not is_reval:
         raise StockError("A stock movement needs a quantity (BR-01).")
     if isinstance(item, Material) and item.kind == "fabric" and not is_reval and roll is None:

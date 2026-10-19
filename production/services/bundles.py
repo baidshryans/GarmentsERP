@@ -13,6 +13,7 @@ from django.db import transaction
 from django.db.models import Sum
 from django.utils import timezone
 
+from core import checks
 from core.exceptions import BusinessRuleError
 from core.models import Location
 from core.scoping import assert_factory_access
@@ -39,6 +40,10 @@ class Count:
     rejection: int = 0
     shortage: int = 0
     held: int = 0
+
+    def __post_init__(self):
+        for name in ("loss", "rejection", "shortage", "held"):
+            setattr(self, name, checks.whole(getattr(self, name) or 0, f"Pieces {name.replace('rejection', 'rejected')}"))
 
 
 def steps_ahead(bundle, steps):
@@ -222,6 +227,7 @@ def split_bundle(bundle, qty, *, user, date, reason="") -> Bundle:
     bundle = Bundle.objects.select_related("lot", "sku", "location", "location__factory", "split_from").get(pk=bundle.pk)
     if not bundle.is_live:
         raise BusinessRuleError(f"Bundle {bundle.bundle_no} is {bundle.get_status_display().lower()} and cannot be split.")
+    qty = checks.whole(qty, "Pieces to split off")
     if qty <= 0 or qty >= bundle.qty:
         raise BusinessRuleError(f"Bundle {bundle.bundle_no} has {bundle.qty} pieces: split off at least 1 and leave at least 1.")
     root = bundle

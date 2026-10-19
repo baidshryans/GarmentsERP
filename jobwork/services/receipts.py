@@ -11,6 +11,7 @@ from decimal import Decimal
 from django.db import transaction
 from django.utils import timezone
 
+from core import checks
 from core.exceptions import BusinessRuleError
 from core.scoping import assert_factory_access
 from core.services.factories import godown_location, process_location
@@ -37,6 +38,10 @@ class Counted:
     challan_bundle: object
     counted: int
     held: int = 0      # still with the fabricator for rework: split into a bundle of their own, received later
+
+    def __post_init__(self):
+        self.counted = checks.whole(self.counted, "Pieces counted")
+        self.held = checks.whole(self.held or 0, "Pieces held for rework")
 
 
 def _cost_per_piece(lot, factory):
@@ -224,6 +229,9 @@ def record_qc(*, receipt_line, accepted, rejected=0, rework=0, user, reject_reas
     Rejected pieces go to rejects stock (or are scrapped). Pieces for rework go back to the fabricator on a rework
     challan. When some pieces are accepted and some need rework, the rework pieces are split into a bundle of their
     own (B002-R1), so the accepted ones move on without waiting for them."""
+    accepted = checks.whole(accepted, "Pieces accepted")
+    rejected = checks.whole(rejected or 0, "Pieces rejected")
+    rework = checks.whole(rework or 0, "Pieces for rework")
     line = ReceiptLine.objects.select_related(
         "receipt", "receipt__challan", "receipt__challan__factory", "receipt__challan__lot", "challan_bundle",
         "challan_bundle__bundle", "challan_bundle__challan").get(pk=receipt_line.pk)

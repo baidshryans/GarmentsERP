@@ -1723,6 +1723,8 @@ class SalesVouSerializer(serializers.ModelSerializer):
                     ip_address=ip,
                     retail=request.retail
                 )
+            from contacts.bill_email import queue_bill_email
+            queue_bill_email(sales_vou_instance)
             return sales_vou_instance
 
     def update(self, instance, validated_data):

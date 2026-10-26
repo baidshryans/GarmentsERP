@@ -182,6 +182,7 @@ const UserManagement             = lazy(() => import("./components/Settings/User
 const RoleManagement             = lazy(() => import("./components/Settings/RoleManagement.jsx"));
 const AuditLog                   = lazy(() => import("./components/Settings/AuditLog.jsx"));
 const CRMAutomation              = lazy(() => import("./components/Settings/CRMAutomation.jsx"));
+const EmailSettingsPage          = lazy(() => import("./components/Settings/EmailSettings.jsx"));
 const Dashboard                  = lazy(() => import("./components/Dashboard/Dashboard.jsx"));
 const BarcodeBulkOps             = lazy(() => import("./components/Inventory/BarcodeManagement/BarcodeBulkOps.jsx"));
 const RawMaterialBalanceReport   = lazy(() => import("./components/Inventory/RawMaterialBalanceReport.jsx"));
@@ -519,6 +520,7 @@ const appRoutes = [
   { path: "settings/roles",         heading: "Roles & Permissions", component: <RoleManagement /> },
   { path: "settings/audit-log",     heading: "Audit Log",           component: <AuditLog /> },
   { path: "settings/crm-automation", heading: "CRM Automation",     component: <CRMAutomation /> },
+  { path: "settings/email",          heading: "Email Settings",      component: <EmailSettingsPage /> },
   { path: "settings/carry-forward", heading: "Database Carry-Forward", component: <CarryForwardPage /> },
 
   // ── Section index pages (breadcrumb intermediates) ────────────────────────

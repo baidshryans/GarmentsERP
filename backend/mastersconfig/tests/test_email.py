@@ -87,3 +87,38 @@ class EmailSettingsApiTest(TestCase):
         resp = self._patch(self.super, es.id, {"auto_send_bills": True})
         self.assertEqual(resp.status_code, 200)
         self.assertTrue(EmailSettings.objects.get(retail=self.retail).auto_send_bills)
+
+
+class EmailSettingsCurrentApiTest(TestCase):
+    URL = "/mastersconfig/api/email-settings/current/"
+
+    def setUp(self):
+        self.retail = RetailMaster.objects.create(retail_name="R", retail_code="R9",
+            address_line1="1 St", phone="9999999999")
+        User = get_user_model()
+        self.staff = User.objects.create_user("staff9", password="x", is_staff=True)
+        self.super = User.objects.create_superuser("root9", "r9@x.com", "x")
+
+    def _client(self, user):
+        c = APIClient(); c.force_authenticate(user=user)
+        return c
+
+    def test_get_creates_row_for_active_retail(self):
+        resp = self._client(self.super).get(self.URL, HTTP_X_RETAIL_ID="R9")
+        self.assertEqual(resp.status_code, 200)
+        self.assertFalse(resp.data["auto_send_bills"])
+        self.assertTrue(EmailSettings.objects.filter(retail=self.retail).exists())
+
+    def test_superadmin_toggles_auto_send(self):
+        c = self._client(self.super)
+        resp = c.patch(self.URL, {"auto_send_bills": True}, format="json", HTTP_X_RETAIL_ID="R9")
+        self.assertEqual(resp.status_code, 200)
+        self.assertTrue(EmailSettings.objects.get(retail=self.retail).auto_send_bills)
+        resp = c.patch(self.URL, {"auto_send_bills": False}, format="json", HTTP_X_RETAIL_ID="R9")
+        self.assertFalse(EmailSettings.objects.get(retail=self.retail).auto_send_bills)
+
+    def test_staff_cannot_toggle_auto_send(self):
+        resp = self._client(self.staff).patch(
+            self.URL, {"auto_send_bills": True}, format="json", HTTP_X_RETAIL_ID="R9")
+        self.assertEqual(resp.status_code, 403)
+        self.assertFalse(EmailSettings.objects.get(retail=self.retail).auto_send_bills)

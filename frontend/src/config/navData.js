@@ -357,6 +357,7 @@ export const navData = {
         { title: "Audit Log",         url: "/settings/audit-log"       },
         { title: "Advanced Settings", url: "/settings"                 },
         { title: "CRM Automation",    url: "/settings/crm-automation"  },
+        { title: "Email Settings",    url: "/settings/email"           },
         { title: "Carry Forward DB",  url: "/settings/carry-forward"   },
       ],
     },

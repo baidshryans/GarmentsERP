@@ -2646,3 +2646,25 @@ class EmailSettingsViewSet(viewsets.ModelViewSet):
                     status=status.HTTP_403_FORBIDDEN,
                 )
         return super().update(request, *args, **kwargs)
+
+    def _current_object(self):
+        retail = getattr(self.request, 'retail', None)
+        if retail is None:
+            return None
+        obj, _ = EmailSettings.objects.get_or_create(retail=retail)
+        return obj
+
+    def current(self, request):
+        """GET /email-settings/current/ - settings row for the active retail."""
+        obj = self._current_object()
+        if obj is None:
+            return Response({'error': 'No active retail.'}, status=status.HTTP_400_BAD_REQUEST)
+        return Response(self.get_serializer(obj).data)
+
+    def update_current(self, request):
+        """PATCH /email-settings/current/ - same rules as partial_update."""
+        obj = self._current_object()
+        if obj is None:
+            return Response({'error': 'No active retail.'}, status=status.HTTP_400_BAD_REQUEST)
+        self.kwargs['pk'] = obj.pk
+        return self.partial_update(request)

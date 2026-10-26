@@ -117,6 +117,7 @@ urlpatterns = [
 
     # Email Settings (superadmin-gated auto_send_bills)
     path('api/email-settings/', views.EmailSettingsViewSet.as_view({'get': 'list', 'post': 'create'}), name='email_settings_list_create'),
+    path('api/email-settings/current/', views.EmailSettingsViewSet.as_view({'get': 'current', 'patch': 'update_current'}), name='email_settings_current'),
     path('api/email-settings/<int:pk>/', views.EmailSettingsViewSet.as_view({'get': 'retrieve', 'put': 'update', 'patch': 'partial_update', 'delete': 'destroy'}), name='email_settings_detail'),
 ]
 

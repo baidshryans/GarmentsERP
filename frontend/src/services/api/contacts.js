@@ -234,6 +234,10 @@ export const updateCRMSettings     = (data) => _api('patch', '/mastersconfig/api
 export const fetchCRMSendLog       = ()     => _api('get',   '/mastersconfig/api/crm-send-log/');
 export const triggerCRMTestSend    = ()     => _api('post',  '/mastersconfig/api/crm-test-send/');
 
+// ── Email ─────────────────────────────────────────────────────────────────────
+export const fetchEmailSettings   = ()     => _api('get',   '/mastersconfig/api/email-settings/current/');
+export const updateEmailSettings  = (data) => _api('patch', '/mastersconfig/api/email-settings/current/', data);
+
 // ── Ledger TDS / Customer history ────────────────────────────────────────────
 export async function fetchLedgerTDSInfo(ledgerId) {
   try {

@@ -163,14 +163,14 @@ export const navData = {
   navPurchases: [
     { title: "Purchase Voucher",       url: "/purchase/list/",                  icon: ShoppingCart, module: "purchase.purchasevoucher" },
     { title: "Purchase Return",        url: "/purchase/purchasereturn/list/",    icon: PackageXIcon, module: "purchase.purchasereturn" },
-    { title: "Purchase Approval",      url: "/purchase/purchaseapproval/list/",  icon: PackageCheckIcon },
+    { title: "Purchase Approval",      url: "/purchase/purchaseapproval/list/",  icon: PackageCheckIcon, module: "purchase.purchasevoucher" },
     { title: "Purchase Order",         url: "/purchase/purchaseorder/list/",     icon: ClipboardList, module: "purchase.purchaseorder" },
     { title: "Customer Purchase",      url: "/purchase/customerpurchase/list/",  icon: ShoppingCart, module: "purchase.purchasevoucher" },
   ],
 
   // ── Sales ──────────────────────────────────────────────────────────────────
   navMain2: [
-    { title: "POS Counter",    url: "/sales/pos",                 icon: Monitor          },
+    { title: "POS Counter",    url: "/sales/pos",                 icon: Monitor, module: "sales.salesvou"          },
     { title: "Estimate",       url: "/sales/estimate",            icon: Calculator       },
     { title: "Quotation",     url: "/sales/quotation/list/",     icon: FileText, module: "sales.quotation" },
     { title: "Customer Order", url: "/sales/customerorder/list/", icon: ClipboardList, module: "sales.customerorder" },
@@ -214,13 +214,13 @@ export const navData = {
       icon: Nfc,
       items: [
         { title: "Tag Assignment",  url: "/inventory/rfid/tag-assign" },
-        { title: "Inventory Count", url: "/inventory/rfid/count"      },
+        { title: "Inventory Count", url: "/inventory/rfid/count", module: "inventory.rfidcountsession"      },
       ],
     },
     { title: "Stock Transfer",  url: "/inventory/stocktransfer",                         icon: Package, module: "inventory.stocktransfer" },
     { title: "Inter-Retail Transfer", url: "/inventory/inter-retail-transfer",           icon: Package, module: "inventory.interretailtransfervoucher" },
     { title: "Stock Journal",   url: "/inventory/stockjournal/",                         icon: FileText, module: "inventory.stockjournal" },
-    { title: "Barcode History", url: "/inventory/barcodemanagement/barcodehistory/",     icon: History    },
+    { title: "Barcode History", url: "/inventory/barcodemanagement/barcodehistory/",     icon: History, module: "inventory.barcodemain"    },
     { title: "Design",          url: "/inventory/design/list/",                          icon: Palette, module: "inventory.designmain" },
     { title: "Catalog",         url: "/inventory/catalog/",                              icon: Package, module: "inventory.designmain" },
     { title: "Opening Stock",   url: "/inventory/opening-stock",                         icon: Package, module: "inventory.openinginventory" },
@@ -311,7 +311,7 @@ export const navData = {
   navHR: [
     { title: "Employees",          url: "/hr/employees",          icon: UserCog, module: "hr.employee" },
     { title: "Salary Structure",   url: "/hr/salary-structure",   icon: Wallet, module: "hr.salarystructure" },
-    { title: "Salary Processing",  url: "/hr/salary-processing",  icon: FileText     },
+    { title: "Salary Processing",  url: "/hr/salary-processing",  icon: FileText, module: "hr.salaryslip"     },
     { title: "HR Settings",        url: "/hr/settings",           icon: Settings, module: "hr.hrsettings" },
   ],
 

@@ -64,3 +64,12 @@ class MyPermissionsTests(TestCase):
     def test_requires_authentication(self):
         res = self.client.get(MY_PERMS_URL)
         self.assertEqual(res.status_code, 401)
+
+
+class InlineModelMapIntegrityTest(TestCase):
+    def test_every_label_is_a_real_content_type(self):
+        from django.contrib.contenttypes.models import ContentType
+        from userauth.permissions import INLINE_MODEL_MAP
+        real = {f"{c.app_label}.{c.model}" for c in ContentType.objects.all()}
+        bad = [(k, v) for k, v in INLINE_MODEL_MAP.items() if k not in real or v not in real]
+        self.assertEqual(bad, [])

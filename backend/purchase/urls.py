@@ -3,12 +3,13 @@ from purchase import views
 from django.contrib.staticfiles.urls import staticfiles_urlpatterns
 
 from rest_framework.routers import DefaultRouter
-from .views import PurchaseOrderViewset, PurchaseReturnViewset, PurchaseVoucherViewset, get_purchase_for_return
+from .views import PurchaseApprovalViewset, PurchaseOrderViewset, PurchaseReturnViewset, PurchaseVoucherViewset, get_purchase_for_return
 
 router = DefaultRouter()
 router.register(r'purchase-return', PurchaseReturnViewset)
 router.register(r'purchase-voucher', PurchaseVoucherViewset)
 router.register(r'purchase-order', PurchaseOrderViewset)
+router.register(r'purchase-approval', PurchaseApprovalViewset)
 
 app_name = "purchase"
 
@@ -18,6 +19,7 @@ urlpatterns = [
     
     path('get-next-pv-no/',views.get_next_pv_no),
     path('get-next-pr-no/',views.get_next_pr_no),
+    path('get-next-pap-no/',views.get_next_pap_no),
     path('get-next-po-no/',views.get_next_po_no),
 
     path('fetch-po-sl-no/', views.fetch_po_sl_no, name='fetch_po_sl_no'),

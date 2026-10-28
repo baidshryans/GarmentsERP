@@ -329,3 +329,45 @@ export async function fetchPurchaseVoucherForEdit(id) {
     return { success: false, error: error.response?.data || error.message };
   }
 }
+
+// ── Purchase approval (goods held on approval from a vendor) ───────────────────
+
+const APPROVAL_URL = "/purchase/api/purchase-approval/";
+const _res = async (call) => {
+  try {
+    const r = await call();
+    return { success: true, data: r.data };
+  } catch (error) {
+    return { success: false, error: error.response?.data || error.message, status: error.response?.status };
+  }
+};
+
+export const fetchPapNoNext = () => _res(() => apiClient.get("/purchase/get-next-pap-no/"));
+
+export const fetchPurchaseApprovals = ({ search = "", page = 1, ordering = "", allFy = false } = {}) =>
+  _res(() => apiClient.get(APPROVAL_URL, {
+    params: { page, ...(search && { search }), ...(ordering && { ordering }), ...(allFy && { all_fy: 1 }) },
+  }));
+
+export const fetchPurchaseApproval = (id) => _res(() => apiClient.get(`${APPROVAL_URL}${id}/`));
+
+export const savePurchaseApproval = (data, id) =>
+  _res(() => (id ? apiClient.put(`${APPROVAL_URL}${id}/`, data) : apiClient.post(APPROVAL_URL, data)));
+
+export const deletePurchaseApproval = async (id) => {
+  const result = await deleteResource("purchase/api/purchase-approval", id);
+  if (!result.success) throw new Error(result.error?.detail || result.error?.[0] || "Failed to delete purchase approval");
+  return result;
+};
+
+export const returnApprovalItems = (id, items, returned_on) =>
+  _res(() => apiClient.post(`${APPROVAL_URL}${id}/return-items/`, { items, returned_on }));
+
+export const undoApprovalReturn = (id, items) =>
+  _res(() => apiClient.post(`${APPROVAL_URL}${id}/undo-return/`, { items }));
+
+/** Prefill payload for the Purchase Voucher form (pending lines only). */
+export const fetchApprovalForVoucher = (id, items = []) =>
+  _res(() => apiClient.get(`${APPROVAL_URL}${id}/to-purchase-voucher/`, {
+    params: items.length ? { items: items.join(",") } : {},
+  }));

@@ -10,7 +10,7 @@ import { useF2Navigate } from "@/hooks/useF2Navigate"
 import { useEnterAsTab } from "@/hooks/useEnterAsTab"
 import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from "@/components/ui/select";
 import { Table, TableRow, TableCell, TableHead, TableHeader, TableBody } from "@/components/ui/table";
-import { fetchLedgerTDSInfo } from "@/services/apiService";
+import { fetchLedgerTDSInfo, fetchApprovalForVoucher } from "@/services/apiService";
 import { useParams, useSearchParams } from "react-router-dom";
 import { FieldContainer } from "@/Utils";
 import { getGoldRate, fetchPendingPOItemsByVendor, fetchPendingCustomerOrderItems } from "../../../services/apiService";
@@ -416,6 +416,46 @@ const PurchaseVoucher = () => {
     resetTableDirty();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id, editQuery.data]);
+
+  // 5b) "Buy selected" from a Purchase Approval opens this form as
+  //     /purchase/add/?approval=<id>&items=1,2 — prefill vendor and lines. Each line
+  //     carries `approval_item`, which marks that approval line as purchased on save.
+  const approvalPrefilledRef = useRef(false);
+  useEffect(() => {
+    const approvalId = searchParams.get('approval');
+    if (id || !approvalId || approvalPrefilledRef.current || !customers.length) return;
+    approvalPrefilledRef.current = true;
+    const picked = (searchParams.get('items') || '').split(',').filter(Boolean).map(Number);
+    fetchApprovalForVoucher(approvalId, picked).then(async (res) => {
+      if (!res.success) {
+        toast({ title: "Could not load the approval", description: res.error?.detail || String(res.error), variant: "destructive" });
+        return;
+      }
+      const a = res.data;
+      const vendor = customers.find((c) => c.id === a.ldgr);
+      if (vendor) {
+        setValue("form.ldgr", vendor.id);
+        setValue("form.ldgr_name", vendor.ac_name);
+        setVendorStateCode(vendor.gst ? vendor.gst.substring(0, 2) : "");
+        const tdsRes = await fetchLedgerTDSInfo(vendor.id);
+        if (tdsRes.success && tdsRes.data.tds_applicable) {
+          setValue("form.tds_section", tdsRes.data.section_id);
+          setValue("form.tds_rate", tdsRes.data.rate);
+        }
+      }
+      setValue("form.narration", a.narration);
+      setRows(a.items.map((item, i) => ({
+        ...item,
+        sl_no: i + 1,
+        po_no: "", po_sl_no: null, order_no: "", barcode: null, barcode_txt: "",
+        pending_pcs: item.pcs, pending_gw: item.gw,
+        purchasevoucherdetails_set: (item.purchasevoucherdetails_set || []).map((d) => ({ ...d, sl_no: i + 1 })),
+      })));
+      markTableDirty();
+      toast({ title: `Loaded ${a.items.length} line(s) from approval ${a.approval}` });
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id, customers, searchParams]);
 
 
 

@@ -14,6 +14,8 @@ INLINE_MODEL_MAP = {
     'accounting.referencebills': 'accounting.vouchermain',
     'accounting.voucherattachment': 'accounting.vouchermain',
     # Purchase
+    'purchase.purchaseapprovalitem': 'purchase.purchaseapproval',
+    'purchase.purchaseapprovalitemdetails': 'purchase.purchaseapproval',
     'purchase.purchasevoucherdetails': 'purchase.purchasevoucher',
     'purchase.purchasevoucheritems': 'purchase.purchasevoucher',
     'purchase.purchaseattachment': 'purchase.purchasevoucher',

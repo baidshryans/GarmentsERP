@@ -57,6 +57,7 @@ const EWayBillList               = lazy(() => import("./components/Sales/EWayBil
 const ChequePendingPage          = lazy(() => import("./components/Sales/ChequePendingPage"));
 const PurchaseReturnList         = lazy(() => import("./components/manufacturing/purchases/PurchaseReturnList"));
 const PurchaseApprovalList       = lazy(() => import("./components/manufacturing/purchases/PurchaseApprovalList.jsx"));
+const PurchaseApprovalAdd        = lazy(() => import("./components/manufacturing/purchases/PurchaseApprovalAdd.jsx"));
 const NotFoundPage               = lazy(() => import("./pageNotFound"));
 const HallmarkIssueAdd           = lazy(() => import("./components/manufacturing/issue/hallmarkIssueAdd"));
 const SchemeMasterPage           = lazy(() => import("./components/GoldScheme/SchemeMasterPage"));
@@ -401,6 +402,8 @@ const appRoutes = [
   { path: "purchase/purchasereturn/list/add/",    heading: "Add Purchase Return",    component: <PurchaseReturnadd /> },
   { path: "purchase/purchasereturn/list/:id",     heading: "Edit Purchase Return",   component: <PurchaseReturnadd /> },
   { path: "purchase/purchaseapproval/list/",      heading: "Purchase Approval List", component: <PurchaseApprovalList /> },
+  { path: "purchase/purchaseapproval/list/add/",  heading: "Add Purchase Approval",  component: <PurchaseApprovalAdd /> },
+  { path: "purchase/purchaseapproval/list/:id",   heading: "Edit Purchase Approval", component: <PurchaseApprovalAdd /> },
   { path: "purchase/purchaseorder/list/",         heading: "Purchase Order List",    component: <PurchaseOrderList /> },
   { path: "purchase/purchaseorder/list/add",      heading: "Add Purchase Order",     component: <PurchaseOrder /> },
   { path: "purchase/purchaseorder/list/:id",      heading: "Edit Purchase Order",    component: <PurchaseOrder /> },

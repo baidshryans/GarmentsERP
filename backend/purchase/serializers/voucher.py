@@ -20,6 +20,7 @@ from ..models import (
     PurchaseVoucherDetails,
     PurchaseVoucherItems,
     PurchaseAttachment,
+    PurchaseApprovalItem,
 )
 
 
@@ -157,6 +158,10 @@ class PurchaseVoucherItemsSerializer(serializers.ModelSerializer):
     customer_order_item = serializers.PrimaryKeyRelatedField(
         queryset=CustomerOrderItems.objects.all(), required=False, allow_null=True
     )
+    # Set when the line is bought out of a purchase approval (marks that line 'purchased').
+    approval_item = serializers.PrimaryKeyRelatedField(
+        queryset=PurchaseApprovalItem.objects.all(), required=False, allow_null=True
+    )
 
     # Nested serializer for details
     purchasevoucherdetails_set = PurchaseVoucherDetailsSerializer(many=True,)
@@ -178,6 +183,7 @@ class PurchaseVoucherItemsSerializer(serializers.ModelSerializer):
             'barcode_txt',
             'order_no',
             'customer_order_item',
+            'approval_item',
             'sl_no',
             'pcs',
             'gw',
@@ -219,6 +225,21 @@ class PurchaseVoucherItemsSerializer(serializers.ModelSerializer):
             raise ValidationError(
                 "A Purchase Voucher line cannot reference both a Purchase Order and a Customer Order item."
             )
+
+        # A purchase-approval line can only be bought once, and not after it was returned.
+        # The link is fixed when the voucher line is created (that is when stock is handed over).
+        if 'approval_item' in data:
+            appr = data['approval_item']
+            # Nested under a parent update there is no self.instance; the row's id says
+            # whether this is an existing voucher line.
+            existing = self.instance or (
+                PurchaseVoucherItems.objects.filter(pk=data['id']).first() if data.get('id') else None)
+            if existing is not None:
+                if (appr.id if appr else None) != existing.approval_item_id:
+                    raise ValidationError("The purchase approval a line was bought from cannot be changed.")
+            elif appr and appr.status != PurchaseApprovalItem.PENDING:
+                raise ValidationError(
+                    f"Approval {appr.billno.billno} line {appr.sl_no} is already {appr.status}.")
 
         # Already-billed guard for the direct CO → PV path.
         if coi:

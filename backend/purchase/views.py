@@ -6,7 +6,7 @@ import mimetypes
 import os
 
 from purchase.filters import PurchaseItemFilterSet
-from purchase.serializers import PurchaseOrderForPostSerializer, PurchaseOrderSerializer, PurchaseReturnSerializer, PurchaseVoucherItemsSerializer, PurchaseVoucherPostSerializer, PurchaseVoucherSerializer, PurchaseVoucherToReturnSerializer
+from purchase.serializers import PurchaseApprovalSerializer, PurchaseOrderForPostSerializer, PurchaseOrderSerializer, PurchaseReturnSerializer, PurchaseVoucherItemsSerializer, PurchaseVoucherPostSerializer, PurchaseVoucherSerializer, PurchaseVoucherToReturnSerializer
 from userauth.views import RetailBaseViewset
 from .models import *
 import json
@@ -24,7 +24,7 @@ from rest_framework.generics import ListCreateAPIView,ListAPIView
 from rest_framework.views import APIView
 from rest_framework import status
 from rest_framework.response import Response
-from rest_framework.decorators import api_view, permission_classes
+from rest_framework.decorators import api_view, permission_classes, action
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.parsers import MultiPartParser
 # Create your views here.
@@ -897,3 +897,131 @@ class GSTR2BReconcileView(APIView):
             },
             'results': results,
         })
+
+
+class PurchaseApprovalViewset(RetailBaseViewset):
+    """Goods held on approval from a vendor. Lines are later bought (pulled into a
+    Purchase Voucher via `to_purchase_voucher`) or sent back (`return_items`)."""
+    queryset = PurchaseApproval.objects.select_related('ldgr', 'retail').prefetch_related(
+        'items__item', 'items__purity', 'items__details__sub_item',
+        'items__details__metal_purity', 'items__details__packet', 'items__purchase_lines',
+    ).all()
+    serializer_class = PurchaseApprovalSerializer
+    filter_backends = [DjangoFilterBackend, OrderingFilter, SearchFilter]
+    search_fields = ['billno', 'ldgr__ac_name', 'narration']
+    ordering_fields = ['date1', 'billno', 'ldgr__ac_name']
+    ordering = ['-date1', '-id']
+
+    def _check_fy_open(self, fiscal_year, action):
+        from mastersconfig.fy_utils import check_fy_allows_change
+        check_fy_allows_change(fiscal_year, 'PA', action)
+
+    def perform_update(self, serializer):
+        self._check_fy_open(serializer.instance.fiscal_year, 'edited')
+        serializer.save()
+
+    def perform_destroy(self, instance):
+        from rest_framework.exceptions import ValidationError
+        self._check_fy_open(instance.fiscal_year, 'deleted')
+        settled = [i.sl_no for i in instance.items.all() if i.status != PurchaseApprovalItem.PENDING]
+        if settled:
+            raise ValidationError(
+                f"Approval '{instance.billno}' cannot be deleted: lines {settled} are already purchased or returned.")
+        from accounting.utils import release_last_bill_number
+        from purchase.approval_stock import reverse_stock
+        retail, fy, billno = instance.retail, instance.fiscal_year, instance.billno
+        with transaction.atomic():
+            for line in instance.items.all():
+                reverse_stock(line, 'PURCHASE_APPR_DEL')
+            super().perform_destroy(instance)
+        release_last_bill_number(retail, 'PAP', billno, fy)
+
+    def _pending_lines(self, approval, ids=None):
+        lines = [i for i in approval.items.all() if i.status == PurchaseApprovalItem.PENDING]
+        if ids is not None:
+            lines = [i for i in lines if i.id in set(ids)]
+        return lines
+
+    @action(detail=True, methods=['get'], url_path='to-purchase-voucher')
+    def to_purchase_voucher(self, request, pk=None):
+        """Prefill payload for the Purchase Voucher form: the approval's lines that are
+        still undecided (optionally narrowed with ?items=1,2). Saving the voucher with
+        `approval_item` set on a line is what marks that approval line as purchased."""
+        approval = self.get_object()
+        ids = request.query_params.get('items')
+        ids = [int(x) for x in ids.split(',') if x.strip().isdigit()] if ids else None
+        lines = self._pending_lines(approval, ids)
+        if not lines:
+            return Response({"detail": "No pending lines left on this approval."}, status=400)
+        return Response({
+            "approval": approval.billno,
+            "ldgr": approval.ldgr_id,
+            "voucher_type": "Vendor",
+            "narration": f"Against approval {approval.billno}",
+            "items": [{
+                "approval_item": i.id,
+                "item": i.item.short_code,
+                "item_name": i.item.item_name,
+                "pcs": i.pcs,
+                "gw": str(i.gw),
+                "purity": i.purity.purity if i.purity else None,
+                "making_type": i.making_type,
+                "making": str(i.making),
+                "making_value": int(i.making_value or 0),
+                "item_value": str(i.amount),
+                "remarks": i.remarks,
+                "purchasevoucherdetails_set": [{
+                    "sub_item": d.sub_item.short_code,
+                    "sub_item_name": d.sub_item.item_name,
+                    "sub_pcs": d.sub_pcs,
+                    "sub_gw": str(d.sub_gw),
+                    "sub_ct": str(d.sub_ct),
+                    "metal_purity": d.metal_purity.purity if d.metal_purity else None,
+                    "packet": d.packet.pckt_no if d.packet else None,
+                    "rate": str(d.rate),
+                    "value": str(d.value),
+                } for d in i.details.all()],
+            } for i in lines],
+        })
+
+    @action(detail=True, methods=['post'], url_path='return-items')
+    def return_items(self, request, pk=None):
+        """Send lines back to the vendor. Body: {"items": [line ids], "returned_on": "YYYY-MM-DD"}."""
+        from rest_framework.exceptions import ValidationError
+        approval = self.get_object()
+        self._check_fy_open(approval.fiscal_year, 'returned')
+        ids = request.data.get('items') or []
+        returned_on = parse_date(str(request.data.get('returned_on') or '')) or date.today()
+        lines = self._pending_lines(approval, ids)
+        if not ids or len(lines) != len(set(ids)):
+            raise ValidationError("Choose lines that are still pending (not already purchased or returned).")
+        from purchase.approval_stock import reverse_stock
+        with transaction.atomic():
+            for line in lines:
+                line.returned_on = returned_on
+                line.save(update_fields=['returned_on'])
+                reverse_stock(line, 'PURCHASE_APPR_RET')
+        return Response(self.get_serializer(self.get_object()).data)
+
+    @action(detail=True, methods=['post'], url_path='undo-return')
+    def undo_return(self, request, pk=None):
+        """Put returned lines back on approval. Body: {"items": [line ids]}."""
+        approval = self.get_object()
+        self._check_fy_open(approval.fiscal_year, 'changed')
+        ids = request.data.get('items') or []
+        from purchase.approval_stock import apply_stock
+        with transaction.atomic():
+            for line in approval.items.filter(pk__in=ids, returned_on__isnull=False):
+                line.returned_on = None
+                line.save(update_fields=['returned_on'])
+                apply_stock(line, 'PURCHASE_APPR_UNRET')
+        return Response(self.get_serializer(self.get_object()).data)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_next_pap_no(request):
+    from accounting.utils import peek_next_bill_number
+    if not request.retail:
+        return Response({"error": "Missing or invalid X-RETAIL-ID header"}, status=status.HTTP_400_BAD_REQUEST)
+    return Response({"billno": peek_next_bill_number(request.retail, 'PAP')})

@@ -342,3 +342,24 @@ def on_purchase_return_delete(sender, instance, **kwargs):
     BarcodeTransaction.objects.filter(
         billno=billno_str, trans_type='PURCHASE-RET'
     ).delete()
+
+
+# ── Purchase approval hand-over ───────────────────────────────────────────────
+# A purchase voucher line bought out of an approval posts its own stock, so the
+# approval's copy is reversed (net: one purchase). Deleting that voucher line puts
+# the line back on approval, so the approval holds the stock again.
+
+@receiver(post_save, sender=PurchaseVoucherItems)
+def release_approval_stock_when_bought(sender, instance, created, **kwargs):
+    if created and instance.approval_item_id:
+        from purchase.approval_stock import reverse_stock
+        reverse_stock(instance.approval_item, 'PURCHASE_APPR_BOUGHT')
+
+
+@receiver(pre_delete, sender=PurchaseVoucherItems)
+def restore_approval_stock_when_voucher_line_deleted(sender, instance, **kwargs):
+    appr = instance.approval_item
+    if appr is None or appr.returned_on:
+        return
+    from purchase.approval_stock import apply_stock
+    apply_stock(appr, 'PURCHASE_APPR_RESTORED')

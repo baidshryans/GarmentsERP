@@ -181,6 +181,7 @@ def _bootstrap_sequence_number(retail, prefix, fiscal_year=None):
         'PVC': (PurchaseVoucher, 'billno'),
         'PVV': (PurchaseVoucher, 'billno'),
         'PR': (PurchaseReturn, 'billno'),
+        'PAP': (PurchaseApproval, 'billno'),
         'PO': (PurchaseOrder, 'po_no'),
         'GC': (CashGoldConversion, 'billno'),
         'CG': (CashGoldConversion, 'billno'),

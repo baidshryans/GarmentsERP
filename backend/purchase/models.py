@@ -172,6 +172,11 @@ class PurchaseVoucherItems(models.Model): #main item
     remarks = models.CharField(max_length=100, null=True,blank=True)
     is_return = models.BooleanField(default=False)
     is_finished = models.BooleanField(default=False)
+    # Set when this line was bought out of a purchase approval; marks that approval line 'purchased'.
+    approval_item = models.ForeignKey(
+        'purchase.PurchaseApprovalItem', on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='purchase_lines',
+    )
 
     retail = models.ForeignKey("mastersconfig.RetailMaster",on_delete=models.SET_NULL,null=True,blank=True)
     @property
@@ -369,3 +374,76 @@ class PurchaseReturnDetails(models.Model): #main item
         db_table="purchase_return_details"
 
 
+class PurchaseApproval(models.Model):
+    """Goods a vendor lets us hold on approval. No ledger or stock posting happens
+    here: each line is later either bought (it is pulled into a Purchase Voucher)
+    or sent back (returned_on is set)."""
+    date1 = models.DateField()
+    billno = models.CharField(max_length=30)
+    ldgr = models.ForeignKey(Ledger, on_delete=models.PROTECT, related_name='purchase_approvals')
+    narration = models.CharField(max_length=100, blank=True, default='')
+    retail = models.ForeignKey("mastersconfig.RetailMaster", on_delete=models.SET_NULL, null=True, blank=True)
+    fiscal_year = models.ForeignKey("mastersconfig.FiscalYearMaster", on_delete=models.SET_NULL, null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    @property
+    def ldgr_name(self):
+        return self.ldgr.ac_name
+
+    class Meta:
+        db_table = "purchase_approval"
+        constraints = [
+            models.UniqueConstraint(fields=['retail', 'fiscal_year', 'billno'], name='uniq_pa_number'),
+        ]
+        indexes = [
+            models.Index(fields=['retail', 'date1'], name='idx_pa_retail_date'),
+        ]
+
+
+class PurchaseApprovalItem(models.Model):
+    PENDING, PURCHASED, RETURNED = 'pending', 'purchased', 'returned'
+
+    billno = models.ForeignKey(PurchaseApproval, on_delete=models.CASCADE, related_name='items')
+    sl_no = models.IntegerField(default=1)
+    item = models.ForeignKey(Item, on_delete=models.PROTECT)
+    pcs = models.IntegerField(default=0)
+    gw = models.DecimalField(max_digits=10, decimal_places=3, default=0)
+    purity = models.ForeignKey(PurityMaster, on_delete=models.SET_NULL, null=True, blank=True)
+    making_type = models.CharField(max_length=20, blank=True, default='')
+    making = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    making_value = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    amount = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    remarks = models.CharField(max_length=100, blank=True, default='')
+    returned_on = models.DateField(null=True, blank=True)
+    # True while this line's stock is held in raw-material inventory (see approval_stock.py).
+    stock_applied = models.BooleanField(default=False)
+    retail = models.ForeignKey("mastersconfig.RetailMaster", on_delete=models.SET_NULL, null=True, blank=True)
+
+    @property
+    def status(self):
+        if self.returned_on:
+            return self.RETURNED
+        if self.purchase_lines.exists():
+            return self.PURCHASED
+        return self.PENDING
+
+    class Meta:
+        db_table = "purchase_approval_main"
+
+
+class PurchaseApprovalItemDetails(models.Model):
+    billno = models.ForeignKey(PurchaseApproval, on_delete=models.CASCADE, null=True, related_name='detail_rows')
+    main_item = models.ForeignKey(PurchaseApprovalItem, on_delete=models.CASCADE, related_name='details')
+    sub_item = models.ForeignKey(Item, on_delete=models.PROTECT)
+    sub_pcs = models.IntegerField(null=True, blank=True, default=0)
+    sub_gw = models.DecimalField(max_digits=10, decimal_places=3, null=True, blank=True, default=0)
+    sub_ct = models.DecimalField(max_digits=10, decimal_places=3, null=True, blank=True, default=0)
+    metal_purity = models.ForeignKey(PurityMaster, on_delete=models.SET_NULL, null=True, blank=True)
+    packet = models.ForeignKey(Packet, on_delete=models.SET_NULL, null=True, blank=True)
+    rate = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True, default=0)
+    value = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True, default=0)
+    retail = models.ForeignKey("mastersconfig.RetailMaster", on_delete=models.SET_NULL, null=True, blank=True)
+
+    class Meta:
+        db_table = "purchase_approval_detail"

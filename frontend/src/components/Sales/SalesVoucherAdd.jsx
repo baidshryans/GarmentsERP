@@ -530,8 +530,19 @@ const SalesVoucherAdd = () => {
     if (data.bank_details) {
       setBankDetails(data.bank_details);
     }
-    if (data.salesvouitemdetails_set?.length) {
-      setRows(data.salesvouitemdetails_set);
+    // Sub-items with no main item (e.g. a fine-gold-only sale) live in the manual
+    // section: group them under one placeholder row and open the section, which is
+    // otherwise collapsed. Barcode-nested details already render under their item.
+    const manualDetails = (data.salesvouitemdetails_set || []).filter((d) => !d.main_item);
+    if (manualDetails.length) {
+      setRows([{
+        item: "", item_desc: "Items without a main item", pcs: 0, gw: 0,
+        making: 0, discount: 0, remarks: "",
+        // Bill Summary sums each manual main row's value, so carry the sub-items' total here.
+        value: manualDetails.reduce((sum, d) => sum + (parseFloat(d.amount) || 0), 0),
+        details_set: manualDetails.map((d) => ({ ...d, value: d.value ?? d.amount })),
+      }]);
+      setShowManualItems(true);
     }
     if (data.inline_old_gold_pv?.rows?.length) {
       setInlineOldGold(data.inline_old_gold_pv.rows.map((r) => recalcInlineRow({
@@ -1086,6 +1097,15 @@ const SalesVoucherAdd = () => {
         toast({ title: id ? "Sales voucher updated!" : "Form submitted successfully!" });
         setTimeout(() => navigate("/sales/list/"), 500);
       } catch (mutationError) {
+        // 409: someone else saved this bill after it was opened here (optimistic lock).
+        if (mutationError?.status === 409) {
+          toast({
+            title: "This bill was changed by someone else",
+            description: `${mutationError.message} Reload the page to get the latest version.`,
+            variant: "destructive",
+          });
+          return;
+        }
         const payload = mutationError?.cause ?? mutationError?.message;
         toast({
           title: "Form submission failed.",

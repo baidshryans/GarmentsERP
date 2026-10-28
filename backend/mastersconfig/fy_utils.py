@@ -55,3 +55,25 @@ def check_fy_open_for_transaction(retail, voucher_type=None):
         )
 
     return fy
+
+
+def check_fy_allows_change(fy, voucher_type, action):
+    """
+    Guard for editing or deleting an EXISTING voucher in a specific fiscal year.
+
+    `check_fy_open_for_transaction` only looks at the retail's active FY, which
+    is the wrong year when someone opens an old bill by its direct URL. This
+    takes the FY the voucher belongs to (or is being moved into).
+    """
+    if fy is None:
+        return
+    if fy.is_hard_closed:
+        raise ValidationError(
+            f"Fiscal year {fy.fy_code} is hard-closed. This voucher cannot be {action}. "
+            f"Ask an administrator to reopen the fiscal year first."
+        )
+    if fy.is_closed and voucher_type not in ALWAYS_ALLOWED_TYPES:
+        raise ValidationError(
+            f"Fiscal year {fy.fy_code} is closed. This voucher cannot be {action}; "
+            f"only journal entries are allowed in a closed fiscal year."
+        )

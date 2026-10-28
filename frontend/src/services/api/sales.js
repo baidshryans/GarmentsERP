@@ -338,8 +338,9 @@ export async function updateSalesVoucher(data, id) {
     const response = await apiClient.put(`/sales/api/sale-voucher/${id}/`, data);
     return { success: response.status < 300, data: response.data };
   } catch (error) {
-    console.error('Failed to create Sales Voucher:', error.response?.data || error.message);
-    return { success: false, error: error.response?.data || error.message };
+    console.error('Failed to update Sales Voucher:', error.response?.data || error.message);
+    // status lets the form tell an edit conflict (409) from a validation error
+    return { success: false, error: error.response?.data || error.message, status: error.response?.status };
   }
 }
 

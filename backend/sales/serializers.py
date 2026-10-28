@@ -621,6 +621,8 @@ class SalesVouItemDetailsSerializer(serializers.ModelSerializer):
     item = ItemRefField()
     packet = serializers.SlugRelatedField(queryset=Packet.objects.all(),slug_field="pckt_no",allow_null=True)
     billno = serializers.PrimaryKeyRelatedField(queryset=SalesVou.objects.all(),required=False,allow_null=True)
+    # Read-only: lets the edit form tell manual (NULL) sub-items from barcode-nested ones.
+    main_item = serializers.PrimaryKeyRelatedField(read_only=True)
     # Read-only helpers so the frontend recalc formula (uom === 'Ct' ? ct*rate : gw*rate)
     # works correctly in edit mode as well as add mode.
     uom = serializers.CharField(source='item.uom', read_only=True)
@@ -633,6 +635,7 @@ class SalesVouItemDetailsSerializer(serializers.ModelSerializer):
         fields = [
             'id',
             'billno',
+            'main_item',
             'item',
             'pcs',
             'ct',
@@ -1165,6 +1168,7 @@ class SalesVouSerializer(serializers.ModelSerializer):
         model = SalesVou
         fields = [
             'id',
+            'updated_at',
             'bank_details',
             'date1',
             'billno',

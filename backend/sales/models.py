@@ -174,6 +174,8 @@ class SalesVou(models.Model):
         'mastersconfig.ExhibitionProfile', null=True, blank=True, on_delete=models.SET_NULL,
         related_name='sales_vouchers'
     )
+    # Optimistic-lock token: the edit form echoes it back; a mismatch means someone else saved first.
+    updated_at = models.DateTimeField(auto_now=True, null=True, editable=False)
 
     @property
     def taxable_value(self):

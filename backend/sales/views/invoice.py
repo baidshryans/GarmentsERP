@@ -107,8 +107,14 @@ class SalesVoucherViewset(views.RetailBaseViewset):
                     f"Sales voucher '{instance.billno}' cannot be {action} because a payment has been received against it."
                 )
 
+    @staticmethod
+    def _check_fy_unlocked(fiscal_year, action):
+        from mastersconfig.fy_utils import check_fy_allows_change
+        check_fy_allows_change(fiscal_year, 'SV', action)
+
     def perform_destroy(self, instance):
         self._check_sales_vou_mutable(instance, 'deleted')
+        self._check_fy_unlocked(instance.fiscal_year, 'deleted')
         from accounting.utils import release_last_bill_number
         from inventory.utils import guard_no_later_barcode_transaction
         barcode_ids = list(instance.salesvouitem_set.values_list('barcode_id', flat=True))
@@ -122,6 +128,30 @@ class SalesVoucherViewset(views.RetailBaseViewset):
         if gst_billno:
             release_last_bill_number(retail, 'GST', gst_billno, fiscal_year)
 
+    def _claim_version(self, instance):
+        """Optimistic lock: the edit form sends back the `updated_at` it loaded.
+        The conditional UPDATE only matches if nobody saved in between, so two
+        users editing the same bill can't silently overwrite each other. A
+        request without `updated_at` (older clients, scripts) skips the check."""
+        from django.utils.dateparse import parse_datetime
+        from rest_framework.exceptions import APIException
+        sent = self.request.data.get('updated_at')
+        if not sent:
+            return
+        loaded = parse_datetime(str(sent))
+        if loaded is None:
+            from rest_framework.exceptions import ValidationError
+            raise ValidationError({"updated_at": "Invalid timestamp."})
+        claimed = SalesVou.objects.filter(pk=instance.pk, updated_at=loaded).update(updated_at=timezone.now())
+        if not claimed:
+            class EditConflict(APIException):
+                status_code = 409
+                default_code = 'edit_conflict'
+            raise EditConflict({
+                "detail": f"Sales voucher '{instance.billno}' was changed by someone else after you opened it. "
+                          "Reload the bill to see the latest version, then re-apply your edit."
+            })
+
     def perform_update(self, serializer):
         from rest_framework.exceptions import ValidationError
         retail = getattr(self.request, 'retail', None)
@@ -130,7 +160,12 @@ class SalesVoucherViewset(views.RetailBaseViewset):
         self._check_sales_vou_mutable(serializer.instance, 'edited')
         voucher_date = serializer.validated_data.get('date1') or serializer.instance.date1
         fiscal_year = self._resolve_fiscal_year(retail, voucher_date)
-        serializer.save(retail=retail, fiscal_year=fiscal_year)
+        # Both the year the bill sits in now and the one a changed date would move it to.
+        self._check_fy_unlocked(serializer.instance.fiscal_year, 'edited')
+        self._check_fy_unlocked(fiscal_year, 'edited')
+        with transaction.atomic():
+            self._claim_version(serializer.instance)
+            serializer.save(retail=retail, fiscal_year=fiscal_year)
 
 
 class GSTInputRegisterView(APIView):
@@ -1415,6 +1450,30 @@ def build_invoice_context(voucher, retail, request=None):
             'other_value': round(other_value, 2),
             'amount': float(vi.amount or 0),
             'sub_rows': sub_rows,
+        })
+
+    # Manual sub-items not attached to any main item (main_item NULL) — e.g. a
+    # fine-gold-only sale. They are part of the voucher total, so each prints as
+    # its own line; otherwise such bills render with no lines and a zero total.
+    for d in voucher.salesvouitemdetails_set.filter(main_item__isnull=True).select_related('item', 'item__hsn_no'):
+        is_metal = bool(d.item and d.item.item_type == 'R')
+        is_stone = bool(d.item and d.item.item_type == 'S')
+        amount = float(d.amount or 0)
+        items_data.append({
+            'sn': len(items_data) + 1,
+            'pcs': d.pcs,
+            'item_name': d.item.item_name if d.item else '',
+            'hsn': d.item.hsn_no.hsn_no if (d.item and d.item.hsn_no) else '',
+            'purity': str(d.metal_purity) if d.metal_purity else '',
+            'gw': float(d.gw or 0),
+            'nw': round(float(d.gw or 0), 3) if is_metal else 0,
+            'rate': float(d.rate or 0),
+            'metal_value': round(amount, 2) if is_metal else 0,
+            'stone_value': round(amount, 2) if is_stone else 0,
+            'making': 0,
+            'other_value': 0 if (is_metal or is_stone) else round(amount, 2),
+            'amount': amount,
+            'sub_rows': [],
         })
 
     # ── Totals & tax ──────────────────────────────────────────────────────────
